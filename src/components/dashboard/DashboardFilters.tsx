@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Calendar, ChevronDown, Layers } from "lucide-react";
+import { Calendar, Layers } from "lucide-react";
+import { FilterSelect } from "@/components/common/FilterSelect";
 import type { BatchFilter, DateRangeFilter } from "@/types";
 
 const DATE_OPTIONS: { value: DateRangeFilter; label: string }[] = [
@@ -36,36 +37,6 @@ export function DashboardFilters() {
         onChange={(v) => setBatch(v as BatchFilter)}
         options={BATCH_OPTIONS}
       />
-    </div>
-  );
-}
-
-function FilterSelect({
-  icon,
-  value,
-  onChange,
-  options,
-}: {
-  icon: React.ReactNode;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div className="relative flex items-center gap-2 rounded-lg border border-maia-border bg-maia-surface px-3 py-2 text-sm text-maia-ink shadow-sm">
-      <span className="text-maia-gold-deep">{icon}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="cursor-pointer appearance-none bg-transparent pr-5 text-sm font-medium text-maia-ink outline-none"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={14} className="pointer-events-none absolute right-2.5 text-maia-ink-soft" />
     </div>
   );
 }

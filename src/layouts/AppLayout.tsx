@@ -10,6 +10,7 @@ function resolvePageTitle(pathname: string): string {
       if (item.path === pathname) return item.label;
     }
   }
+  if (/^\/students\/[^/]+$/.test(pathname)) return "Student Profile";
   return "Dashboard";
 }
 

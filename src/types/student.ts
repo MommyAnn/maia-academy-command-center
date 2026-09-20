@@ -1,0 +1,143 @@
+// Student Management domain types for Step 2 (Enrollment Form, Student
+// Records, Student Profile). These describe the shapes the UI expects.
+// Backed by demo/local state for now — see src/data/studentStore.tsx.
+
+export type Batch = "Batch 14" | "Batch 13" | "Batch 12";
+
+export type PackageType = "Premium" | "VIP" | "Dual VIP";
+
+export type AttendancePreference = "Face-to-Face" | "Early Access via Zoom" | "Both";
+
+export type EnrollmentStatus =
+  | "Pending Verification"
+  | "Confirmed Student"
+  | "Incomplete Requirements"
+  | "Active Student"
+  | "Completed"
+  | "On Hold";
+
+export type PaymentStatus =
+  | "Fully Paid"
+  | "Partial Payment"
+  | "Reservation Paid"
+  | "Pending Verification"
+  | "Unpaid";
+
+export type DocumentReviewStatus = "Pending" | "Verified" | "Needs Resubmission";
+
+export type RequirementsSummary = "For Verification" | "Verified" | "Needs Resubmission";
+
+export type TaobaoStatus =
+  | "Not Yet Created"
+  | "For Account Creation"
+  | "Login Details Ready"
+  | "Login Details Given to Student";
+
+export type MasterBrainStatus = "Not Started" | "In Progress" | "Submitted" | "Under Review" | "Completed";
+
+/**
+ * Metadata about a file the student "uploaded" during enrollment.
+ * IMPORTANT: no real, secure file storage backend exists yet. Only
+ * lightweight metadata (name/size/type/timestamp) is kept — never the raw
+ * file bytes — so nothing here should be presented as securely stored.
+ */
+export interface UploadedFileMeta {
+  fileName: string;
+  fileSizeLabel: string;
+  fileType: string;
+  uploadedAt: string;
+}
+
+export interface DocumentRequirement {
+  status: DocumentReviewStatus;
+  file: UploadedFileMeta | null;
+}
+
+export interface AdminNote {
+  id: string;
+  text: string;
+  author: string;
+  timestamp: string;
+}
+
+export interface StudentActivityEntry {
+  id: string;
+  action: string;
+  date: string;
+  time: string;
+  user: string;
+}
+
+export interface TaobaoDetails {
+  status: TaobaoStatus;
+  username: string;
+  dateCreated: string | null;
+  dateGiven: string | null;
+  adminNotes: string;
+}
+
+export interface PaymentSummary {
+  packagePrice: number;
+  amountPaid: number;
+  status: PaymentStatus;
+}
+
+export interface StudentRecord {
+  id: string;
+  studentId: string;
+
+  // Personal Information
+  facebookName: string;
+  fullName: string;
+  companionName: string;
+  email: string;
+  contactNumber: string;
+  city: string;
+
+  // Enrollment
+  batch: Batch;
+  package: PackageType;
+  attendance: AttendancePreference;
+  enrollmentDate: string;
+  enrollmentStatus: EnrollmentStatus;
+  dateSubmitted: string;
+
+  // Requirements
+  validId: DocumentRequirement;
+  proofOfPayment: DocumentRequirement;
+
+  // Payment
+  payment: PaymentSummary;
+
+  // Taobao
+  taobao: TaobaoDetails;
+
+  // Master Brain (display only in Step 2)
+  masterBrainStatus: MasterBrainStatus;
+
+  // Terms & Conditions
+  termsAccepted: boolean;
+  termsAcceptedDate: string | null;
+  termsVersion: string;
+
+  // Admin
+  adminNotes: AdminNote[];
+  activity: StudentActivityEntry[];
+}
+
+/** Shape submitted by the public Enrollment Form. */
+export interface EnrollmentSubmission {
+  facebookName: string;
+  fullName: string;
+  companionName: string;
+  email: string;
+  contactNumber: string;
+  city: string;
+  batch: Batch;
+  package: PackageType;
+  attendance: AttendancePreference;
+  validIdFile: UploadedFileMeta | null;
+  proofOfPaymentFile: UploadedFileMeta | null;
+  termsAccepted: boolean;
+  termsVersion: string;
+}
