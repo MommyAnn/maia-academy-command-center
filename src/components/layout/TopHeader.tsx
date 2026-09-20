@@ -1,0 +1,109 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Bell, ChevronDown, LogOut, Menu, Search, Settings, User } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+
+export function TopHeader({
+  pageTitle,
+  onMenuClick,
+}: {
+  pageTitle: string;
+  onMenuClick: () => void;
+}) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  function handleLogout() {
+    setProfileOpen(false);
+    logout();
+    navigate("/login", { replace: true });
+  }
+
+  return (
+    <header className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center gap-3 border-b border-maia-border bg-maia-surface/95 px-4 backdrop-blur sm:px-6">
+      <button
+        onClick={onMenuClick}
+        className="rounded-lg p-2 text-maia-ink-soft hover:bg-maia-bg lg:hidden"
+        aria-label="Open menu"
+      >
+        <Menu size={20} />
+      </button>
+
+      <h1 className="truncate font-display text-base font-bold text-maia-ink sm:text-lg">
+        {pageTitle}
+      </h1>
+
+      <div className="ml-2 hidden max-w-md flex-1 items-center gap-2 rounded-lg border border-maia-border bg-maia-bg px-3 py-2 text-sm text-maia-ink-soft md:flex">
+        <Search size={16} className="flex-shrink-0" />
+        <input
+          type="text"
+          placeholder="Search students, payments, tasks..."
+          className="w-full bg-transparent outline-none placeholder:text-maia-ink-soft/60"
+        />
+      </div>
+
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
+        <button
+          className="relative rounded-lg p-2 text-maia-ink-soft hover:bg-maia-bg"
+          aria-label="Notifications"
+          onClick={() => setProfileOpen(false)}
+        >
+          <Bell size={19} />
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-maia-danger ring-2 ring-maia-surface" />
+        </button>
+
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setProfileOpen((v) => !v)}
+            className="flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-maia-bg"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-maia-black text-xs font-bold text-maia-gold">
+              {user?.avatarInitials ?? "MA"}
+            </div>
+            <div className="hidden text-left leading-tight sm:block">
+              <p className="text-sm font-semibold text-maia-ink">{user?.name ?? "Mommy Ann"}</p>
+              <p className="text-xs text-maia-ink-soft">Owner / Administrator</p>
+            </div>
+            <ChevronDown size={16} className="hidden text-maia-ink-soft sm:block" />
+          </button>
+
+          {profileOpen && (
+            <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-maia-border bg-maia-surface shadow-lg">
+              <div className="border-b border-maia-border px-4 py-3">
+                <p className="text-sm font-semibold text-maia-ink">{user?.name ?? "Mommy Ann"}</p>
+                <p className="text-xs text-maia-ink-soft">Owner / Administrator</p>
+              </div>
+              <button className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-maia-ink hover:bg-maia-bg">
+                <User size={16} className="text-maia-ink-soft" />
+                My Profile
+              </button>
+              <button className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-maia-ink hover:bg-maia-bg">
+                <Settings size={16} className="text-maia-ink-soft" />
+                Settings
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center gap-2.5 border-t border-maia-border px-4 py-2.5 text-left text-sm font-medium text-maia-danger hover:bg-maia-danger-bg"
+              >
+                <LogOut size={16} />
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}

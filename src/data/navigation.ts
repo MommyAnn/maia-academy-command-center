@@ -1,0 +1,75 @@
+import type { NavSection } from "@/types";
+
+// Sidebar navigation structure for M.A.I.A. Academy Command Center.
+// Only "Dashboard" is a fully built page in Step 1. Every other route
+// renders the shared <ComingSoon /> placeholder page.
+export const NAV_SECTIONS: NavSection[] = [
+  {
+    label: "Overview",
+    items: [{ label: "Dashboard", path: "/dashboard" }],
+  },
+  {
+    label: "Students",
+    items: [
+      { label: "All Students", path: "/students/all" },
+      { label: "New Enrollments", path: "/students/new-enrollments" },
+      { label: "Batches", path: "/students/batches" },
+      { label: "Attendance", path: "/students/attendance" },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { label: "Overview", path: "/finance/overview" },
+      { label: "Payments", path: "/finance/payments" },
+      { label: "Receivables", path: "/finance/receivables" },
+      { label: "Expenses", path: "/finance/expenses" },
+    ],
+  },
+  {
+    label: "Master Brain",
+    items: [
+      { label: "Overview", path: "/master-brain/overview" },
+      { label: "Submissions", path: "/master-brain/submissions" },
+    ],
+  },
+  {
+    label: "Training",
+    items: [
+      { label: "Sessions", path: "/training/sessions" },
+      { label: "Certificates", path: "/training/certificates" },
+    ],
+  },
+  {
+    label: "Inventory",
+    items: [
+      { label: "All Items", path: "/inventory/all-items" },
+      { label: "Low Stock", path: "/inventory/low-stock" },
+    ],
+  },
+  {
+    label: "Team",
+    items: [
+      { label: "Staff", path: "/team/staff" },
+      { label: "Tasks", path: "/team/tasks" },
+      { label: "Calendar", path: "/team/calendar" },
+    ],
+  },
+  {
+    label: "Communication",
+    items: [{ label: "Announcements", path: "/communication/announcements" }],
+  },
+  {
+    label: "Reports",
+    items: [{ label: "Reports", path: "/reports" }],
+  },
+  {
+    label: "System",
+    items: [
+      { label: "Users", path: "/system/users" },
+      { label: "Roles & Permissions", path: "/system/roles-permissions" },
+      { label: "Activity Log", path: "/system/activity-log" },
+      { label: "Settings", path: "/system/settings" },
+    ],
+  },
+];

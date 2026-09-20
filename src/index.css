@@ -1,0 +1,69 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", system-ui, "Segoe UI", Roboto, sans-serif;
+
+  /* Brand palette: black / gold / warm white */
+  --color-maia-bg: #f7f5f0;
+  --color-maia-surface: #ffffff;
+  --color-maia-ink: #1c1a17;
+  --color-maia-ink-soft: #5c584f;
+  --color-maia-border: #e7e2d6;
+
+  --color-maia-black: #0e0d0c;
+  --color-maia-black-soft: #1a1815;
+  --color-maia-black-hover: #262320;
+
+  --color-maia-gold: #c8a44d;
+  --color-maia-gold-soft: #e7d9b3;
+  --color-maia-gold-deep: #a3813a;
+  --color-maia-gold-bg: #faf3e3;
+
+  --color-maia-success: #2f7d5a;
+  --color-maia-success-bg: #e8f4ee;
+  --color-maia-warning: #b3781c;
+  --color-maia-warning-bg: #fbf0dd;
+  --color-maia-danger: #b3402f;
+  --color-maia-danger-bg: #fbeae6;
+  --color-maia-info: #3b6ea8;
+  --color-maia-info-bg: #e9f1fa;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-maia-bg);
+  color: var(--color-maia-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8d2c2;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c8a44d;
+}
