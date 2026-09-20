@@ -22,19 +22,6 @@ export interface AttentionItem {
   onClick?: () => void;
 }
 
-export type TaskPriority = "High" | "Medium" | "Low";
-export type TaskStatus = "To Do" | "In Progress" | "Done";
-
-export interface StaffTask {
-  id: string;
-  task: string;
-  assignedTo: string;
-  relatedStudent?: string;
-  priority: TaskPriority;
-  due: string;
-  status: TaskStatus;
-}
-
 export interface InventoryAlert {
   id: string;
   item: string;

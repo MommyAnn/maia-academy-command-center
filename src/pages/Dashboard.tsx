@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useStudentStore } from "@/data/studentStore";
 import { useFinanceStore } from "@/data/financeStore";
+import { useTaskStore } from "@/data/taskStore";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceDateFilter, DEFAULT_DATE_FILTER } from "@/components/finance/FinanceDateFilter";
 import { ActionCenterCard, ACTION_CENTER_ICONS, type ActionCenterItem } from "@/components/dashboard/ActionCenterCard";
@@ -25,12 +26,7 @@ import { StaffTaskSnapshotCard } from "@/components/dashboard/StaffTaskSnapshotC
 import { InventorySnapshotCard } from "@/components/dashboard/InventorySnapshotCard";
 import { NeedsAttentionCard } from "@/components/dashboard/NeedsAttentionCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
-import {
-  DEMO_INVENTORY_ALERTS,
-  DEMO_INVENTORY_SNAPSHOT,
-  DEMO_STAFF_TASKS,
-  DEMO_STAFF_TASK_SNAPSHOT,
-} from "@/data/demoDashboardData";
+import { DEMO_INVENTORY_ALERTS, DEMO_INVENTORY_SNAPSHOT } from "@/data/demoDashboardData";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -40,6 +36,7 @@ import {
   getTaobaoCounts,
   getTodaysActivity,
 } from "@/utils/dashboard";
+import { getTaskSnapshot } from "@/utils/staffTasks";
 import {
   getNetCash,
   getTotalExpenses,
@@ -84,6 +81,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const { students } = useStudentStore();
   const { transactions, adjustments, expenses } = useFinanceStore();
+  const { tasks } = useTaskStore();
 
   const [dateFilter, setDateFilter] = useState(DEFAULT_DATE_FILTER);
   const [batch, setBatch] = useState("all");
@@ -132,6 +130,11 @@ export function Dashboard() {
   const requirementsCounts = getRequirementsCounts(scopedStudents);
   const paymentBreakdown = getPaymentStatusBreakdown(scopedStudents, transactions, adjustments);
   const actionCounts = getActionCenterCounts(scopedStudents, transactions, adjustments);
+  const taskSnapshot = getTaskSnapshot(tasks);
+  const priorityTasks = [...tasks]
+    .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 5);
   const todaysActivity = getTodaysActivity(scopedStudents, scopedExpenses).map((a) => ({
     id: a.id,
     message: a.message,
@@ -177,9 +180,9 @@ export function Dashboard() {
     {
       id: "staff-tasks-overdue",
       label: "Staff Tasks Overdue",
-      count: DEMO_STAFF_TASK_SNAPSHOT.overdue,
+      count: taskSnapshot.overdue,
       severity: "high" as const,
-      onClick: () => navigate("/team/tasks"),
+      onClick: () => navigate("/team/tasks?view=overdue"),
     },
     {
       id: "inventory-low-stock",
@@ -229,9 +232,9 @@ export function Dashboard() {
     {
       key: "tasks",
       label: "Overdue Tasks",
-      count: DEMO_STAFF_TASK_SNAPSHOT.overdue,
+      count: taskSnapshot.overdue,
       icon: ACTION_CENTER_ICONS.tasks,
-      onClick: () => navigate("/team/tasks"),
+      onClick: () => navigate("/team/tasks?view=overdue"),
     },
     {
       key: "inventory",
@@ -372,7 +375,7 @@ export function Dashboard() {
 
       <QuickActionsCard />
 
-      <StaffTaskSnapshotCard tasks={DEMO_STAFF_TASKS} snapshot={DEMO_STAFF_TASK_SNAPSHOT} />
+      <StaffTaskSnapshotCard tasks={priorityTasks} snapshot={taskSnapshot} />
 
       <InventorySnapshotCard snapshot={DEMO_INVENTORY_SNAPSHOT} lowStockItems={DEMO_INVENTORY_ALERTS} />
 
@@ -382,7 +385,7 @@ export function Dashboard() {
         emptyMessage="No activity recorded yet today."
         action={
           <button
-            onClick={() => navigate("/system/activity-log")}
+            onClick={() => navigate("/team/activity")}
             className="text-xs font-semibold text-maia-gold-deep hover:text-maia-ink"
           >
             VIEW ALL ACTIVITY

@@ -54,6 +54,8 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Staff", path: "/team/staff" },
       { label: "Tasks", path: "/team/tasks" },
       { label: "Calendar", path: "/team/calendar" },
+      { label: "Workload", path: "/team/workload" },
+      { label: "Activity", path: "/team/activity" },
     ],
   },
   {

@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, CreditCard, Search, User } from "lucide-react";
+import { ClipboardList, CreditCard, Search, User, Users } from "lucide-react";
 import { useStudentStore } from "@/data/studentStore";
 import { useFinanceStore } from "@/data/financeStore";
-import { DEMO_STAFF_TASKS } from "@/data/demoDashboardData";
+import { useTaskStore } from "@/data/taskStore";
+import { useStaffStore } from "@/data/staffStore";
 
 const MAX_PER_GROUP = 5;
 
 export function GlobalSearch() {
   const { students } = useStudentStore();
   const { transactions } = useFinanceStore();
+  const { tasks } = useTaskStore();
+  const { staff } = useStaffStore();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -28,7 +31,7 @@ export function GlobalSearch() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return { students: [], payments: [], tasks: [] };
+    if (!q) return { students: [], payments: [], tasks: [], staff: [] };
 
     const studentMatches = students
       .filter((s) =>
@@ -40,14 +43,19 @@ export function GlobalSearch() {
       .filter((t) => `${t.id} ${t.referenceNumber} ${t.studentName}`.toLowerCase().includes(q))
       .slice(0, MAX_PER_GROUP);
 
-    const taskMatches = DEMO_STAFF_TASKS.filter((t) =>
-      `${t.task} ${t.assignedTo} ${t.relatedStudent ?? ""}`.toLowerCase().includes(q),
-    ).slice(0, MAX_PER_GROUP);
+    const taskMatches = tasks
+      .filter((t) => `${t.id} ${t.title} ${t.assignedToName} ${t.relatedStudentName ?? ""}`.toLowerCase().includes(q))
+      .slice(0, MAX_PER_GROUP);
 
-    return { students: studentMatches, payments: paymentMatches, tasks: taskMatches };
-  }, [query, students, transactions]);
+    const staffMatches = staff
+      .filter((s) => `${s.fullName} ${s.staffId} ${s.email} ${s.role}`.toLowerCase().includes(q))
+      .slice(0, MAX_PER_GROUP);
 
-  const hasResults = results.students.length + results.payments.length + results.tasks.length > 0;
+    return { students: studentMatches, payments: paymentMatches, tasks: taskMatches, staff: staffMatches };
+  }, [query, students, transactions, tasks, staff]);
+
+  const hasResults =
+    results.students.length + results.payments.length + results.tasks.length + results.staff.length > 0;
 
   function goTo(path: string) {
     setOpen(false);
@@ -67,7 +75,7 @@ export function GlobalSearch() {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search students, payments, tasks..."
+          placeholder="Search students, payments, tasks, staff..."
           className="w-full bg-transparent text-maia-ink outline-none placeholder:text-maia-ink-soft/60"
         />
       </div>
@@ -105,13 +113,26 @@ export function GlobalSearch() {
               )}
 
               {results.tasks.length > 0 && (
-                <ResultGroup label="Tasks (demo)" icon={<ClipboardList size={13} />}>
+                <ResultGroup label="Tasks" icon={<ClipboardList size={13} />}>
                   {results.tasks.map((t) => (
                     <ResultRow
                       key={t.id}
-                      primary={t.task}
-                      secondary={`${t.assignedTo}${t.relatedStudent ? ` · ${t.relatedStudent}` : ""}`}
-                      onClick={() => goTo("/team/tasks")}
+                      primary={t.title}
+                      secondary={`${t.assignedToName}${t.relatedStudentName ? ` · ${t.relatedStudentName}` : ""}`}
+                      onClick={() => goTo(`/team/tasks/${encodeURIComponent(t.id)}`)}
+                    />
+                  ))}
+                </ResultGroup>
+              )}
+
+              {results.staff.length > 0 && (
+                <ResultGroup label="Staff" icon={<Users size={13} />}>
+                  {results.staff.map((s) => (
+                    <ResultRow
+                      key={s.id}
+                      primary={s.fullName}
+                      secondary={`${s.staffId} · ${s.role === "Custom Role" ? s.customRoleLabel || "Custom Role" : s.role}`}
+                      onClick={() => goTo(`/team/staff/${s.id}`)}
                     />
                   ))}
                 </ResultGroup>

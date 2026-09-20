@@ -5,6 +5,7 @@ import type {
   DocumentReviewStatus,
   EnrollmentStatus,
   EnrollmentSubmission,
+  MasterBrainStatus,
   StudentRecord,
   TaobaoStatus,
 } from "@/types/student";
@@ -71,6 +72,7 @@ interface StudentStoreValue {
     id: string,
     updates: Partial<{ status: TaobaoStatus; username: string; dateGiven: string | null; adminNotes: string }>,
   ) => void;
+  updateMasterBrainStatus: (id: string, status: MasterBrainStatus) => void;
   addAdminNote: (id: string, text: string) => void;
   /** Appends a free-form entry to a student's Activity History. Used by other
    * stores (e.g. the finance store) so financial actions on a student show up
@@ -190,6 +192,21 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
     [updateStudent],
   );
 
+  const updateMasterBrainStatus = useCallback(
+    (id: string, status: MasterBrainStatus) => {
+      const { date, time } = nowParts();
+      updateStudent(id, (s) => {
+        if (s.masterBrainStatus === status) return s;
+        return {
+          ...s,
+          masterBrainStatus: status,
+          activity: [...s.activity, { id: crypto.randomUUID(), action: `Master Brain status updated to ${status}`, date, time, user: CURRENT_DEMO_USER }],
+        };
+      });
+    },
+    [updateStudent],
+  );
+
   const addAdminNote = useCallback(
     (id: string, text: string) => {
       const trimmed = text.trim();
@@ -224,6 +241,7 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
       updateEnrollmentStatus,
       updateDocumentStatus,
       updateTaobao,
+      updateMasterBrainStatus,
       addAdminNote,
       appendActivity,
     }),
@@ -234,6 +252,7 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
       updateEnrollmentStatus,
       updateDocumentStatus,
       updateTaobao,
+      updateMasterBrainStatus,
       addAdminNote,
       appendActivity,
     ],

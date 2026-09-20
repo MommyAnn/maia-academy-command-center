@@ -1,65 +1,21 @@
 // ---------------------------------------------------------------------------
 // DEMO DATA ONLY
 // ---------------------------------------------------------------------------
-// Staff Task Management and Inventory Management have not been built yet
-// (planned for later steps). Everything in this file is hardcoded sample
-// data so the Owner Dashboard's "Staff Tasks" and "Inventory" widgets have
-// something real-looking to render in the meantime.
+// Inventory Management has not been built yet (planned for a later step).
+// Everything in this file is hardcoded sample data so the Owner Dashboard's
+// "Inventory" widget has something real-looking to render in the meantime.
 //
 // This is NOT connected to a database, and these numbers are NOT derived
 // from any other module — unlike every other Owner Dashboard widget, which
-// is calculated live from the student/finance stores. Treat this file as a
-// placeholder for the Step 5 (Staff & Task Management) and future
-// Inventory Management builds.
+// is calculated live from the student/finance/task/staff stores. Treat this
+// file as a placeholder for the future Inventory Management build.
+//
+// Staff Task Management (Step 5) is now real — see src/data/taskStore.tsx
+// and src/utils/staffTasks.ts, which replaced the old DEMO_STAFF_TASKS /
+// DEMO_STAFF_TASK_SNAPSHOT constants that used to live here.
 // ---------------------------------------------------------------------------
 
-import type { InventoryAlert, StaffTask } from "@/types";
-
-export const DEMO_STAFF_TASKS: StaffTask[] = [
-  {
-    id: "task-1",
-    task: "Verify Proof of Payment",
-    assignedTo: "Anna",
-    relatedStudent: "Bea Fernandez",
-    priority: "High",
-    due: "Today",
-    status: "To Do",
-  },
-  {
-    id: "task-2",
-    task: "Review Master Brain",
-    assignedTo: "Jane",
-    relatedStudent: "Miguel Torres",
-    priority: "Medium",
-    due: "Today",
-    status: "In Progress",
-  },
-  {
-    id: "task-3",
-    task: "Prepare Certificates",
-    assignedTo: "Mark",
-    priority: "Low",
-    due: "Tomorrow",
-    status: "To Do",
-  },
-  {
-    id: "task-4",
-    task: "Follow up on outstanding balance",
-    assignedTo: "Anna",
-    relatedStudent: "Ronald Cruz",
-    priority: "High",
-    due: "Yesterday",
-    status: "To Do",
-  },
-];
-
-export const DEMO_STAFF_TASK_SNAPSHOT = {
-  dueToday: 2,
-  overdue: 1,
-  inProgress: 1,
-  forReview: 1,
-  completedToday: 3,
-};
+import type { InventoryAlert } from "@/types";
 
 export const DEMO_INVENTORY_ALERTS: InventoryAlert[] = [
   { id: "inv-1", item: "Student ID Cards", remaining: 12, reorderLevel: 20 },

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Menu, Settings, User } from "lucide-react";
+import { ChevronDown, LogOut, Menu, Settings, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { NotificationsDropdown } from "@/components/layout/NotificationsDropdown";
 
 export function TopHeader({
   pageTitle,
@@ -49,14 +50,7 @@ export function TopHeader({
       <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
-        <button
-          className="relative rounded-lg p-2 text-maia-ink-soft hover:bg-maia-bg"
-          aria-label="Notifications"
-          onClick={() => setProfileOpen(false)}
-        >
-          <Bell size={19} />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-maia-danger ring-2 ring-maia-surface" />
-        </button>
+        <NotificationsDropdown />
 
         <div className="relative" ref={menuRef}>
           <button

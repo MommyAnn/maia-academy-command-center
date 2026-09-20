@@ -1,15 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardHeader } from "@/components/common/Card";
 import { StaffTasksCard } from "@/components/dashboard/StaffTasksCard";
-import type { StaffTask } from "@/types";
+import type { TaskRecord } from "@/types/task";
+import type { TaskSnapshot } from "@/utils/staffTasks";
 
-export function StaffTaskSnapshotCard({
-  tasks,
-  snapshot,
-}: {
-  tasks: StaffTask[];
-  snapshot: { dueToday: number; overdue: number; inProgress: number; forReview: number; completedToday: number };
-}) {
+export function StaffTaskSnapshotCard({ tasks, snapshot }: { tasks: TaskRecord[]; snapshot: TaskSnapshot }) {
   const navigate = useNavigate();
 
   const tiles = [
@@ -23,7 +18,7 @@ export function StaffTaskSnapshotCard({
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader title="Staff Tasks" subtitle="Demo snapshot — Staff Task Management arrives in Step 5." />
+        <CardHeader title="Staff Tasks" subtitle="Live snapshot from the Task Management module (Step 5)." />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {tiles.map((tile) => (
             <button

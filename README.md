@@ -3,11 +3,12 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 4 of the build:** Owner Executive Dashboard & Business Analytics,
-> on top of Step 1 (Login + App Shell), Step 2 (Enrollment Form + Student
-> Records + Student Profile), and Step 3 (Finance & Payment Management).
-> All data is DEMO/LOCAL DATA and is not connected to a real database,
-> authentication system, or file storage backend yet.
+> **Step 5 of the build:** Staff, Task Management & Operations System, on
+> top of Step 1 (Login + App Shell), Step 2 (Enrollment Form + Student
+> Records + Student Profile), Step 3 (Finance & Payment Management), and
+> Step 4 (Owner Executive Dashboard & Business Analytics). All data is
+> DEMO/LOCAL DATA and is not connected to a real database, authentication
+> system, or file storage backend yet.
 
 ## Tech Stack
 
@@ -55,20 +56,27 @@ src/
   pages/                Route-level pages (Login, Dashboard, EnrollmentForm, ...)
   pages/students/        Student Management pages (AllStudents, NewEnrollments, Batches, StudentProfile)
   pages/finance/          Finance pages (Overview, Payments, Receivables, Expenses, Reports)
+  pages/team/             Staff & Task Management pages (StaffManagement, StaffProfile,
+                        StaffDashboardPreview, TaskManagement, TaskDetail, TeamCalendar,
+                        Workload, ActivityLog)
   layouts/              App shell layout (AppLayout: sidebar + header + content)
   components/
-    layout/             Sidebar, SidebarDrawer, TopHeader
+    layout/             Sidebar, SidebarDrawer, TopHeader, NotificationsDropdown
     dashboard/          Dashboard-specific cards (KPI cards, charts, tables, ...)
     enrollment/         Public Enrollment Form steps, file upload UI, terms modal
     students/           Student list filters, status badges, Student Profile tabs
     finance/            Payment/expense/adjustment modals, finance stat cards & filters
+    team/               Staff/task modals (StaffFormModal, TaskFormModal, ReassignModal,
+                        ApplyTemplateModal), PermissionsMatrixView, TaskFiltersBar, status meta
     common/             Reusable UI primitives (Card, Button, Modal, Tabs, TextField, ConfirmDialog, ...)
   context/              AuthContext (demo authentication state)
   router/               AppRoutes + ProtectedRoute
-  data/                 DEMO DATA, config, and the local student/finance stores — kept
-                        separate from UI so real API/DB calls can replace them later
+  data/                 DEMO DATA, config, and the local student/finance/staff/task stores —
+                        kept separate from UI so real API/DB calls can replace them later
+  integrations/         Prepared, hooks-only integration points (e.g. GoHighLevel) — not
+                        connected to any real external service yet
   types/                Shared TypeScript types/interfaces
-  utils/                Formatting, ID generation, and finance calculation helpers
+  utils/                Formatting, ID generation, and finance/task calculation helpers
 ```
 
 ## Data & Persistence Notice (Important)
@@ -99,6 +107,56 @@ Total paid, remaining balance, and payment status (Unpaid / Partial
 Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
+
+## What's Included in Step 5
+
+- **Staff Management**: staff list with search/role/status filters, staff
+  profile (Overview / Permissions / Tasks / Activity tabs), account status
+  (Active/Inactive/Suspended), and a **Staff Dashboard Preview** page — a
+  clearly-labeled preview of what a staff member's own dashboard would look
+  like once real multi-account authentication exists (this demo's login
+  always signs everyone in as the Owner)
+- **Role/Permission architecture**: 10 roles (9 fixed + extensible "Custom
+  Role"), a real 18-module × 5-action (view/create/edit/verify/export)
+  permission matrix per staff member, fully editable — with an explicit,
+  visible warning that this controls the UI only and is **not** production
+  security (a real backend must enforce every check server-side too)
+- **Task Management**: unique sequential Task IDs (`TASK-2026-000001`),
+  categories/priorities, a full status workflow (To Do → In Progress → For
+  Review → Completed, plus Blocked/Cancelled), checklists, internal
+  comments, attachment metadata, filters (search/status/priority/category/
+  assignee), and quick views (My Tasks/All/Due Today/Overdue/Upcoming/For
+  Review/Completed)
+- **Task Detail page** with status-transition actions (Start, Send for
+  Review, Approve & Complete, Return for Changes, Mark Blocked, Reassign,
+  Edit, Cancel) — completed/cancelled tasks are never deleted, only kept in
+  history
+- **Automatic task creation** from real triggers — a new enrollment, a
+  payment pending verification, an uploaded Valid ID pending review, a
+  student becoming fully paid, a confirmed student still needing a Taobao
+  account, a Master Brain submission or approval, and training completion —
+  each with a duplicate-prevention key so the same event never creates two
+  tasks, and several of these auto-complete once the underlying condition is
+  resolved elsewhere in the app (e.g. verifying a payment auto-completes its
+  linked task)
+- **Reusable Task Templates** (Student Onboarding, F2F Event Prep, Zoom
+  Early Access) that create a set of pre-configured tasks in one click
+- **Calendar** (Month/Week/Day views) showing task due dates
+- **Workload page** — an intentionally neutral, counts-only capacity view
+  (never a ranking, score, or "best/worst" comparison)
+- **Owner Dashboard's Staff Tasks widget reconnected to real task data** —
+  no longer a hardcoded demo snapshot
+- **Student Profile → new Tasks tab**, and **Batches → new Operations/Tasks
+  section** per batch
+- **Global Search** upgraded to also search real Tasks and Staff
+- **In-app Notifications dropdown** — built from the same live task/finance
+  data as the rest of the app, but explicitly labeled as refresh-on-open,
+  not a real-time push system
+- **Activity Log** page aggregating student, staff, and task activity into
+  one feed
+- **GoHighLevel integration prep** (`src/integrations/ghlEvents.ts`) — typed
+  hook points only, intentionally not a real API/webhook connection
+- Everything from Steps 1-4 remains unchanged and was re-verified
 
 ## What's Included in Step 4
 
@@ -153,8 +211,10 @@ voiding never deletes a record; it's marked and kept in history.
 
 ## Not Yet Built (future steps)
 
-Real Staff & Task Management (Step 5), real Inventory Management, Master
-Brain questionnaire, GoHighLevel integration, real production
-authentication, enforced role-based access (demo only ever logs in as
-Owner), and the Student Portal (including the "My Payment" self-service
-view).
+Real Inventory Management, Attendance tracking, the full Master Brain
+questionnaire, real Training/Certificate operations (Step 6), a working
+GoHighLevel connection (only typed hook points exist today), real
+production multi-account authentication, server-side enforcement of the
+Step 5 permission matrix (demo only ever logs in as Owner — the matrix only
+controls what the UI shows), real-time push notifications, and the Student
+Portal (including the "My Payment" self-service view).
