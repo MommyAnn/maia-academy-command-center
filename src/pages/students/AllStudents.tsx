@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { Card } from "@/components/common/Card";
 import { Badge } from "@/components/common/Badge";
@@ -18,7 +18,9 @@ import {
   TAOBAO_STATUS_TONE,
 } from "@/components/students/statusMeta";
 import { useStudentStore } from "@/data/studentStore";
-import { getRemainingBalance, getRequirementsSummary } from "@/utils/students";
+import { useFinanceStore } from "@/data/financeStore";
+import { getRequirementsSummary } from "@/utils/students";
+import { getStudentFinanceSummary, type StudentFinanceSummary } from "@/utils/finance";
 import { formatPeso } from "@/utils/format";
 import type { StudentRecord } from "@/types/student";
 
@@ -26,8 +28,13 @@ type SortKey = "fullName" | "batch" | "balance";
 
 export function AllStudents() {
   const { students } = useStudentStore();
+  const { transactions, adjustments } = useFinanceStore();
   const navigate = useNavigate();
-  const [filters, setFilters] = useState(DEFAULT_STUDENT_FILTERS);
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState(() => ({
+    ...DEFAULT_STUDENT_FILTERS,
+    batch: searchParams.get("batch") ?? DEFAULT_STUDENT_FILTERS.batch,
+  }));
   const [sortKey, setSortKey] = useState<SortKey>("fullName");
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -50,11 +57,15 @@ export function AllStudents() {
       let cmp = 0;
       if (sortKey === "fullName") cmp = a.fullName.localeCompare(b.fullName);
       if (sortKey === "batch") cmp = a.batch.localeCompare(b.batch);
-      if (sortKey === "balance") cmp = getRemainingBalance(a) - getRemainingBalance(b);
+      if (sortKey === "balance") {
+        cmp =
+          getStudentFinanceSummary(a, transactions, adjustments).balance -
+          getStudentFinanceSummary(b, transactions, adjustments).balance;
+      }
       return sortAsc ? cmp : -cmp;
     });
     return list;
-  }, [filtered, sortKey, sortAsc]);
+  }, [filtered, sortKey, sortAsc, transactions, adjustments]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -107,7 +118,12 @@ export function AllStudents() {
             </thead>
             <tbody>
               {sorted.map((s) => (
-                <StudentRow key={s.id} student={s} onView={() => navigate(`/students/${s.id}`)} />
+                <StudentRow
+                  key={s.id}
+                  student={s}
+                  summary={getStudentFinanceSummary(s, transactions, adjustments)}
+                  onView={() => navigate(`/students/${s.id}`)}
+                />
               ))}
               {sorted.length === 0 && (
                 <tr>
@@ -124,7 +140,15 @@ export function AllStudents() {
   );
 }
 
-function StudentRow({ student: s, onView }: { student: StudentRecord; onView: () => void }) {
+function StudentRow({
+  student: s,
+  summary,
+  onView,
+}: {
+  student: StudentRecord;
+  summary: StudentFinanceSummary;
+  onView: () => void;
+}) {
   return (
     <tr className="border-b border-maia-border/60 last:border-0 hover:bg-maia-bg/40">
       <Td className="font-mono text-xs font-semibold text-maia-ink">{s.studentId}</Td>
@@ -134,9 +158,9 @@ function StudentRow({ student: s, onView }: { student: StudentRecord; onView: ()
       <Td className="text-maia-ink-soft">{s.package}</Td>
       <Td className="text-maia-ink-soft">{s.attendance}</Td>
       <Td>
-        <Badge tone={PAYMENT_STATUS_TONE[s.payment.status]}>{s.payment.status}</Badge>
+        <Badge tone={PAYMENT_STATUS_TONE[summary.status]}>{summary.status}</Badge>
       </Td>
-      <Td className="font-medium text-maia-ink">{formatPeso(getRemainingBalance(s))}</Td>
+      <Td className="font-medium text-maia-ink">{formatPeso(summary.balance)}</Td>
       <Td>
         <Badge tone={REQUIREMENTS_SUMMARY_TONE[getRequirementsSummary(s)]}>{getRequirementsSummary(s)}</Badge>
       </Td>

@@ -24,6 +24,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Payments", path: "/finance/payments" },
       { label: "Receivables", path: "/finance/receivables" },
       { label: "Expenses", path: "/finance/expenses" },
+      { label: "Reports", path: "/finance/reports" },
     ],
   },
   {

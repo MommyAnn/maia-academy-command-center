@@ -1,6 +1,7 @@
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { StudentStoreProvider } from "@/data/studentStore";
+import { FinanceStoreProvider } from "@/data/financeStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
 function App() {
@@ -8,7 +9,9 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <StudentStoreProvider>
-          <AppRoutes />
+          <FinanceStoreProvider>
+            <AppRoutes />
+          </FinanceStoreProvider>
         </StudentStoreProvider>
       </AuthProvider>
     </BrowserRouter>

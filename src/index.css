@@ -67,3 +67,9 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #c8a44d;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

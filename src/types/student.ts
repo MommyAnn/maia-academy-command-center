@@ -76,10 +76,14 @@ export interface TaobaoDetails {
   adminNotes: string;
 }
 
-export interface PaymentSummary {
+/**
+ * The ORIGINAL package price only. Do not add an "amount paid" or "status"
+ * field here — those are never stored directly. They are always calculated
+ * from the verified PaymentTransaction ledger (see src/utils/finance.ts),
+ * so a single number can never be edited out of sync with real payments.
+ */
+export interface PackagePricing {
   packagePrice: number;
-  amountPaid: number;
-  status: PaymentStatus;
 }
 
 export interface StudentRecord {
@@ -106,8 +110,8 @@ export interface StudentRecord {
   validId: DocumentRequirement;
   proofOfPayment: DocumentRequirement;
 
-  // Payment
-  payment: PaymentSummary;
+  // Payment (original pricing only — see PackagePricing doc comment)
+  payment: PackagePricing;
 
   // Taobao
   taobao: TaobaoDetails;

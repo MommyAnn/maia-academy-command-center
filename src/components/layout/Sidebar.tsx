@@ -18,7 +18,7 @@ function BrandMark() {
 /** Static sidebar shown on large screens. */
 export function Sidebar() {
   return (
-    <aside className="hidden lg:flex lg:w-[264px] lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-black/40 lg:bg-maia-black">
+    <aside className="no-print hidden lg:flex lg:w-[264px] lg:flex-shrink-0 lg:flex-col lg:border-r lg:border-black/40 lg:bg-maia-black">
       <BrandMark />
       <SidebarNav />
       <SidebarFooter />
@@ -31,14 +31,14 @@ export function SidebarDrawer({ open, onClose }: { open: boolean; onClose: () =>
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px] transition-opacity lg:hidden ${
+        className={`no-print fixed inset-0 z-40 bg-black/50 backdrop-blur-[1px] transition-opacity lg:hidden ${
           open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
         }`}
         onClick={onClose}
         aria-hidden="true"
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[80vw] flex-col bg-maia-black shadow-2xl transition-transform duration-200 lg:hidden ${
+        className={`no-print fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[80vw] flex-col bg-maia-black shadow-2xl transition-transform duration-200 lg:hidden ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >

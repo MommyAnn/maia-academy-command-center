@@ -32,7 +32,7 @@ export function TopHeader({
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center gap-3 border-b border-maia-border bg-maia-surface/95 px-4 backdrop-blur sm:px-6">
+    <header className="no-print sticky top-0 z-30 flex h-16 flex-shrink-0 items-center gap-3 border-b border-maia-border bg-maia-surface/95 px-4 backdrop-blur sm:px-6">
       <button
         onClick={onMenuClick}
         className="rounded-lg p-2 text-maia-ink-soft hover:bg-maia-bg lg:hidden"

@@ -10,6 +10,11 @@
 // are merged with this seed list at runtime by the student store
 // (see src/data/studentStore.tsx) and persisted only to this browser's
 // localStorage — never to a real backend.
+//
+// Step 3 note: `payment.packagePrice` below is the ORIGINAL package price
+// only. Each student's actual paid amount, balance, and payment status are
+// calculated from the seed PaymentTransactions in src/data/demoFinance.ts —
+// see src/utils/finance.ts. Never add an "amountPaid" field back here.
 // ---------------------------------------------------------------------------
 
 import type { StudentRecord } from "@/types/student";
@@ -41,7 +46,7 @@ function makeStudent(partial: Partial<StudentRecord> & { batchCode: string }): S
     dateSubmitted: rest.dateSubmitted ?? "2026-08-01T09:00:00+08:00",
     validId: rest.validId ?? { status: "Pending", file: { fileName: "valid-id.jpg", fileSizeLabel: "1.2 MB", fileType: "image/jpeg", uploadedAt: "2026-08-01T09:00:00+08:00" } },
     proofOfPayment: rest.proofOfPayment ?? { status: "Pending", file: { fileName: "proof-of-payment.jpg", fileSizeLabel: "0.9 MB", fileType: "image/jpeg", uploadedAt: "2026-08-01T09:00:00+08:00" } },
-    payment: rest.payment ?? { packagePrice: PACKAGE_PRICES[pkg], amountPaid: 0, status: "Pending Verification" },
+    payment: rest.payment ?? { packagePrice: PACKAGE_PRICES[pkg] },
     taobao: rest.taobao ?? { status: "Not Yet Created", username: "", dateCreated: null, dateGiven: null, adminNotes: "" },
     masterBrainStatus: rest.masterBrainStatus ?? "Not Started",
     termsAccepted: rest.termsAccepted ?? true,
@@ -76,7 +81,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-09-18T10:15:00+08:00",
     validId: { status: "Verified", file: { fileName: "maria-valid-id.jpg", fileSizeLabel: "1.4 MB", fileType: "image/jpeg", uploadedAt: "2026-09-18T10:15:00+08:00" } },
     proofOfPayment: { status: "Verified", file: { fileName: "maria-pop.png", fileSizeLabel: "0.8 MB", fileType: "image/png", uploadedAt: "2026-09-18T10:15:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES.VIP, amountPaid: 35_000, status: "Fully Paid" },
+    payment: { packagePrice: PACKAGE_PRICES.VIP },
     taobao: { status: "Login Details Given to Student", username: "maia.b14.maria", dateCreated: "2026-09-19T14:00:00+08:00", dateGiven: "2026-09-19T15:30:00+08:00", adminNotes: "Given via Messenger." },
     masterBrainStatus: "In Progress",
     activity: [
@@ -101,7 +106,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-09-10T08:30:00+08:00",
     validId: { status: "Verified", file: { fileName: "carlos-id.pdf", fileSizeLabel: "2.1 MB", fileType: "application/pdf", uploadedAt: "2026-09-10T08:30:00+08:00" } },
     proofOfPayment: { status: "Verified", file: { fileName: "carlos-pop.jpg", fileSizeLabel: "1.0 MB", fileType: "image/jpeg", uploadedAt: "2026-09-10T08:30:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES["Dual VIP"], amountPaid: 48_000, status: "Fully Paid" },
+    payment: { packagePrice: PACKAGE_PRICES["Dual VIP"] },
     taobao: { status: "Login Details Ready", username: "maia.b14.carlos", dateCreated: "2026-09-12T11:00:00+08:00", dateGiven: null, adminNotes: "" },
     masterBrainStatus: "Completed",
   }),
@@ -119,7 +124,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-09-19T13:05:00+08:00",
     validId: { status: "Needs Resubmission", file: { fileName: "bea-id-blurry.jpg", fileSizeLabel: "0.6 MB", fileType: "image/jpeg", uploadedAt: "2026-09-19T13:05:00+08:00" } },
     proofOfPayment: { status: "Pending", file: { fileName: "bea-pop.jpg", fileSizeLabel: "0.7 MB", fileType: "image/jpeg", uploadedAt: "2026-09-19T13:05:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES.Premium, amountPaid: 0, status: "Pending Verification" },
+    payment: { packagePrice: PACKAGE_PRICES.Premium },
     activity: [
       { id: crypto.randomUUID(), action: "Enrollment submitted", date: "Sep 19, 2026", time: "1:05 PM", user: "System" },
       { id: crypto.randomUUID(), action: "Valid ID marked Needs Resubmission", date: "Sep 19, 2026", time: "4:00 PM", user: "Jane" },
@@ -137,7 +142,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     attendance: "Face-to-Face",
     enrollmentStatus: "Pending Verification",
     dateSubmitted: "2026-09-20T07:45:00+08:00",
-    payment: { packagePrice: PACKAGE_PRICES.VIP, amountPaid: 0, status: "Pending Verification" },
+    payment: { packagePrice: PACKAGE_PRICES.VIP },
   }),
   makeStudent({
     batchCode: "14",
@@ -151,7 +156,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     attendance: "Both",
     enrollmentStatus: "On Hold",
     dateSubmitted: "2026-09-05T16:20:00+08:00",
-    payment: { packagePrice: PACKAGE_PRICES.Premium, amountPaid: 12_500, status: "Partial Payment" },
+    payment: { packagePrice: PACKAGE_PRICES.Premium },
     masterBrainStatus: "Not Started",
   }),
   makeStudent({
@@ -168,7 +173,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-06-02T09:00:00+08:00",
     validId: { status: "Verified", file: { fileName: "katrina-id.jpg", fileSizeLabel: "1.1 MB", fileType: "image/jpeg", uploadedAt: "2026-06-02T09:00:00+08:00" } },
     proofOfPayment: { status: "Verified", file: { fileName: "katrina-pop.jpg", fileSizeLabel: "1.3 MB", fileType: "image/jpeg", uploadedAt: "2026-06-02T09:00:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES.VIP, amountPaid: 35_000, status: "Fully Paid" },
+    payment: { packagePrice: PACKAGE_PRICES.VIP },
     taobao: { status: "Login Details Given to Student", username: "maia.b13.katrina", dateCreated: "2026-06-05T10:00:00+08:00", dateGiven: "2026-06-05T10:30:00+08:00", adminNotes: "" },
     masterBrainStatus: "Completed",
   }),
@@ -186,7 +191,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-06-10T11:30:00+08:00",
     validId: { status: "Verified", file: { fileName: "miguel-id.png", fileSizeLabel: "1.0 MB", fileType: "image/png", uploadedAt: "2026-06-10T11:30:00+08:00" } },
     proofOfPayment: { status: "Verified", file: { fileName: "miguel-pop.png", fileSizeLabel: "0.9 MB", fileType: "image/png", uploadedAt: "2026-06-10T11:30:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES.Premium, amountPaid: 25_000, status: "Fully Paid" },
+    payment: { packagePrice: PACKAGE_PRICES.Premium },
     taobao: { status: "For Account Creation", username: "", dateCreated: null, dateGiven: null, adminNotes: "Waiting for student's preferred username." },
     masterBrainStatus: "Under Review",
   }),
@@ -204,7 +209,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-06-15T14:10:00+08:00",
     validId: { status: "Verified", file: { fileName: "jessa-id.jpg", fileSizeLabel: "1.5 MB", fileType: "image/jpeg", uploadedAt: "2026-06-15T14:10:00+08:00" } },
     proofOfPayment: { status: "Verified", file: { fileName: "jessa-pop.jpg", fileSizeLabel: "1.1 MB", fileType: "image/jpeg", uploadedAt: "2026-06-15T14:10:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES["Dual VIP"], amountPaid: 48_000, status: "Fully Paid" },
+    payment: { packagePrice: PACKAGE_PRICES["Dual VIP"] },
     masterBrainStatus: "Submitted",
   }),
   makeStudent({
@@ -221,7 +226,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-06-18T10:00:00+08:00",
     validId: { status: "Pending", file: { fileName: "noel-id.jpg", fileSizeLabel: "1.2 MB", fileType: "image/jpeg", uploadedAt: "2026-06-18T10:00:00+08:00" } },
     proofOfPayment: { status: "Needs Resubmission", file: { fileName: "noel-pop-unclear.jpg", fileSizeLabel: "0.4 MB", fileType: "image/jpeg", uploadedAt: "2026-06-18T10:00:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES.VIP, amountPaid: 10_000, status: "Partial Payment" },
+    payment: { packagePrice: PACKAGE_PRICES.VIP },
   }),
   makeStudent({
     batchCode: "12",
@@ -237,7 +242,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-03-01T09:00:00+08:00",
     validId: { status: "Verified", file: { fileName: "grace-id.jpg", fileSizeLabel: "1.2 MB", fileType: "image/jpeg", uploadedAt: "2026-03-01T09:00:00+08:00" } },
     proofOfPayment: { status: "Verified", file: { fileName: "grace-pop.jpg", fileSizeLabel: "1.0 MB", fileType: "image/jpeg", uploadedAt: "2026-03-01T09:00:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES.Premium, amountPaid: 25_000, status: "Fully Paid" },
+    payment: { packagePrice: PACKAGE_PRICES.Premium },
     taobao: { status: "Login Details Given to Student", username: "maia.b12.grace", dateCreated: "2026-03-05T10:00:00+08:00", dateGiven: "2026-03-05T10:30:00+08:00", adminNotes: "" },
     masterBrainStatus: "Completed",
   }),
@@ -255,7 +260,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     dateSubmitted: "2026-03-03T09:30:00+08:00",
     validId: { status: "Verified", file: { fileName: "paolo-id.jpg", fileSizeLabel: "1.3 MB", fileType: "image/jpeg", uploadedAt: "2026-03-03T09:30:00+08:00" } },
     proofOfPayment: { status: "Verified", file: { fileName: "paolo-pop.jpg", fileSizeLabel: "1.1 MB", fileType: "image/jpeg", uploadedAt: "2026-03-03T09:30:00+08:00" } },
-    payment: { packagePrice: PACKAGE_PRICES.VIP, amountPaid: 35_000, status: "Fully Paid" },
+    payment: { packagePrice: PACKAGE_PRICES.VIP },
     taobao: { status: "Login Details Given to Student", username: "maia.b12.paolo", dateCreated: "2026-03-06T10:00:00+08:00", dateGiven: "2026-03-06T10:30:00+08:00", adminNotes: "" },
     masterBrainStatus: "Completed",
   }),
@@ -271,7 +276,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     attendance: "Face-to-Face",
     enrollmentStatus: "On Hold",
     dateSubmitted: "2026-03-08T15:00:00+08:00",
-    payment: { packagePrice: PACKAGE_PRICES["Dual VIP"], amountPaid: 20_000, status: "Partial Payment" },
+    payment: { packagePrice: PACKAGE_PRICES["Dual VIP"] },
     masterBrainStatus: "Not Started",
   }),
 ];

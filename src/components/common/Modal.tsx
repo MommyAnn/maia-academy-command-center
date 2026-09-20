@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { X } from "lucide-react";
+import clsx from "clsx";
 
 export function Modal({
   open,
@@ -7,12 +8,14 @@ export function Modal({
   title,
   children,
   footer,
+  size = "md",
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: "md" | "lg";
 }) {
   useEffect(() => {
     if (!open) return;
@@ -28,7 +31,12 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-[1px]" onClick={onClose} />
-      <div className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-maia-border bg-maia-surface shadow-2xl">
+      <div
+        className={clsx(
+          "relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-maia-border bg-maia-surface shadow-2xl",
+          size === "lg" ? "max-w-2xl" : "max-w-lg",
+        )}
+      >
         <div className="flex items-center justify-between border-b border-maia-border px-5 py-4">
           <h3 className="font-display text-base font-bold text-maia-ink">{title}</h3>
           <button onClick={onClose} className="rounded-lg p-1.5 text-maia-ink-soft hover:bg-maia-bg" aria-label="Close">

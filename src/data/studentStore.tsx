@@ -72,6 +72,11 @@ interface StudentStoreValue {
     updates: Partial<{ status: TaobaoStatus; username: string; dateGiven: string | null; adminNotes: string }>,
   ) => void;
   addAdminNote: (id: string, text: string) => void;
+  /** Appends a free-form entry to a student's Activity History. Used by other
+   * stores (e.g. the finance store) so financial actions on a student show up
+   * in their profile's Activity History tab, without those stores needing to
+   * know how StudentRecord is structured internally. */
+  appendActivity: (id: string, action: string) => void;
 }
 
 const StudentStoreContext = createContext<StudentStoreValue | undefined>(undefined);
@@ -114,8 +119,6 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
         proofOfPayment: { status: "Pending", file: submission.proofOfPaymentFile },
         payment: {
           packagePrice: PACKAGE_PRICES[submission.package],
-          amountPaid: 0,
-          status: "Pending Verification",
         },
         taobao: { status: "Not Yet Created", username: "", dateCreated: null, dateGiven: null, adminNotes: "" },
         masterBrainStatus: "Not Started",
@@ -202,6 +205,17 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
     [updateStudent],
   );
 
+  const appendActivity = useCallback(
+    (id: string, action: string) => {
+      const { date, time } = nowParts();
+      updateStudent(id, (s) => ({
+        ...s,
+        activity: [...s.activity, { id: crypto.randomUUID(), action, date, time, user: CURRENT_DEMO_USER }],
+      }));
+    },
+    [updateStudent],
+  );
+
   const value = useMemo<StudentStoreValue>(
     () => ({
       students,
@@ -211,8 +225,18 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
       updateDocumentStatus,
       updateTaobao,
       addAdminNote,
+      appendActivity,
     }),
-    [students, getStudentById, submitEnrollment, updateEnrollmentStatus, updateDocumentStatus, updateTaobao, addAdminNote],
+    [
+      students,
+      getStudentById,
+      submitEnrollment,
+      updateEnrollmentStatus,
+      updateDocumentStatus,
+      updateTaobao,
+      addAdminNote,
+      appendActivity,
+    ],
   );
 
   return <StudentStoreContext.Provider value={value}>{children}</StudentStoreContext.Provider>;

@@ -7,10 +7,6 @@ export function getRequirementsSummary(student: StudentRecord): RequirementsSumm
   return "For Verification";
 }
 
-export function getRemainingBalance(student: StudentRecord): number {
-  return Math.max(0, student.payment.packagePrice - student.payment.amountPaid);
-}
-
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

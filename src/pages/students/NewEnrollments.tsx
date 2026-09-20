@@ -11,11 +11,15 @@ import {
 } from "@/components/students/StudentFiltersBar";
 import { ENROLLMENT_STATUS_OPTIONS, ENROLLMENT_STATUS_TONE, PAYMENT_STATUS_TONE, REQUIREMENTS_SUMMARY_TONE } from "@/components/students/statusMeta";
 import { useStudentStore } from "@/data/studentStore";
+import { useFinanceStore } from "@/data/financeStore";
 import { getRequirementsSummary } from "@/utils/students";
+import { getStudentFinanceSummary } from "@/utils/finance";
 import { formatDate } from "@/utils/students";
+import type { StudentRecord } from "@/types/student";
 
 export function NewEnrollments() {
   const { students } = useStudentStore();
+  const { transactions, adjustments } = useFinanceStore();
   const navigate = useNavigate();
   const [filters, setFilters] = useState(DEFAULT_STUDENT_FILTERS);
 
@@ -85,31 +89,12 @@ export function NewEnrollments() {
             </thead>
             <tbody>
               {filtered.map((s) => (
-                <tr key={s.id} className="border-b border-maia-border/60 last:border-0 hover:bg-maia-bg/40">
-                  <Td className="font-mono text-xs font-semibold text-maia-ink">{s.studentId}</Td>
-                  <Td className="font-medium text-maia-ink">{s.fullName}</Td>
-                  <Td className="text-maia-ink-soft">{s.facebookName}</Td>
-                  <Td className="text-maia-ink-soft">{s.batch}</Td>
-                  <Td className="text-maia-ink-soft">{s.package}</Td>
-                  <Td className="text-maia-ink-soft">{s.attendance}</Td>
-                  <Td>
-                    <Badge tone={PAYMENT_STATUS_TONE[s.payment.status]}>{s.payment.status}</Badge>
-                  </Td>
-                  <Td>
-                    <Badge tone={REQUIREMENTS_SUMMARY_TONE[getRequirementsSummary(s)]}>
-                      {getRequirementsSummary(s)}
-                    </Badge>
-                  </Td>
-                  <Td>
-                    <Badge tone={ENROLLMENT_STATUS_TONE[s.enrollmentStatus]}>{s.enrollmentStatus}</Badge>
-                  </Td>
-                  <Td className="text-maia-ink-soft">{formatDate(s.dateSubmitted)}</Td>
-                  <Td>
-                    <Button size="sm" variant="secondary" onClick={() => navigate(`/students/${s.id}`)}>
-                      VIEW STUDENT
-                    </Button>
-                  </Td>
-                </tr>
+                <EnrollmentRow
+                  key={s.id}
+                  student={s}
+                  paymentStatus={getStudentFinanceSummary(s, transactions, adjustments).status}
+                  onView={() => navigate(`/students/${s.id}`)}
+                />
               ))}
               {filtered.length === 0 && (
                 <tr>
@@ -123,6 +108,42 @@ export function NewEnrollments() {
         </div>
       </Card>
     </div>
+  );
+}
+
+function EnrollmentRow({
+  student: s,
+  paymentStatus,
+  onView,
+}: {
+  student: StudentRecord;
+  paymentStatus: keyof typeof PAYMENT_STATUS_TONE;
+  onView: () => void;
+}) {
+  return (
+    <tr className="border-b border-maia-border/60 last:border-0 hover:bg-maia-bg/40">
+      <Td className="font-mono text-xs font-semibold text-maia-ink">{s.studentId}</Td>
+      <Td className="font-medium text-maia-ink">{s.fullName}</Td>
+      <Td className="text-maia-ink-soft">{s.facebookName}</Td>
+      <Td className="text-maia-ink-soft">{s.batch}</Td>
+      <Td className="text-maia-ink-soft">{s.package}</Td>
+      <Td className="text-maia-ink-soft">{s.attendance}</Td>
+      <Td>
+        <Badge tone={PAYMENT_STATUS_TONE[paymentStatus]}>{paymentStatus}</Badge>
+      </Td>
+      <Td>
+        <Badge tone={REQUIREMENTS_SUMMARY_TONE[getRequirementsSummary(s)]}>{getRequirementsSummary(s)}</Badge>
+      </Td>
+      <Td>
+        <Badge tone={ENROLLMENT_STATUS_TONE[s.enrollmentStatus]}>{s.enrollmentStatus}</Badge>
+      </Td>
+      <Td className="text-maia-ink-soft">{formatDate(s.dateSubmitted)}</Td>
+      <Td>
+        <Button size="sm" variant="secondary" onClick={onView}>
+          VIEW STUDENT
+        </Button>
+      </Td>
+    </tr>
   );
 }
 
