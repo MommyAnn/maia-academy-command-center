@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Menu, Search, Settings, User } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Menu, Settings, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
 export function TopHeader({
   pageTitle,
@@ -45,14 +46,7 @@ export function TopHeader({
         {pageTitle}
       </h1>
 
-      <div className="ml-2 hidden max-w-md flex-1 items-center gap-2 rounded-lg border border-maia-border bg-maia-bg px-3 py-2 text-sm text-maia-ink-soft md:flex">
-        <Search size={16} className="flex-shrink-0" />
-        <input
-          type="text"
-          placeholder="Search students, payments, tasks..."
-          className="w-full bg-transparent outline-none placeholder:text-maia-ink-soft/60"
-        />
-      </div>
+      <GlobalSearch />
 
       <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
         <button

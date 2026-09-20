@@ -20,25 +20,32 @@ export function NeedsAttentionCard({ items }: { items: AttentionItem[] }) {
         </h3>
       </div>
 
-      <ul className="space-y-1">
-        {items.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              className="flex w-full items-center justify-between rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-maia-bg"
-              title="Filtering will be available in a future build step"
-            >
-              <span className="flex items-center gap-2.5 text-sm text-maia-ink">
-                <span className={`h-2 w-2 flex-shrink-0 rounded-full ${SEVERITY_DOT[item.severity]}`} />
-                {item.label}
-              </span>
-              <span className="flex h-6 min-w-6 flex-shrink-0 items-center justify-center rounded-full bg-maia-bg px-1.5 text-xs font-bold text-maia-ink">
-                {item.count}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {items.length === 0 ? (
+        <p className="rounded-lg bg-maia-bg px-3 py-6 text-center text-sm text-maia-ink-soft">
+          Nothing needs attention right now.
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {items.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                onClick={item.onClick}
+                disabled={!item.onClick}
+                className="flex w-full items-center justify-between rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-maia-bg disabled:cursor-default disabled:hover:bg-transparent"
+              >
+                <span className="flex items-center gap-2.5 text-sm text-maia-ink">
+                  <span className={`h-2 w-2 flex-shrink-0 rounded-full ${SEVERITY_DOT[item.severity]}`} />
+                  {item.label}
+                </span>
+                <span className="flex h-6 min-w-6 flex-shrink-0 items-center justify-center rounded-full bg-maia-bg px-1.5 text-xs font-bold text-maia-ink">
+                  {item.count}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

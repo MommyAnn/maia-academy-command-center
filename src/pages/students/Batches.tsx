@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { BanknoteArrowDown, BanknoteArrowUp, PiggyBank, Receipt, Users, Wallet } from "lucide-react";
 import { Card, CardHeader } from "@/components/common/Card";
 import { useStudentStore } from "@/data/studentStore";
@@ -19,6 +20,13 @@ import type { PackageAdjustment, PaymentTransaction, Expense } from "@/types/fin
 export function Batches() {
   const { students } = useStudentStore();
   const { transactions, adjustments, expenses } = useFinanceStore();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const el = document.getElementById(location.hash.slice(1));
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash]);
 
   return (
     <div className="flex flex-col gap-6 pb-4">
@@ -77,7 +85,7 @@ function BatchCard({
   const batchParam = encodeURIComponent(batch);
 
   return (
-    <Card>
+    <Card id={`batch-${batch.replace(/\s+/g, "-")}`} className="scroll-mt-6">
       <CardHeader title={batch} subtitle={`${batchStudents.length} total students`} />
 
       <div className="grid grid-cols-2 gap-3">

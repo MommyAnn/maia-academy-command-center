@@ -55,6 +55,7 @@ export function Payments() {
     ...DEFAULT_FILTERS,
     batch: searchParams.get("batch") ?? DEFAULT_FILTERS.batch,
     status: searchParams.get("status") ?? DEFAULT_FILTERS.status,
+    search: searchParams.get("search") ?? DEFAULT_FILTERS.search,
   }));
   const [recordOpen, setRecordOpen] = useState(false);
   const [proofTxn, setProofTxn] = useState<PaymentTransaction | null>(null);

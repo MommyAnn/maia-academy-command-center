@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, X } from "lucide-react";
 import { Card } from "@/components/common/Card";
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
@@ -21,8 +21,33 @@ import { useStudentStore } from "@/data/studentStore";
 import { useFinanceStore } from "@/data/financeStore";
 import { getRequirementsSummary } from "@/utils/students";
 import { getStudentFinanceSummary, type StudentFinanceSummary } from "@/utils/finance";
+import { getRequirementsBucket, getStudentPipelineStage, type PipelineStage, type RequirementsBucket } from "@/utils/dashboard";
 import { formatPeso } from "@/utils/format";
-import type { StudentRecord } from "@/types/student";
+import type { StudentRecord, TaobaoStatus } from "@/types/student";
+
+interface AdvancedFilter {
+  stage: PipelineStage | null;
+  taobao: TaobaoStatus | null;
+  requirements: RequirementsBucket | null;
+  masterBrain: string | null;
+}
+
+function readAdvancedFilter(params: URLSearchParams): AdvancedFilter {
+  return {
+    stage: (params.get("stage") as PipelineStage) || null,
+    taobao: (params.get("taobao") as TaobaoStatus) || null,
+    requirements: (params.get("requirements") as RequirementsBucket) || null,
+    masterBrain: params.get("masterBrain") || null,
+  };
+}
+
+function describeAdvancedFilter(f: AdvancedFilter): string | null {
+  if (f.stage) return `Pipeline stage: ${f.stage}`;
+  if (f.taobao) return `Taobao status: ${f.taobao}`;
+  if (f.requirements) return `Requirements: ${f.requirements}`;
+  if (f.masterBrain) return `Master Brain: ${f.masterBrain}`;
+  return null;
+}
 
 type SortKey = "fullName" | "batch" | "balance";
 
@@ -35,20 +60,33 @@ export function AllStudents() {
     ...DEFAULT_STUDENT_FILTERS,
     batch: searchParams.get("batch") ?? DEFAULT_STUDENT_FILTERS.batch,
   }));
+  const [advancedFilter, setAdvancedFilter] = useState<AdvancedFilter | null>(() => {
+    const parsed = readAdvancedFilter(searchParams);
+    return describeAdvancedFilter(parsed) ? parsed : null;
+  });
   const [sortKey, setSortKey] = useState<SortKey>("fullName");
   const [sortAsc, setSortAsc] = useState(true);
 
   const filtered = useMemo(
     () =>
-      students.filter((s) =>
-        matchesStudentFilters(filters, {
-          searchable: `${s.studentId} ${s.fullName} ${s.facebookName}`,
-          batch: s.batch,
-          pkg: s.package,
-          status: s.enrollmentStatus,
+      students
+        .filter((s) =>
+          matchesStudentFilters(filters, {
+            searchable: `${s.studentId} ${s.fullName} ${s.facebookName}`,
+            batch: s.batch,
+            pkg: s.package,
+            status: s.enrollmentStatus,
+          }),
+        )
+        .filter((s) => {
+          if (!advancedFilter) return true;
+          if (advancedFilter.stage && getStudentPipelineStage(s) !== advancedFilter.stage) return false;
+          if (advancedFilter.taobao && s.taobao.status !== advancedFilter.taobao) return false;
+          if (advancedFilter.requirements && getRequirementsBucket(s) !== advancedFilter.requirements) return false;
+          if (advancedFilter.masterBrain && s.masterBrainStatus !== advancedFilter.masterBrain) return false;
+          return true;
         }),
-      ),
-    [students, filters],
+    [students, filters, advancedFilter],
   );
 
   const sorted = useMemo(() => {
@@ -95,6 +133,19 @@ export function AllStudents() {
           ...ENROLLMENT_STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
         ]}
       />
+
+      {advancedFilter && describeAdvancedFilter(advancedFilter) && (
+        <div className="flex items-center justify-between rounded-lg border border-maia-gold/30 bg-maia-gold-bg px-4 py-2.5 text-sm text-maia-gold-deep">
+          <span className="font-medium">Filtered from dashboard &middot; {describeAdvancedFilter(advancedFilter)}</span>
+          <button
+            onClick={() => setAdvancedFilter(null)}
+            className="flex items-center gap-1 rounded-md px-2 py-1 font-semibold hover:bg-maia-gold/15"
+          >
+            <X size={13} />
+            Clear
+          </button>
+        </div>
+      )}
 
       <Card padded={false}>
         <div className="overflow-x-auto">

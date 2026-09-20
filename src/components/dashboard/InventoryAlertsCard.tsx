@@ -21,8 +21,9 @@ export function InventoryAlertsCard({ items }: { items: InventoryAlert[] }) {
               <PackageSearch size={16} className="text-maia-gold-deep" />
               {item.item}
             </span>
-            <span className="text-sm font-semibold text-maia-warning">
-              {item.remaining} Remaining
+            <span className="text-right">
+              <span className="block text-sm font-semibold text-maia-warning">{item.remaining} Remaining</span>
+              <span className="block text-[11px] text-maia-ink-soft">Reorder at {item.reorderLevel}</span>
             </span>
           </li>
         ))}

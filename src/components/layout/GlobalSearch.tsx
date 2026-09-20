@@ -1,0 +1,149 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ClipboardList, CreditCard, Search, User } from "lucide-react";
+import { useStudentStore } from "@/data/studentStore";
+import { useFinanceStore } from "@/data/financeStore";
+import { DEMO_STAFF_TASKS } from "@/data/demoDashboardData";
+
+const MAX_PER_GROUP = 5;
+
+export function GlobalSearch() {
+  const { students } = useStudentStore();
+  const { transactions } = useFinanceStore();
+  const navigate = useNavigate();
+
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return { students: [], payments: [], tasks: [] };
+
+    const studentMatches = students
+      .filter((s) =>
+        `${s.fullName} ${s.studentId} ${s.facebookName} ${s.email} ${s.contactNumber}`.toLowerCase().includes(q),
+      )
+      .slice(0, MAX_PER_GROUP);
+
+    const paymentMatches = transactions
+      .filter((t) => `${t.id} ${t.referenceNumber} ${t.studentName}`.toLowerCase().includes(q))
+      .slice(0, MAX_PER_GROUP);
+
+    const taskMatches = DEMO_STAFF_TASKS.filter((t) =>
+      `${t.task} ${t.assignedTo} ${t.relatedStudent ?? ""}`.toLowerCase().includes(q),
+    ).slice(0, MAX_PER_GROUP);
+
+    return { students: studentMatches, payments: paymentMatches, tasks: taskMatches };
+  }, [query, students, transactions]);
+
+  const hasResults = results.students.length + results.payments.length + results.tasks.length > 0;
+
+  function goTo(path: string) {
+    setOpen(false);
+    setQuery("");
+    navigate(path);
+  }
+
+  return (
+    <div ref={containerRef} className="relative ml-2 hidden max-w-md flex-1 md:block">
+      <div className="flex items-center gap-2 rounded-lg border border-maia-border bg-maia-bg px-3 py-2 text-sm text-maia-ink-soft">
+        <Search size={16} className="flex-shrink-0" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder="Search students, payments, tasks..."
+          className="w-full bg-transparent text-maia-ink outline-none placeholder:text-maia-ink-soft/60"
+        />
+      </div>
+
+      {open && query.trim() && (
+        <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-maia-border bg-maia-surface shadow-lg">
+          {!hasResults ? (
+            <p className="px-4 py-6 text-center text-sm text-maia-ink-soft">No results for &ldquo;{query}&rdquo;.</p>
+          ) : (
+            <>
+              {results.students.length > 0 && (
+                <ResultGroup label="Students" icon={<User size={13} />}>
+                  {results.students.map((s) => (
+                    <ResultRow
+                      key={s.id}
+                      primary={s.fullName}
+                      secondary={s.studentId}
+                      onClick={() => goTo(`/students/${s.id}`)}
+                    />
+                  ))}
+                </ResultGroup>
+              )}
+
+              {results.payments.length > 0 && (
+                <ResultGroup label="Payments" icon={<CreditCard size={13} />}>
+                  {results.payments.map((t) => (
+                    <ResultRow
+                      key={t.id}
+                      primary={t.id}
+                      secondary={`${t.studentName} · ${t.referenceNumber || "no reference"}`}
+                      onClick={() => goTo(`/finance/payments?search=${encodeURIComponent(t.id)}`)}
+                    />
+                  ))}
+                </ResultGroup>
+              )}
+
+              {results.tasks.length > 0 && (
+                <ResultGroup label="Tasks (demo)" icon={<ClipboardList size={13} />}>
+                  {results.tasks.map((t) => (
+                    <ResultRow
+                      key={t.id}
+                      primary={t.task}
+                      secondary={`${t.assignedTo}${t.relatedStudent ? ` · ${t.relatedStudent}` : ""}`}
+                      onClick={() => goTo("/team/tasks")}
+                    />
+                  ))}
+                </ResultGroup>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultGroup({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="border-b border-maia-border py-1.5 last:border-0">
+      <p className="flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-maia-ink-soft">
+        {icon}
+        {label}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function ResultRow({ primary, secondary, onClick }: { primary: string; secondary: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full flex-col items-start px-4 py-2 text-left hover:bg-maia-bg"
+    >
+      <span className="text-sm font-medium text-maia-ink">{primary}</span>
+      <span className="font-mono text-xs text-maia-ink-soft">{secondary}</span>
+    </button>
+  );
+}
