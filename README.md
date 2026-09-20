@@ -3,11 +3,11 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 3 of the build:** Finance & Payment Management, on top of Step 1
-> (Login + App Shell + Owner Dashboard) and Step 2 (Enrollment Form +
-> Student Records + Student Profile). All data is DEMO/LOCAL DATA and is
-> not connected to a real database, authentication system, or file storage
-> backend yet.
+> **Step 4 of the build:** Owner Executive Dashboard & Business Analytics,
+> on top of Step 1 (Login + App Shell), Step 2 (Enrollment Form + Student
+> Records + Student Profile), and Step 3 (Finance & Payment Management).
+> All data is DEMO/LOCAL DATA and is not connected to a real database,
+> authentication system, or file storage backend yet.
 
 ## Tech Stack
 
@@ -100,6 +100,25 @@ Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
 
+## What's Included in Step 4
+
+- **Owner Dashboard rebuilt as a live executive command center** — every
+  number is calculated from the same student/finance stores used
+  everywhere else in the app (see `src/utils/dashboard.ts`), not a
+  separate demo dataset
+- Global date-range + batch filters that actually scope the dashboard
+- 8 primary KPI cards, an **Action Center** (7 clickable cards), **Current
+  Batch Performance**, **Enrollment Analytics** (daily/weekly/monthly
+  trend + breakdowns), **Financial Performance** (7–365 day range),
+  **Batch Financial Performance** table, a **Student Journey/Pipeline**
+  funnel, **Master Brain / Taobao / Requirements / Payment Status**
+  breakdown widgets, **Quick Actions**, and **Today's Activity** — nearly
+  every number click-throughs to a correctly filtered list
+- **Global Search** upgraded to grouped, clickable results (Students,
+  Payments, Tasks)
+- Staff Task Snapshot and Inventory Snapshot are clearly labeled demo
+  widgets, since neither module is built yet (see "Not Yet Built" below)
+
 ## What's Included in Step 3
 
 - **Finance Overview**: 8 KPI cards (Total Package Value, Total
@@ -134,8 +153,8 @@ voiding never deletes a record; it's marked and kept in history.
 
 ## Not Yet Built (future steps)
 
-Master Brain questionnaire, real staff task workflows, inventory
-transactions, GoHighLevel integration, real production authentication,
-role-based access enforcement (demo only ever logs in as Owner), the
-Student Portal (including the "My Payment" self-service view), and the
-full Owner Executive Dashboard / business analytics.
+Real Staff & Task Management (Step 5), real Inventory Management, Master
+Brain questionnaire, GoHighLevel integration, real production
+authentication, enforced role-based access (demo only ever logs in as
+Owner), and the Student Portal (including the "My Payment" self-service
+view).
