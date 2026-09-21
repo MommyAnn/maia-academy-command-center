@@ -1,11 +1,20 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 import { Badge } from "@/components/common/Badge";
+import { Button } from "@/components/common/Button";
 import { ENROLLMENT_STATUS_TONE } from "@/components/students/statusMeta";
+import { useAuth } from "@/context/AuthContext";
+import { useStaffStore } from "@/data/staffStore";
+import { hasPermission } from "@/data/staffConfig";
 import type { StudentRecord } from "@/types/student";
 
 export function ProfileHeader({ student }: { student: StudentRecord }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { getStaffById } = useStaffStore();
+
+  const currentStaff = user?.linkedStaffId ? getStaffById(user.linkedStaffId) : undefined;
+  const canViewAsStudent = currentStaff ? hasPermission(currentStaff.permissions, "Students", "edit") : false;
 
   return (
     <div className="flex flex-col gap-4">
@@ -32,6 +41,12 @@ export function ProfileHeader({ student }: { student: StudentRecord }) {
           <Badge tone="neutral">{student.batch}</Badge>
           <Badge tone="gold">{student.package}</Badge>
           <Badge tone={ENROLLMENT_STATUS_TONE[student.enrollmentStatus]}>{student.enrollmentStatus}</Badge>
+          {canViewAsStudent && (
+            <Button variant="secondary" size="sm" onClick={() => navigate(`/students/${student.id}/portal-preview`)}>
+              <Eye size={14} />
+              VIEW AS STUDENT
+            </Button>
+          )}
         </div>
       </div>
     </div>

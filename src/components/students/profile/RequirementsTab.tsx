@@ -3,6 +3,7 @@ import { CheckCircle2, Eye, FileText, ImageIcon, RotateCcw } from "lucide-react"
 import { Card, CardHeader } from "@/components/common/Card";
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { DOCUMENT_STATUS_TONE } from "@/components/students/statusMeta";
 import { DocumentPreviewModal } from "./DocumentPreviewModal";
 import { useStudentStore } from "@/data/studentStore";
@@ -36,6 +37,7 @@ function RequirementCard({
 }) {
   const { updateDocumentStatus } = useStudentStore();
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [resubmitOpen, setResubmitOpen] = useState(false);
 
   return (
     <Card>
@@ -75,7 +77,7 @@ function RequirementCard({
           variant="secondary"
           size="sm"
           className="border-maia-danger/40 text-maia-danger hover:border-maia-danger hover:text-maia-danger"
-          onClick={() => updateDocumentStatus(studentId, doc, "Needs Resubmission")}
+          onClick={() => setResubmitOpen(true)}
         >
           <RotateCcw size={14} />
           NEEDS RESUBMISSION
@@ -83,6 +85,19 @@ function RequirementCard({
       </div>
 
       <DocumentPreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} title={title} file={requirement.file} />
+      <ConfirmDialog
+        open={resubmitOpen}
+        onClose={() => setResubmitOpen(false)}
+        onConfirm={(reason) => {
+          if (reason) updateDocumentStatus(studentId, doc, "Needs Resubmission", reason);
+          setResubmitOpen(false);
+        }}
+        title={`Request Resubmission — ${title}`}
+        description="This reason will be shown to the student in their Student Portal."
+        confirmLabel="REQUEST RESUBMISSION"
+        requireReason
+        reasonLabel="What needs to be corrected"
+      />
     </Card>
   );
 }

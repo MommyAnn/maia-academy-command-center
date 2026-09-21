@@ -23,7 +23,18 @@ export type GhlEventType =
   | "student.master_brain_approved"
   | "student.training_completed"
   | "task.created"
-  | "task.completed";
+  | "task.completed"
+  // Student Portal events (Step 7) — same "prepared hook, not a real
+  // integration" rule as everything above. Only a few of these have an
+  // actual dispatch call site yet (see each store's action); the rest
+  // (e.g. Taobao OTP Needed) are declared so the shape is ready even
+  // though nothing in the app produces that event yet.
+  | "portal.activated"
+  | "student.requirement_missing"
+  | "student.taobao_otp_needed"
+  | "student.master_brain_submitted"
+  | "training.scheduled"
+  | "certificate.ready";
 
 export interface GhlEventPayload {
   type: GhlEventType;

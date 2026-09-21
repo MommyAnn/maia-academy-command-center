@@ -65,7 +65,10 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     label: "Communication",
-    items: [{ label: "Announcements", path: "/communication/announcements" }],
+    items: [
+      { label: "Announcements", path: "/communication/announcements" },
+      { label: "Support Requests", path: "/communication/support-requests" },
+    ],
   },
   {
     label: "Reports",

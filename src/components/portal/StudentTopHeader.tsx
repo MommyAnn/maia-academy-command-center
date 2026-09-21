@@ -1,18 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut, Menu, Settings, User } from "lucide-react";
+import { ChevronDown, LogOut, Menu, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { GlobalSearch } from "@/components/layout/GlobalSearch";
-import { NotificationsDropdown } from "@/components/layout/NotificationsDropdown";
+import { useStudentPortal } from "@/context/StudentPortalContext";
+import { StudentNotificationsDropdown } from "@/components/portal/StudentNotificationsDropdown";
 
-export function TopHeader({
+// Deliberately simpler than the Admin TopHeader: no GlobalSearch (a student
+// only ever needs to search their own data, which each portal page already
+// shows directly), and the profile menu links to My Profile rather than
+// admin-only Settings.
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return (parts[0]?.[0] ?? "").concat(parts[1]?.[0] ?? "").toUpperCase() || "ST";
+}
+
+export function StudentTopHeader({
   pageTitle,
   onMenuClick,
 }: {
   pageTitle: string;
   onMenuClick: () => void;
 }) {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const { student } = useStudentPortal();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -47,10 +58,8 @@ export function TopHeader({
         {pageTitle}
       </h1>
 
-      <GlobalSearch />
-
       <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
-        <NotificationsDropdown />
+        <StudentNotificationsDropdown />
 
         <div className="relative" ref={menuRef}>
           <button
@@ -58,11 +67,11 @@ export function TopHeader({
             className="flex items-center gap-2 rounded-lg py-1.5 pl-1.5 pr-2 hover:bg-maia-bg"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-maia-black text-xs font-bold text-maia-gold">
-              {user?.avatarInitials ?? "MA"}
+              {initialsOf(student.fullName)}
             </div>
             <div className="hidden text-left leading-tight sm:block">
-              <p className="text-sm font-semibold text-maia-ink">{user?.name ?? "Mommy Ann"}</p>
-              <p className="text-xs text-maia-ink-soft">{user?.role ?? "Owner"}</p>
+              <p className="text-sm font-semibold text-maia-ink">{student.fullName}</p>
+              <p className="text-xs text-maia-ink-soft">{student.studentId}</p>
             </div>
             <ChevronDown size={16} className="hidden text-maia-ink-soft sm:block" />
           </button>
@@ -70,16 +79,18 @@ export function TopHeader({
           {profileOpen && (
             <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-xl border border-maia-border bg-maia-surface shadow-lg">
               <div className="border-b border-maia-border px-4 py-3">
-                <p className="text-sm font-semibold text-maia-ink">{user?.name ?? "Mommy Ann"}</p>
-                <p className="text-xs text-maia-ink-soft">{user?.role ?? "Owner"}</p>
+                <p className="text-sm font-semibold text-maia-ink">{student.fullName}</p>
+                <p className="text-xs text-maia-ink-soft">{student.studentId}</p>
               </div>
-              <button className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-maia-ink hover:bg-maia-bg">
+              <button
+                onClick={() => {
+                  setProfileOpen(false);
+                  navigate("/portal/profile");
+                }}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-maia-ink hover:bg-maia-bg"
+              >
                 <User size={16} className="text-maia-ink-soft" />
                 My Profile
-              </button>
-              <button className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-maia-ink hover:bg-maia-bg">
-                <Settings size={16} className="text-maia-ink-soft" />
-                Settings
               </button>
               <button
                 onClick={handleLogout}

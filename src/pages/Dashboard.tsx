@@ -14,6 +14,7 @@ import { useFinanceStore } from "@/data/financeStore";
 import { useTaskStore } from "@/data/taskStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
+import { usePortalStore } from "@/data/portalStore";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceDateFilter, DEFAULT_DATE_FILTER } from "@/components/finance/FinanceDateFilter";
 import { ActionCenterCard, ACTION_CENTER_ICONS, type ActionCenterItem } from "@/components/dashboard/ActionCenterCard";
@@ -29,6 +30,7 @@ import { InventorySnapshotCard } from "@/components/dashboard/InventorySnapshotC
 import { TrainingAttendanceSnapshotCard } from "@/components/dashboard/TrainingAttendanceSnapshotCard";
 import { NeedsAttentionCard } from "@/components/dashboard/NeedsAttentionCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
+import { StudentPortalSnapshotCard } from "@/components/dashboard/StudentPortalSnapshotCard";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -87,6 +89,7 @@ export function Dashboard() {
   const { tasks } = useTaskStore();
   const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
   const { sessions, enrollments, certificates } = useTrainingStore();
+  const { getPortalAccess, updateRequests, supportRequests } = usePortalStore();
 
   const [dateFilter, setDateFilter] = useState(DEFAULT_DATE_FILTER);
   const [batch, setBatch] = useState("all");
@@ -182,6 +185,16 @@ export function Dashboard() {
   const certsForPrep = certificates.filter((c) => c.status === "For Preparation").length;
   const certsReady = certificates.filter((c) => c.status === "Ready").length;
   const certsIssued = certificates.filter((c) => c.status === "Issued").length;
+
+  const portalAccountsActive = scopedStudents.filter((s) => getPortalAccess(s.id).activated).length;
+  const neverLoggedIn = scopedStudents.filter((s) => getPortalAccess(s.id).lastLogin === null).length;
+  const pendingStudentActions = updateRequests.filter(
+    (r) => r.status === "Pending" && scopedStudents.some((s) => s.id === r.studentId),
+  ).length;
+  const openSupportRequests = supportRequests.filter(
+    (r) => r.status === "Open" && scopedStudents.some((s) => s.id === r.studentId),
+  ).length;
+  const masterBrainNotStarted = masterBrainCounts["Not Started"] ?? 0;
 
   const attentionItems = [
     {
@@ -456,6 +469,15 @@ export function Dashboard() {
         certsForPrep={certsForPrep}
         certsReady={certsReady}
         certsIssued={certsIssued}
+      />
+
+      <StudentPortalSnapshotCard
+        portalAccountsActive={portalAccountsActive}
+        neverLoggedIn={neverLoggedIn}
+        pendingStudentActions={pendingStudentActions}
+        openSupportRequests={openSupportRequests}
+        masterBrainNotStarted={masterBrainNotStarted}
+        requirementsMissing={actionCounts.incompleteRequirements}
       />
 
       <InventorySnapshotCard snapshot={inventorySnapshot} lowStockItems={lowStockAlerts} />

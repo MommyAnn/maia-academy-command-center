@@ -6,6 +6,7 @@ import { StaffStoreProvider } from "@/data/staffStore";
 import { InventoryStoreProvider } from "@/data/inventoryStore";
 import { TrainingStoreProvider } from "@/data/trainingStore";
 import { TaskStoreProvider } from "@/data/taskStore";
+import { PortalStoreProvider } from "@/data/portalStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
 function App() {
@@ -13,17 +14,19 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <StudentStoreProvider>
-          <FinanceStoreProvider>
-            <StaffStoreProvider>
-              <InventoryStoreProvider>
-                <TrainingStoreProvider>
-                  <TaskStoreProvider>
-                    <AppRoutes />
-                  </TaskStoreProvider>
-                </TrainingStoreProvider>
-              </InventoryStoreProvider>
-            </StaffStoreProvider>
-          </FinanceStoreProvider>
+          <PortalStoreProvider>
+            <FinanceStoreProvider>
+              <StaffStoreProvider>
+                <InventoryStoreProvider>
+                  <TrainingStoreProvider>
+                    <TaskStoreProvider>
+                      <AppRoutes />
+                    </TaskStoreProvider>
+                  </TrainingStoreProvider>
+                </InventoryStoreProvider>
+              </StaffStoreProvider>
+            </FinanceStoreProvider>
+          </PortalStoreProvider>
         </StudentStoreProvider>
       </AuthProvider>
     </BrowserRouter>

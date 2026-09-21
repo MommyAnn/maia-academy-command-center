@@ -15,6 +15,7 @@ import { DEMO_CERTIFICATES, DEMO_SESSIONS, DEMO_SESSION_ENROLLMENTS } from "@/da
 import { CURRENT_DEMO_USER, DEFAULT_PROGRAM_NAME } from "@/data/trainingConfig";
 import { generateCertificateId, generateSessionId } from "@/utils/training";
 import { useStudentStore } from "@/data/studentStore";
+import { dispatchGhlEvent } from "@/integrations/ghlEvents";
 
 // ---------------------------------------------------------------------------
 // DEMO / LOCAL PERSISTENCE ONLY
@@ -193,6 +194,11 @@ export function TrainingStoreProvider({ children }: { children: ReactNode }) {
         };
         return { ...prev, sessions: [created, ...prev.sessions] };
       });
+      dispatchGhlEvent({
+        type: "training.scheduled",
+        occurredAt: iso,
+        summary: `Training session scheduled: ${created.title} (${created.date})`,
+      });
       return created;
     },
     [updateState],
@@ -365,7 +371,15 @@ export function TrainingStoreProvider({ children }: { children: ReactNode }) {
           return { ...c, status: "Ready", preparedBy: CURRENT_DEMO_USER, preparedAt: iso };
         }),
       }));
-      if (studentId) appendActivity(studentId, `Certificate marked ready: ${label}`);
+      if (studentId) {
+        appendActivity(studentId, `Certificate marked ready: ${label}`);
+        dispatchGhlEvent({
+          type: "certificate.ready",
+          occurredAt: iso,
+          studentId,
+          summary: `Certificate ready: ${label}`,
+        });
+      }
     },
     [updateState, appendActivity],
   );

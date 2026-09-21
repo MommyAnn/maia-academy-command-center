@@ -3,13 +3,13 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 6 of the build:** Inventory, Training, Attendance & Certificate
-> Operations, on top of Step 1 (Login + App Shell), Step 2 (Enrollment Form
-> + Student Records + Student Profile), Step 3 (Finance & Payment
-> Management), Step 4 (Owner Executive Dashboard & Business Analytics), and
-> Step 5 (Staff, Task Management & Operations System). All data is
-> DEMO/LOCAL DATA and is not connected to a real database, authentication
-> system, or file storage backend yet.
+> **Step 7 of the build:** The complete Student Portal, on top of Step 1
+> (Login + App Shell), Step 2 (Enrollment Form + Student Records + Student
+> Profile), Step 3 (Finance & Payment Management), Step 4 (Owner Executive
+> Dashboard & Business Analytics), Step 5 (Staff, Task Management &
+> Operations System), and Step 6 (Inventory, Training, Attendance &
+> Certificate Operations). All data is DEMO/LOCAL DATA and is not connected
+> to a real database, authentication system, or file storage backend yet.
 
 ## Tech Stack
 
@@ -29,11 +29,24 @@ npm run dev
 Then open the URL Vite prints (typically **http://localhost:5173**) in your
 browser.
 
-### Demo Login (Admin)
+### Demo Login (Owner / Staff / Student)
 
 The login page uses **demo authentication only** — no real accounts or
-passwords are checked. Enter any non-empty email and password and click
-**SIGN IN** to be redirected to the Owner Dashboard.
+passwords are checked; any non-empty password works. The email you enter
+decides which demo session you land in:
+
+- A seeded **student** email (e.g. `maria.santos@example.com`, see
+  `src/data/demoStudents.ts`) signs you into the **Student Portal**
+  (`/portal`) as that student.
+- A seeded **staff** email (e.g. `anna.reyes@maiaacademy.demo`, see
+  `src/data/demoStaff.ts`) signs you into that staff member's **Staff
+  Dashboard Preview**.
+- Any other email (including the Owner demo email) signs you in as
+  **Owner**, landing on the Command Center Dashboard.
+
+This role resolution happens entirely in the browser for this demo — see
+the Step 7 security note below for why that is not sufficient on its own in
+production.
 
 ### Public Enrollment Form
 
@@ -64,28 +77,39 @@ src/
                         Suppliers, InventoryHistory)
   pages/training/         Training/Attendance/Certificate pages (TrainingSessions,
                         SessionDetail, Attendance, Certificates)
-  layouts/              App shell layout (AppLayout: sidebar + header + content)
+  pages/communication/    Admin-side Announcements + Support Requests pages
+  pages/portal/          Student Portal pages (Home, Enrollment, Payments, Requirements,
+                        Taobao, MasterBrain, Training, Courses, Certificates,
+                        Announcements, Profile, Support) — same components render both a
+                        real student's own session and the admin "View As Student" preview
+  layouts/              App shell layouts (AppLayout for Admin/Staff, PortalLayout for
+                        the Student Portal — sidebar + header + content in each)
   components/
     layout/             Sidebar, SidebarDrawer, TopHeader, NotificationsDropdown
     dashboard/          Dashboard-specific cards (KPI cards, charts, tables, ...)
     enrollment/         Public Enrollment Form steps, file upload UI, terms modal
     students/           Student list filters, status badges, Student Profile tabs
+                        (including the new Portal tab: access controls + update requests)
     finance/            Payment/expense/adjustment modals, finance stat cards & filters
     team/               Staff/task modals (StaffFormModal, TaskFormModal, ReassignModal,
                         ApplyTemplateModal), PermissionsMatrixView, TaskFiltersBar, status meta
     inventory/          Item/Stock In/Stock Out/Supplier modals + detail views, status meta
     training/           Session form modal, status meta for sessions/attendance/certificates
+    portal/             Student Portal sidebar/header, notifications, status meta — shared
+                        by the real portal and the admin preview
     common/             Reusable UI primitives (Card, Button, Modal, Tabs, TextField, ConfirmDialog, ...)
-  context/              AuthContext (demo authentication state)
-  router/               AppRoutes + ProtectedRoute
-  data/                 DEMO DATA, config, and the local student/finance/staff/task/
-                        inventory/training stores — kept separate from UI so real API/DB
-                        calls can replace them later
-  integrations/         Prepared, hooks-only integration points (e.g. GoHighLevel) — not
+  context/               AuthContext (demo authentication + role resolution) and
+                        StudentPortalContext (which student a portal page is currently
+                        showing — real session or admin preview)
+  router/                AppRoutes, ProtectedRoute (admin/staff), StudentProtectedRoute
+  data/                  DEMO DATA, config, and the local student/finance/staff/task/
+                        inventory/training/portal stores — kept separate from UI so real
+                        API/DB calls can replace them later
+  integrations/          Prepared, hooks-only integration points (e.g. GoHighLevel) — not
                         connected to any real external service yet
-  types/                Shared TypeScript types/interfaces
-  utils/                Formatting, ID generation, and finance/task/inventory/training
-                        calculation helpers
+  types/                 Shared TypeScript types/interfaces
+  utils/                 Formatting, ID generation, and finance/task/inventory/training/
+                        portal calculation helpers
 ```
 
 ## Data & Persistence Notice (Important)
@@ -116,6 +140,103 @@ Total paid, remaining balance, and payment status (Unpaid / Partial
 Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
+
+## What's Included in Step 7
+
+- **A completely separate Student Portal** (`/portal/*`) with its own
+  navigation (Home, My Enrollment, My Payments, My Requirements, My Taobao,
+  My Master Brain, My Training, My Courses, My Certificates, Announcements,
+  My Profile, Need Help) — zero Admin nav items ever appear here
+- **Role-aware login**: the same login page now resolves a seeded student
+  email to the Student Portal, a seeded staff email to that staff member's
+  dashboard, and everything else to the Owner Command Center — see the
+  **security note** below, this is a client-side demo convenience only
+- **One source of truth, enforced in code**: the portal reads the exact
+  same `StudentRecord`/payment/training/certificate stores the Admin side
+  uses (`useStudentStore`, `useFinanceStore`, `useTrainingStore`) — there is
+  no duplicate/parallel student record for the portal
+- **Student Home Dashboard**: a welcome header, an important-announcement
+  banner, a **"What's Next?"** widget that computes the single most
+  important next action from the student's real state, an 8-step **"My
+  Journey"** progress tracker (Enrolled → Payment → Requirements → Taobao →
+  Master Brain → Training → Completion → Certificate), Quick Status Cards,
+  upcoming training, and recent notifications — see `src/utils/portal.ts`
+  (`computeJourneySteps` / `computeNextAction`) for the shared calculation
+  logic every one of those widgets reads from
+- **My Enrollment**: read-only display of enrollment + companion info
+  (VIP/Dual VIP only) with **Request Update** instead of direct editing —
+  verified Academy records are never overwritten directly by a student
+- **My Payments**: payment summary + history (no internal Finance notes, no
+  other students' data) and a **Submit Payment / Upload Proof** form that
+  creates a `Pending Verification` transaction. It never auto-verifies or
+  auto-marks Fully Paid, and it reuses Step 5's existing task-automation
+  engine with zero new trigger code — a student's submission produces the
+  exact same "Pending Verification" state the automation already watches
+  for, so a **Verify Payment** task is created automatically
+- **My Requirements**: Valid ID + Proof of Payment cards with student-facing
+  statuses and a resubmission reason (a new optional `note` field the
+  reviewing admin sets from a **Request Resubmission** dialog on the admin
+  Requirements tab) — no internal admin notes are exposed
+- **My Taobao**: status + contextual instructions only. The Taobao password
+  is **never** requested, stored, or displayed anywhere in the Portal — a
+  dedicated on-page security notice makes this explicit
+- **My Master Brain**: the status **workflow** and the **Save & Continue
+  Later architecture** (Submission ID, Business/Brand, Questionnaire
+  Version, Progress %, Last Saved) only — intentionally **not** a full
+  questionnaire, and progress is saved through the same store every other
+  portal action uses (not browser-only `localStorage` as a "production"
+  answer)
+- **My Training**: upcoming/past sessions with read-only attendance history;
+  Zoom link/meeting ID/passcode are only ever shown when that student's
+  session eligibility is `Eligible` — otherwise a "details will be shared
+  once confirmed" placeholder is shown instead
+- **My Courses**: course cards grouped by category, gated by real
+  package/batch/enrollment-status access rules (`hasCourseAccess` in
+  `src/utils/portal.ts`) plus a manual per-student grant escape hatch —
+  explicitly not a full LMS, and no student is assumed to have every course
+- **My Certificates**: View/Download only render when a real certificate
+  file (metadata) exists — never a fake download
+- **Announcements**: admin-publishable (`/communication/announcements`),
+  targeted to All Students/Batch/Package/Face-to-Face/Zoom/Both/Individual
+  Student, with Pin and Important toggles; Important announcements surface
+  as a banner on the Student Home Dashboard
+- **My Profile**: Facebook Name/Email/Contact Number/City go through a
+  **Request Update** that auto-applies once an admin approves it; Real Full
+  Name is treated as verified/sensitive and always needs manual admin
+  follow-through — see `AUTO_APPLIABLE_FIELDS` in `src/data/portalStore.tsx`
+- **Need Help / Support**: a category-based support request form + the
+  student's own request history — intentionally a simple ticket log, not a
+  full helpdesk
+- **Notifications**: prepared, refresh-on-open (not real-time), shared
+  between the bell dropdown and the Home Dashboard's Recent Notifications
+  via one hook (`useStudentNotifications`)
+- **Admin connections** — Student Profile gains a **Student Portal** tab
+  (Portal Access: Activate/Deactivate/Send Access Instructions/Reset Access,
+  never showing a password; and pending Profile/Enrollment Update Requests
+  with Approve/Reject) and a permission-gated **"VIEW AS STUDENT"** button
+  that opens a clearly-labeled, **read-only** Admin Preview
+  (`/students/:id/portal-preview`) — it reuses the exact same portal page
+  components, wrapped so interactive elements are disabled, so an admin can
+  never perform an action as the student
+- **Owner Dashboard** gains a live **Student Portal** widget (Portal
+  Accounts Active, Never Logged In, Pending Student Actions, Open Support
+  Requests, Master Brain Not Started, Requirements Missing)
+- **GoHighLevel integration prep extended** with 6 more typed event hooks
+  (Portal Activated, Requirement Missing, Taobao OTP Needed, Master Brain
+  Submitted, Training Scheduled, Certificate Ready) — still no real
+  API/webhook call, same as Step 5's original hooks
+- Everything from Steps 1-6 remains unchanged and was re-verified
+
+### Student Data Isolation (Security Note)
+
+Student A can never see Student B's data in this build: the real Student
+Portal always resolves the current student from the **logged-in session**
+(`AuthenticatedUser.linkedStudentId`), never from a URL parameter, and every
+portal page reads that one student through `StudentPortalContext`. **This
+is still a client-side, browser-only demo.** A production build must
+enforce ownership at the backend/database level (e.g. row-level security
+keyed to the authenticated user) — nothing in this repository does that
+yet, and the same is true of the role-based login redirect described above.
 
 ## What's Included in Step 6
 
@@ -275,11 +396,17 @@ voiding never deletes a record; it's marked and kept in history.
 
 ## Not Yet Built (future steps)
 
-The full Master Brain questionnaire, real Course/LMS video hosting, a
-working GoHighLevel connection (only typed hook points exist today), real
-production multi-account authentication, server-side enforcement of the
-Step 5 permission matrix (demo only ever logs in as Owner — the matrix only
-controls what the UI shows), real-time push notifications, real QR-code
-scanning for attendance (only the identifier data model is prepared), and
-the Student Portal (including the "My Payment" self-service view and
-controlled visibility of Zoom session details).
+The full Master Brain questionnaire (only the status workflow + Save &
+Continue Later architecture exist), real Course/LMS video hosting (Step 7
+only built the course-access-gated catalog view), a working GoHighLevel
+connection (only typed hook points exist today, now including the Step 7
+portal events), real production multi-account authentication (this demo's
+login resolves a role from a seeded email — there are no real passwords or
+sessions), server-side enforcement of the Step 5 permission matrix or of
+Step 7's student data isolation (both are UI-only in this build — a real
+backend must enforce every one of these checks itself), real-time push
+notifications, real QR-code scanning for attendance (only the identifier
+data model is prepared), a real portal account-creation/provisioning
+workflow (Portal Access today just flips a local demo flag — no email is
+actually sent), and a full support helpdesk (Step 7 only built a simple
+request log, by design).

@@ -85,6 +85,8 @@ export interface RecordPaymentInput {
   date: string; // yyyy-mm-dd from a date input
   proof: UploadedFileMeta | null;
   notes: string;
+  /** Defaults to the demo admin — the Student Portal's Submit Payment form passes the student's own name so the ledger correctly shows who submitted it. */
+  recordedBy?: string;
 }
 
 export interface RecordExpenseInput {
@@ -155,7 +157,7 @@ export function FinanceStoreProvider({ children }: { children: ReactNode }) {
           status: "Pending Verification",
           proof: input.proof,
           notes: input.notes,
-          recordedBy: CURRENT_DEMO_USER,
+          recordedBy: input.recordedBy ?? CURRENT_DEMO_USER,
           verifiedBy: null,
           verifiedAt: null,
           rejectedReason: null,
@@ -166,7 +168,8 @@ export function FinanceStoreProvider({ children }: { children: ReactNode }) {
 
       appendActivity(
         input.student.id,
-        `Payment recorded: ${formatPeso(input.amount)} (${input.type}) — ${created.id}, pending verification`,
+        `Payment ${input.recordedBy ? "submitted by student" : "recorded"}: ${formatPeso(input.amount)} (${input.type}) — ${created.id}, pending verification`,
+        input.recordedBy,
       );
 
       return created;

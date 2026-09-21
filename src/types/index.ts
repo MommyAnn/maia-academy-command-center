@@ -2,7 +2,7 @@
 // These describe the shapes the UI expects. In later steps these will be
 // backed by real API/database responses instead of demo data.
 
-export type UserRole = "Owner" | "Administrator" | "Staff";
+export type UserRole = "Owner" | "Administrator" | "Staff" | "Student";
 
 export interface AuthenticatedUser {
   id: string;
@@ -10,6 +10,10 @@ export interface AuthenticatedUser {
   email: string;
   role: UserRole;
   avatarInitials: string;
+  /** Set when role === "Student" — the StudentRecord.id this session is scoped to. */
+  linkedStudentId?: string;
+  /** Set when role === "Staff" — the StaffRecord.id this session is scoped to. */
+  linkedStaffId?: string;
 }
 
 export type AttentionSeverity = "high" | "medium" | "low";

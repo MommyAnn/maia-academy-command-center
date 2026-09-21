@@ -51,6 +51,8 @@ export interface UploadedFileMeta {
 export interface DocumentRequirement {
   status: DocumentReviewStatus;
   file: UploadedFileMeta | null;
+  /** Student-facing explanation of why a document needs resubmission — set by the reviewing admin, cleared on Verified or a new submission. Optional so existing demo records without it still type-check. */
+  note?: string;
 }
 
 export interface AdminNote {

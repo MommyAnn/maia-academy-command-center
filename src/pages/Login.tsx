@@ -2,10 +2,25 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, GraduationCap, ShieldCheck, TrendingUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useStudentStore } from "@/data/studentStore";
+import { useStaffStore } from "@/data/staffStore";
 import { Button } from "@/components/common/Button";
+
+function initialsOf(name: string): string {
+  return (
+    name
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "MA"
+  );
+}
 
 export function Login() {
   const { login } = useAuth();
+  const { students } = useStudentStore();
+  const { staff } = useStaffStore();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("owner@maiaacademy.demo");
@@ -25,14 +40,55 @@ export function Login() {
     }
 
     setIsSubmitting(true);
-    const result = await login(email, password);
-    setIsSubmitting(false);
+    // Demo login: any non-empty email/password combination succeeds. The
+    // ONLY thing the email decides is which role/record this demo session
+    // resolves to — a student's email logs them into the Student Portal, a
+    // staff member's email logs them into their staff dashboard, and
+    // anything else (including the Owner's demo email) lands on the Owner
+    // Command Center. No real password is ever checked.
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    if (result.success) {
-      navigate("/dashboard", { replace: true });
+    const normalizedEmail = email.trim().toLowerCase();
+    const student = students.find((s) => s.email.toLowerCase() === normalizedEmail);
+    const staffMember = staff.find((s) => s.email.toLowerCase() === normalizedEmail);
+
+    let destination = "/dashboard";
+
+    if (student) {
+      login({
+        id: `session-student-${student.id}`,
+        name: student.fullName,
+        email: student.email,
+        role: "Student",
+        avatarInitials: initialsOf(student.fullName),
+        linkedStudentId: student.id,
+      });
+      destination = "/portal";
+    } else if (staffMember && staffMember.role !== "Owner") {
+      login({
+        id: `session-staff-${staffMember.id}`,
+        name: staffMember.fullName,
+        email: staffMember.email,
+        role: "Staff",
+        avatarInitials: staffMember.avatarInitials,
+        linkedStaffId: staffMember.id,
+      });
+      destination = `/team/staff/${staffMember.id}/dashboard`;
     } else {
-      setError(result.error ?? "Unable to sign in. Please try again.");
+      const owner = staff.find((s) => s.role === "Owner");
+      login({
+        id: owner?.id ?? "owner-1",
+        name: owner?.fullName ?? "Mommy Ann",
+        email: owner?.email ?? email.trim(),
+        role: "Owner",
+        avatarInitials: owner?.avatarInitials ?? "MA",
+        linkedStaffId: owner?.id,
+      });
+      destination = "/dashboard";
     }
+
+    setIsSubmitting(false);
+    navigate(destination, { replace: true });
   }
 
   return (
@@ -174,7 +230,8 @@ export function Login() {
           </form>
 
           <p className="mt-8 text-center text-xs text-maia-ink-soft">
-            Demo authentication only &middot; any email &amp; password will sign you in as Owner.
+            Demo authentication only &middot; any password works. Use a seeded student or staff
+            email to see their portal/dashboard, or any other email for the Owner view.
           </p>
         </div>
       </div>

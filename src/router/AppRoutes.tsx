@@ -8,6 +8,7 @@ import { AllStudents } from "@/pages/students/AllStudents";
 import { Batches } from "@/pages/students/Batches";
 import { BatchDetail } from "@/pages/students/BatchDetail";
 import { StudentProfile } from "@/pages/students/StudentProfile";
+import { AdminStudentPortalPreview } from "@/pages/students/AdminStudentPortalPreview";
 import { Overview as FinanceOverview } from "@/pages/finance/Overview";
 import { Payments } from "@/pages/finance/Payments";
 import { Receivables } from "@/pages/finance/Receivables";
@@ -31,8 +32,24 @@ import { TrainingSessions } from "@/pages/training/TrainingSessions";
 import { SessionDetail } from "@/pages/training/SessionDetail";
 import { Attendance } from "@/pages/training/Attendance";
 import { Certificates } from "@/pages/training/Certificates";
+import { Announcements as AdminAnnouncements } from "@/pages/communication/Announcements";
+import { SupportRequests as AdminSupportRequests } from "@/pages/communication/SupportRequests";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { StudentProtectedRoute } from "./StudentProtectedRoute";
+import { PortalLayout } from "@/layouts/PortalLayout";
+import { Home as PortalHome } from "@/pages/portal/Home";
+import { Enrollment as PortalEnrollment } from "@/pages/portal/Enrollment";
+import { Payments as PortalPayments } from "@/pages/portal/Payments";
+import { Requirements as PortalRequirements } from "@/pages/portal/Requirements";
+import { Taobao as PortalTaobao } from "@/pages/portal/Taobao";
+import { MasterBrain as PortalMasterBrain } from "@/pages/portal/MasterBrain";
+import { Training as PortalTraining } from "@/pages/portal/Training";
+import { Courses as PortalCourses } from "@/pages/portal/Courses";
+import { Certificates as PortalCertificates } from "@/pages/portal/Certificates";
+import { Announcements as PortalAnnouncements } from "@/pages/portal/Announcements";
+import { Profile as PortalProfile } from "@/pages/portal/Profile";
+import { Support as PortalSupport } from "@/pages/portal/Support";
 import { NAV_SECTIONS } from "@/data/navigation";
 
 const BUILT_PATHS = new Set([
@@ -59,6 +76,8 @@ const BUILT_PATHS = new Set([
   "/training/sessions",
   "/training/attendance",
   "/training/certificates",
+  "/communication/announcements",
+  "/communication/support-requests",
 ]);
 
 export function AppRoutes() {
@@ -66,6 +85,27 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/enroll" element={<EnrollmentForm />} />
+
+      <Route
+        element={
+          <StudentProtectedRoute>
+            <PortalLayout />
+          </StudentProtectedRoute>
+        }
+      >
+        <Route path="/portal" element={<PortalHome />} />
+        <Route path="/portal/enrollment" element={<PortalEnrollment />} />
+        <Route path="/portal/payments" element={<PortalPayments />} />
+        <Route path="/portal/requirements" element={<PortalRequirements />} />
+        <Route path="/portal/taobao" element={<PortalTaobao />} />
+        <Route path="/portal/master-brain" element={<PortalMasterBrain />} />
+        <Route path="/portal/training" element={<PortalTraining />} />
+        <Route path="/portal/courses" element={<PortalCourses />} />
+        <Route path="/portal/certificates" element={<PortalCertificates />} />
+        <Route path="/portal/announcements" element={<PortalAnnouncements />} />
+        <Route path="/portal/profile" element={<PortalProfile />} />
+        <Route path="/portal/support" element={<PortalSupport />} />
+      </Route>
 
       <Route
         element={
@@ -80,6 +120,7 @@ export function AppRoutes() {
         <Route path="/students/batches" element={<Batches />} />
         <Route path="/students/batches/:batch" element={<BatchDetail />} />
         <Route path="/students/:studentId" element={<StudentProfile />} />
+        <Route path="/students/:studentId/portal-preview" element={<AdminStudentPortalPreview />} />
 
         <Route path="/finance/overview" element={<FinanceOverview />} />
         <Route path="/finance/payments" element={<Payments />} />
@@ -107,6 +148,9 @@ export function AppRoutes() {
         <Route path="/training/sessions/:sessionId" element={<SessionDetail />} />
         <Route path="/training/attendance" element={<Attendance />} />
         <Route path="/training/certificates" element={<Certificates />} />
+
+        <Route path="/communication/announcements" element={<AdminAnnouncements />} />
+        <Route path="/communication/support-requests" element={<AdminSupportRequests />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))
