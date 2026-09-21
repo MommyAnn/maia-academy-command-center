@@ -33,7 +33,22 @@ export type TaobaoStatus =
   | "Login Details Ready"
   | "Login Details Given to Student";
 
-export type MasterBrainStatus = "Not Started" | "In Progress" | "Submitted" | "Under Review" | "Completed";
+// Expanded for Step 8 (Brand Master Brain Builder) — see src/types/masterBrain.ts
+// for the full questionnaire/document data model this status heads up. Kept
+// on StudentRecord (rather than only inside the Master Brain store) since
+// existing Step 2/4/5 code already reads/filters on this single field.
+export type MasterBrainStatus =
+  | "Not Started"
+  | "In Progress"
+  | "Submitted"
+  | "Under Review"
+  | "Needs Revision"
+  | "Approved for Generation"
+  | "Generating"
+  | "Draft Ready"
+  | "Final Review"
+  | "Completed"
+  | "Published";
 
 /**
  * Metadata about a file the student "uploaded" during enrollment.

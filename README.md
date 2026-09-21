@@ -3,13 +3,14 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 7 of the build:** The complete Student Portal, on top of Step 1
-> (Login + App Shell), Step 2 (Enrollment Form + Student Records + Student
-> Profile), Step 3 (Finance & Payment Management), Step 4 (Owner Executive
-> Dashboard & Business Analytics), Step 5 (Staff, Task Management &
-> Operations System), and Step 6 (Inventory, Training, Attendance &
-> Certificate Operations). All data is DEMO/LOCAL DATA and is not connected
-> to a real database, authentication system, or file storage backend yet.
+> **Step 8 of the build:** The M.A.I.A. Brand Master Brain Builder, on top
+> of Step 1 (Login + App Shell), Step 2 (Enrollment Form + Student Records +
+> Student Profile), Step 3 (Finance & Payment Management), Step 4 (Owner
+> Executive Dashboard & Business Analytics), Step 5 (Staff, Task Management
+> & Operations System), Step 6 (Inventory, Training, Attendance &
+> Certificate Operations), and Step 7 (the complete Student Portal). All
+> data is DEMO/LOCAL DATA and is not connected to a real database,
+> authentication system, AI API, or file storage backend yet.
 
 ## Tech Stack
 
@@ -82,6 +83,9 @@ src/
                         Taobao, MasterBrain, Training, Courses, Certificates,
                         Announcements, Profile, Support) — same components render both a
                         real student's own session and the admin "View As Student" preview
+  pages/portal/masterBrain/  The 12-step Brand Master Brain questionnaire wizard
+  pages/masterbrain/      Admin Master Brain Dashboard (Overview, Submissions,
+                        SubmissionDetail, DocumentEditor, Templates)
   layouts/              App shell layouts (AppLayout for Admin/Staff, PortalLayout for
                         the Student Portal — sidebar + header + content in each)
   components/
@@ -89,27 +93,32 @@ src/
     dashboard/          Dashboard-specific cards (KPI cards, charts, tables, ...)
     enrollment/         Public Enrollment Form steps, file upload UI, terms modal
     students/           Student list filters, status badges, Student Profile tabs
-                        (including the new Portal tab: access controls + update requests)
+                        (including the Portal tab: access controls + update requests,
+                        and the Master Brain tab linking into the review pipeline)
     finance/            Payment/expense/adjustment modals, finance stat cards & filters
     team/               Staff/task modals (StaffFormModal, TaskFormModal, ReassignModal,
                         ApplyTemplateModal), PermissionsMatrixView, TaskFiltersBar, status meta
     inventory/          Item/Stock In/Stock Out/Supplier modals + detail views, status meta
     training/           Session form modal, status meta for sessions/attendance/certificates
-    portal/             Student Portal sidebar/header, notifications, status meta — shared
-                        by the real portal and the admin preview
-    common/             Reusable UI primitives (Card, Button, Modal, Tabs, TextField, ConfirmDialog, ...)
+    portal/             Student Portal sidebar/header, notifications, status meta, the
+                        published Master Brain document viewer — shared by the real portal
+                        and the admin preview
+    portal/masterBrainSteps/  The 12 questionnaire step components + shared repeatable-list
+                        editor, reused by the wizard
+    common/             Reusable UI primitives (Card, Button, Modal, Tabs, TextField,
+                        TextAreaField, ChipMultiSelect, ConfirmDialog, ...)
   context/               AuthContext (demo authentication + role resolution) and
                         StudentPortalContext (which student a portal page is currently
                         showing — real session or admin preview)
   router/                AppRoutes, ProtectedRoute (admin/staff), StudentProtectedRoute
   data/                  DEMO DATA, config, and the local student/finance/staff/task/
-                        inventory/training/portal stores — kept separate from UI so real
-                        API/DB calls can replace them later
+                        inventory/training/portal/masterBrain stores — kept separate from
+                        UI so real API/DB calls can replace them later
   integrations/          Prepared, hooks-only integration points (e.g. GoHighLevel) — not
                         connected to any real external service yet
   types/                 Shared TypeScript types/interfaces
   utils/                 Formatting, ID generation, and finance/task/inventory/training/
-                        portal calculation helpers
+                        portal/masterBrain calculation helpers
 ```
 
 ## Data & Persistence Notice (Important)
@@ -140,6 +149,117 @@ Total paid, remaining balance, and payment status (Unpaid / Partial
 Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
+
+## What's Included in Step 8
+
+The **M.A.I.A. Brand Master Brain Builder** — a full questionnaire →
+review → generation → publish pipeline built on top of Step 7's stub. See
+`src/types/masterBrain.ts` for the full data model and
+`src/data/masterBrainStore.tsx` for the workflow store.
+
+- **Two separate records, enforced in code**: a student's questionnaire
+  answers (`MasterBrainSubmission`) and the final Brand Master Brain
+  (`MasterBrainDocument`) are never the same object and never overwrite
+  each other — generating a draft reads the submission but only ever
+  writes a new document version; requesting a revision or editing a
+  document section never touches the original answers
+- **12-step questionnaire wizard** (`/portal/master-brain/questionnaire`):
+  Business Foundation, Founder, Products & Services (multiple offers +
+  Primary Offer), Target Market (multiple Customer Avatars), Customer
+  Problems (narrative + a structured Pain Point database), Customer
+  Desires & Goals, Brand Positioning (+ a structured Positioning Builder),
+  Brand Personality & Voice (trait/voice chip selectors), Marketing &
+  Sales (channels, sales process, content info), Competitors (multiple,
+  clearly labeled as the student's own observations, not verified facts),
+  Business Goals & Growth (3-month/6-month/12-month/3-year + challenges +
+  strategic priorities), and Final Review & Submission (every answer
+  grouped by section with **Edit Section** jump links, live completion %,
+  a missing-required-fields checklist, and a confirmation dialog)
+- **Save & Continue Later**: a progress bar, "Step X of 12", a clickable
+  step navigator (only reachable up to the furthest step visited), and
+  explicit **Save Draft** / **Previous** / **Next** controls with sticky
+  mobile placement — edits stay in local wizard state and only persist to
+  the store on Save Draft/Next/Submit, not on every keystroke. Progress %,
+  current step, questionnaire version, started/last-saved/submitted dates
+  are all tracked per submission
+- **11-status Master Brain workflow**: Not Started → In Progress →
+  Submitted → Under Review → (Needs Revision ⇄ resubmit) → Approved for
+  Generation → Generating → Draft Ready → Final Review → Completed →
+  Published — the same status also mirrors onto `StudentRecord.masterBrainStatus`
+  so every existing Step 2/4/5 view (Student Profile, Dashboard filters,
+  `?masterBrain=` query links) keeps working unchanged
+- **Admin Master Brain Dashboard** (`/master-brain/*`): **Overview** (live
+  KPI tiles for all 11 statuses + an Action Center), **Submissions** (a
+  full table — Student ID/Student/Business Name/Batch/Package/Progress/
+  Status/Submitted Date/Assigned To/Last Updated/Action — with a status
+  filter and an Assign Reviewer action), a **Submission Detail** view
+  showing every questionnaire answer grouped by section (read-only, with
+  internal admin notes, full revision history, and submission version
+  history) plus **Request Revision** (section + specific question + reason)
+  and **Approve for Generation** actions, and **Templates / Versions** (the
+  active questionnaire version, with template/version management
+  explicitly noted as prepared architecture, not built yet)
+- **Deterministic, non-AI draft generation** (`src/utils/masterBrain.ts`,
+  `generateMasterBrainDraft`): transforms a submission into the 19-section
+  Brand Master Brain structure (Brand Overview, Brand Foundation, Founder/
+  Brand Story, Products & Services, Target Market, Customer Avatars, Pain
+  Points, Customer Desires, Brand Positioning, Brand Personality, Brand
+  Voice, Core Messaging, Content Pillars, Marketing Strategy Foundation,
+  Sales Foundation, Competitive Differentiation, Business Goals, Strategic
+  Priorities, and AI Brand Instructions) by rearranging exactly what the
+  student typed — **it is a template transform, not a real AI call**, and
+  any section without enough information says so explicitly instead of
+  inventing content
+- **Admin section-based Document Editor**: per-section Content + Bullet
+  Points editing, **Approve Section**, **Add Section** for one-off custom
+  sections, a **Final Review checklist** (the 8 items from the spec) that
+  gates the **Approve Master Brain** button, and **Publish to Student** —
+  publishing marks that document version as the one current published
+  version for the student (older/other versions are kept, never erased,
+  ready for the "multiple versions" architecture in section 43 of the
+  spec)
+- **Student "My Master Brain"**: a Not Started CTA, an In Progress
+  continue card, a Needs Revision screen that shows exactly which
+  section/question needs updating (with an Update My Answers button back
+  into the wizard), a waiting-on-review screen, and — once Published — a
+  premium, mobile-responsive **document view** with a table of contents,
+  all 19 sections, **Copy Section**, **Copy My AI Brand Context** (a
+  structured clipboard summary meant for pasting into external AI tools),
+  and **Print** (Save-as-PDF works today; a real downloadable export file
+  is intentionally not faked)
+- **Task automation extended** (Step 5's engine, same dedup-key pattern):
+  Submitted/Under Review creates a review task, Needs Revision creates a
+  follow-up task, Approved for Generation creates a "prepare draft" task,
+  Draft Ready creates a "final review" task, and Completed creates a
+  "publish" task — each auto-completes once the submission moves past that
+  stage
+- **Notifications extended**: the student bell (and Home Dashboard) now
+  surfaces "Master Brain needs revision" and "Your Brand Master Brain is
+  ready!"; the admin bell already surfaces the new Master Brain tasks
+  through its existing overdue/due-today task notifications, so no
+  duplicate notification logic was needed
+- **Owner Dashboard**: the Master Brain Progress breakdown widget now
+  covers all 11 statuses, and the Action Center gained a **Master Brains
+  Needing Final Approval** item alongside the existing **Master Brains
+  Awaiting Review** item (both link straight into a pre-filtered
+  Submissions view)
+- **Permissions**: admin Master Brain review actions are gated with the
+  existing Step 5 permission matrix — requesting a revision needs the
+  `Master Brain` module's `edit` action, while Approve for Generation/
+  Approve Master Brain/Publish need `verify` (Owner/Administrator have
+  this by default; Student Success Coordinator can review and request
+  revisions but not approve/publish, matching the spec's reviewer vs.
+  approver split)
+- **A real bug found and fixed while testing this step**: student/staff
+  sessions store a `linkedStudentId`/`linkedStaffId` that must keep
+  resolving after a hard page reload, but the demo seed data
+  (`DEMO_STUDENTS`/`DEMO_STAFF`) generates fresh random ids on every
+  module load. Every demo store now persists its seed data to
+  `localStorage` immediately on first load (not only after the first
+  edit), so those ids — and every other store's seeded foreign-key
+  references to them — stay stable across reloads from the very first
+  visit
+- Everything from Steps 1-7 remains unchanged and was re-verified
 
 ## What's Included in Step 7
 
@@ -396,17 +516,25 @@ yet, and the same is true of the role-based login redirect described above.
 
 ## Not Yet Built (future steps)
 
-The full Master Brain questionnaire (only the status workflow + Save &
-Continue Later architecture exist), real Course/LMS video hosting (Step 7
-only built the course-access-gated catalog view), a working GoHighLevel
-connection (only typed hook points exist today, now including the Step 7
-portal events), real production multi-account authentication (this demo's
-login resolves a role from a seeded email — there are no real passwords or
-sessions), server-side enforcement of the Step 5 permission matrix or of
-Step 7's student data isolation (both are UI-only in this build — a real
-backend must enforce every one of these checks itself), real-time push
+Real Course/LMS video hosting (Step 7 only built the course-access-gated
+catalog view), a working GoHighLevel connection (only typed hook points
+exist today, now including the Step 8 Master Brain events), a real AI
+provider connection for Master Brain generation (Step 8's generator is a
+deterministic template transform, explicitly not a real AI call — see
+"What's Included in Step 8" above), real production multi-account
+authentication (this demo's login resolves a role from a seeded email —
+there are no real passwords or sessions), server-side enforcement of the
+Step 5 permission matrix, Step 7's student data isolation, or Step 8's
+Master Brain privacy rules (all UI-only in this build — a real backend
+must enforce every one of these checks itself), real-time push
 notifications, real QR-code scanning for attendance (only the identifier
 data model is prepared), a real portal account-creation/provisioning
 workflow (Portal Access today just flips a local demo flag — no email is
-actually sent), and a full support helpdesk (Step 7 only built a simple
-request log, by design).
+actually sent), a full support helpdesk (Step 7 only built a simple
+request log, by design), a real Master Brain document export/download file
+(Print/Save-as-PDF works today; no PDF/DOCX generation engine exists), and
+multiple businesses per student or multiple questionnaire template
+versions (the data model is prepared for both — `businessId` on every
+Master Brain record, `documentVersion` on every document — but the UI
+still assumes one business and one active questionnaire version per
+student).

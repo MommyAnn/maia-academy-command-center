@@ -42,6 +42,12 @@ function loadInitialStudents(): StudentRecord[] {
   } catch {
     // Corrupt/blocked localStorage falls back to seed demo data below.
   }
+  // Persist immediately (not just on the first edit) so the random ids
+  // DEMO_STUDENTS generates this load are the SAME ids a hard page reload
+  // sees next — otherwise a session's stored linkedStudentId would point at
+  // an id that no longer exists after reload, since demoStudents.ts
+  // re-generates fresh crypto.randomUUID()s on every module evaluation.
+  persist(DEMO_STUDENTS);
   return DEMO_STUDENTS;
 }
 

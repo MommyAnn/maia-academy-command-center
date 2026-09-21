@@ -31,6 +31,9 @@ function loadInitialStaff(): StaffRecord[] {
   } catch {
     // Corrupt/blocked localStorage falls back to seed demo data below.
   }
+  // Persist immediately so a session's stored linkedStaffId still resolves
+  // after a hard reload — see the matching comment in studentStore.tsx.
+  persist(DEMO_STAFF);
   return DEMO_STAFF;
 }
 

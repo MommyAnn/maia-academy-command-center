@@ -50,7 +50,13 @@ export const MASTER_BRAIN_STATUS_TONE: Record<MasterBrainStatus, Tone> = {
   "In Progress": "info",
   Submitted: "warning",
   "Under Review": "gold",
+  "Needs Revision": "danger",
+  "Approved for Generation": "info",
+  Generating: "info",
+  "Draft Ready": "gold",
+  "Final Review": "gold",
   Completed: "success",
+  Published: "success",
 };
 
 export const ENROLLMENT_STATUS_OPTIONS: EnrollmentStatus[] = [

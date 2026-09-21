@@ -32,6 +32,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Overview", path: "/master-brain/overview" },
       { label: "Submissions", path: "/master-brain/submissions" },
+      { label: "Templates / Versions", path: "/master-brain/templates" },
     ],
   },
   {

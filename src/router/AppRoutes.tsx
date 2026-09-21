@@ -34,6 +34,11 @@ import { Attendance } from "@/pages/training/Attendance";
 import { Certificates } from "@/pages/training/Certificates";
 import { Announcements as AdminAnnouncements } from "@/pages/communication/Announcements";
 import { SupportRequests as AdminSupportRequests } from "@/pages/communication/SupportRequests";
+import { Overview as MasterBrainOverview } from "@/pages/masterbrain/Overview";
+import { Submissions as MasterBrainSubmissions } from "@/pages/masterbrain/Submissions";
+import { SubmissionDetail as MasterBrainSubmissionDetail } from "@/pages/masterbrain/SubmissionDetail";
+import { DocumentEditor as MasterBrainDocumentEditor } from "@/pages/masterbrain/DocumentEditor";
+import { Templates as MasterBrainTemplates } from "@/pages/masterbrain/Templates";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { StudentProtectedRoute } from "./StudentProtectedRoute";
@@ -44,6 +49,7 @@ import { Payments as PortalPayments } from "@/pages/portal/Payments";
 import { Requirements as PortalRequirements } from "@/pages/portal/Requirements";
 import { Taobao as PortalTaobao } from "@/pages/portal/Taobao";
 import { MasterBrain as PortalMasterBrain } from "@/pages/portal/MasterBrain";
+import { Questionnaire as PortalMasterBrainQuestionnaire } from "@/pages/portal/masterBrain/Questionnaire";
 import { Training as PortalTraining } from "@/pages/portal/Training";
 import { Courses as PortalCourses } from "@/pages/portal/Courses";
 import { Certificates as PortalCertificates } from "@/pages/portal/Certificates";
@@ -78,6 +84,9 @@ const BUILT_PATHS = new Set([
   "/training/certificates",
   "/communication/announcements",
   "/communication/support-requests",
+  "/master-brain/overview",
+  "/master-brain/submissions",
+  "/master-brain/templates",
 ]);
 
 export function AppRoutes() {
@@ -99,6 +108,7 @@ export function AppRoutes() {
         <Route path="/portal/requirements" element={<PortalRequirements />} />
         <Route path="/portal/taobao" element={<PortalTaobao />} />
         <Route path="/portal/master-brain" element={<PortalMasterBrain />} />
+        <Route path="/portal/master-brain/questionnaire" element={<PortalMasterBrainQuestionnaire />} />
         <Route path="/portal/training" element={<PortalTraining />} />
         <Route path="/portal/courses" element={<PortalCourses />} />
         <Route path="/portal/certificates" element={<PortalCertificates />} />
@@ -151,6 +161,12 @@ export function AppRoutes() {
 
         <Route path="/communication/announcements" element={<AdminAnnouncements />} />
         <Route path="/communication/support-requests" element={<AdminSupportRequests />} />
+
+        <Route path="/master-brain/overview" element={<MasterBrainOverview />} />
+        <Route path="/master-brain/submissions" element={<MasterBrainSubmissions />} />
+        <Route path="/master-brain/submissions/:submissionId" element={<MasterBrainSubmissionDetail />} />
+        <Route path="/master-brain/submissions/:submissionId/editor/:documentId" element={<MasterBrainDocumentEditor />} />
+        <Route path="/master-brain/templates" element={<MasterBrainTemplates />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

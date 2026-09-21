@@ -52,12 +52,18 @@ function loadInitialState(): TrainingState {
   } catch {
     // Corrupt/blocked localStorage falls back to seed demo data below.
   }
-  return {
+  // Persist immediately — see the matching comment in studentStore.tsx and
+  // financeStore.tsx: these seed records reference student ids resolved
+  // against DEMO_STUDENTS at this exact load, so both must freeze together
+  // on load #1 or a reload regenerates mismatched random ids on each side.
+  const seeded = {
     sessions: DEMO_SESSIONS,
     enrollments: DEMO_SESSION_ENROLLMENTS,
     certificates: DEMO_CERTIFICATES,
     eligibilitySettings: DEFAULT_ELIGIBILITY_SETTINGS,
   };
+  persist(seeded);
+  return seeded;
 }
 
 function persist(state: TrainingState) {

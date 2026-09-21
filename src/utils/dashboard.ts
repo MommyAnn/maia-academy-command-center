@@ -87,7 +87,13 @@ export function getMasterBrainCounts(students: StudentRecord[]) {
     "In Progress": students.filter((s) => s.masterBrainStatus === "In Progress").length,
     Submitted: students.filter((s) => s.masterBrainStatus === "Submitted").length,
     "Under Review": students.filter((s) => s.masterBrainStatus === "Under Review").length,
+    "Needs Revision": students.filter((s) => s.masterBrainStatus === "Needs Revision").length,
+    "Approved for Generation": students.filter((s) => s.masterBrainStatus === "Approved for Generation").length,
+    Generating: students.filter((s) => s.masterBrainStatus === "Generating").length,
+    "Draft Ready": students.filter((s) => s.masterBrainStatus === "Draft Ready").length,
+    "Final Review": students.filter((s) => s.masterBrainStatus === "Final Review").length,
     Completed: students.filter((s) => s.masterBrainStatus === "Completed").length,
+    Published: students.filter((s) => s.masterBrainStatus === "Published").length,
   };
 }
 

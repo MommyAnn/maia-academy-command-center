@@ -282,7 +282,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        if (s.masterBrainStatus === "Submitted") {
+        if (s.masterBrainStatus === "Submitted" || s.masterBrainStatus === "Under Review") {
           addAuto({
             key: `masterbrain-review-${s.id}`,
             title: `Review Master Brain submission: ${s.fullName}`,
@@ -297,7 +297,67 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           });
         }
 
+        if (s.masterBrainStatus === "Needs Revision") {
+          addAuto({
+            key: `masterbrain-followup-${s.id}`,
+            title: `Follow up on Master Brain revision: ${s.fullName}`,
+            description: `${s.fullName} (${s.studentId}) was asked to revise their Master Brain questionnaire.`,
+            category: "Master Brain",
+            priority: "Low",
+            role: "Student Success Coordinator",
+            dueOffsetDays: 4,
+            relatedStudentId: s.id,
+            relatedStudentName: s.fullName,
+            relatedBatch: s.batch,
+          });
+        }
+
+        if (s.masterBrainStatus === "Approved for Generation") {
+          addAuto({
+            key: `masterbrain-prepare-draft-${s.id}`,
+            title: `Prepare Master Brain draft: ${s.fullName}`,
+            description: `${s.fullName} (${s.studentId})'s Master Brain was approved for generation — generate and prepare the draft.`,
+            category: "Master Brain",
+            priority: "Medium",
+            role: "Student Success Coordinator",
+            dueOffsetDays: 2,
+            relatedStudentId: s.id,
+            relatedStudentName: s.fullName,
+            relatedBatch: s.batch,
+          });
+        }
+
+        if (s.masterBrainStatus === "Draft Ready") {
+          addAuto({
+            key: `masterbrain-final-review-${s.id}`,
+            title: `Final review Master Brain: ${s.fullName}`,
+            description: `${s.fullName} (${s.studentId})'s Master Brain draft is ready — complete the final review checklist.`,
+            category: "Master Brain",
+            priority: "Medium",
+            role: "Student Success Coordinator",
+            dueOffsetDays: 2,
+            relatedStudentId: s.id,
+            relatedStudentName: s.fullName,
+            relatedBatch: s.batch,
+          });
+        }
+
         if (s.masterBrainStatus === "Completed") {
+          addAuto({
+            key: `masterbrain-publish-${s.id}`,
+            title: `Publish Master Brain: ${s.fullName}`,
+            description: `${s.fullName} (${s.studentId})'s Master Brain is approved — publish it to their Student Portal.`,
+            category: "Master Brain",
+            priority: "Medium",
+            role: "Student Success Coordinator",
+            dueOffsetDays: 1,
+            relatedStudentId: s.id,
+            relatedStudentName: s.fullName,
+            relatedBatch: s.batch,
+          });
+        }
+
+        if (s.masterBrainStatus === "Completed" || s.masterBrainStatus === "Published") {
           addAuto({
             key: `certificate-prep-${s.id}`,
             title: `Prepare certificate: ${s.fullName}`,
@@ -472,7 +532,23 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         } else if (t.autoTriggerKey.startsWith("masterbrain-review-")) {
           const studentId = t.autoTriggerKey.replace("masterbrain-review-", "");
           const student = students.find((s) => s.id === studentId);
-          resolved = !student || student.masterBrainStatus !== "Submitted";
+          resolved = !student || (student.masterBrainStatus !== "Submitted" && student.masterBrainStatus !== "Under Review");
+        } else if (t.autoTriggerKey.startsWith("masterbrain-followup-")) {
+          const studentId = t.autoTriggerKey.replace("masterbrain-followup-", "");
+          const student = students.find((s) => s.id === studentId);
+          resolved = !student || student.masterBrainStatus !== "Needs Revision";
+        } else if (t.autoTriggerKey.startsWith("masterbrain-prepare-draft-")) {
+          const studentId = t.autoTriggerKey.replace("masterbrain-prepare-draft-", "");
+          const student = students.find((s) => s.id === studentId);
+          resolved = !student || student.masterBrainStatus !== "Approved for Generation";
+        } else if (t.autoTriggerKey.startsWith("masterbrain-final-review-")) {
+          const studentId = t.autoTriggerKey.replace("masterbrain-final-review-", "");
+          const student = students.find((s) => s.id === studentId);
+          resolved = !student || student.masterBrainStatus !== "Draft Ready";
+        } else if (t.autoTriggerKey.startsWith("masterbrain-publish-")) {
+          const studentId = t.autoTriggerKey.replace("masterbrain-publish-", "");
+          const student = students.find((s) => s.id === studentId);
+          resolved = !student || student.masterBrainStatus !== "Completed";
         } else if (t.autoTriggerKey.startsWith("enrollment-verify-")) {
           const studentId = t.autoTriggerKey.replace("enrollment-verify-", "");
           const student = students.find((s) => s.id === studentId);

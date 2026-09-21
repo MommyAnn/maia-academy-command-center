@@ -57,7 +57,13 @@ const MASTER_BRAIN_COLORS: Record<string, string> = {
   "In Progress": "#3b6ea8",
   Submitted: "#b3781c",
   "Under Review": "#c8a44d",
+  "Needs Revision": "#b3402f",
+  "Approved for Generation": "#3b6ea8",
+  Generating: "#3b6ea8",
+  "Draft Ready": "#c8a44d",
+  "Final Review": "#c8a44d",
   Completed: "#2f7d5a",
+  Published: "#2f7d5a",
 };
 
 const TAOBAO_COLORS: Record<string, string> = {
@@ -223,7 +229,14 @@ export function Dashboard() {
       label: "Master Brains Awaiting Review",
       count: actionCounts.masterBrainToReview,
       severity: "low" as const,
-      onClick: () => navigate(`/students/all?masterBrain=${encodeURIComponent("Submitted")}`),
+      onClick: () => navigate(`/master-brain/submissions?status=${encodeURIComponent("Under Review")}`),
+    },
+    {
+      id: "master-brain-final-approval",
+      label: "Master Brains Needing Final Approval",
+      count: masterBrainCounts["Final Review"],
+      severity: "medium" as const,
+      onClick: () => navigate(`/master-brain/submissions?status=${encodeURIComponent("Final Review")}`),
     },
     {
       id: "students-balance",
@@ -289,7 +302,7 @@ export function Dashboard() {
       label: "Master Brain to Review",
       count: actionCounts.masterBrainToReview,
       icon: ACTION_CENTER_ICONS.masterBrain,
-      onClick: () => navigate(`/students/all?masterBrain=${encodeURIComponent("Submitted")}`),
+      onClick: () => navigate(`/master-brain/submissions?status=${encodeURIComponent("Under Review")}`),
     },
     {
       key: "balance",

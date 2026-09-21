@@ -52,11 +52,18 @@ function loadInitialState(): FinanceState {
   } catch {
     // Corrupt/blocked localStorage falls back to seed demo data below.
   }
-  return {
+  // Persist immediately — these seed records reference student ids resolved
+  // against DEMO_STUDENTS at this exact load, and studentStore.tsx now
+  // freezes that same-load student array on first read too. Both must
+  // persist on load #1, or a reload would regenerate mismatched random ids
+  // on each side.
+  const seeded = {
     transactions: DEMO_PAYMENT_TRANSACTIONS,
     adjustments: DEMO_PACKAGE_ADJUSTMENTS,
     expenses: DEMO_EXPENSES,
   };
+  persist(seeded);
+  return seeded;
 }
 
 function persist(state: FinanceState) {

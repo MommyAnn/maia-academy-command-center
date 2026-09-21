@@ -108,7 +108,7 @@ export const DEMO_STUDENTS: StudentRecord[] = [
     proofOfPayment: { status: "Verified", file: { fileName: "carlos-pop.jpg", fileSizeLabel: "1.0 MB", fileType: "image/jpeg", uploadedAt: "2026-09-10T08:30:00+08:00" } },
     payment: { packagePrice: PACKAGE_PRICES["Dual VIP"] },
     taobao: { status: "Login Details Ready", username: "maia.b14.carlos", dateCreated: "2026-09-12T11:00:00+08:00", dateGiven: null, adminNotes: "" },
-    masterBrainStatus: "Completed",
+    masterBrainStatus: "Published",
   }),
   makeStudent({
     batchCode: "14",

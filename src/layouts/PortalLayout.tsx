@@ -8,6 +8,7 @@ import { StudentTopHeader } from "@/components/portal/StudentTopHeader";
 import { PORTAL_NAV_ITEMS } from "@/data/portalNavigation";
 
 function resolvePageTitle(pathname: string): string {
+  if (pathname === "/portal/master-brain/questionnaire") return "My Master Brain";
   for (const item of PORTAL_NAV_ITEMS) {
     if (item.path === pathname) return item.label;
   }

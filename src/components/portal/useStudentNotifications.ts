@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, ClipboardCheck, MessageSquareWarning, ShoppingBag } from "lucide-react";
+import { Brain, CalendarClock, ClipboardCheck, MessageSquareWarning, ShoppingBag } from "lucide-react";
 import { createElement, type ReactNode } from "react";
 import { useStudentPortal } from "@/context/StudentPortalContext";
 import { useTrainingStore } from "@/data/trainingStore";
@@ -54,6 +54,23 @@ export function useStudentNotifications(): StudentNotificationItem[] {
         message: "Your Taobao account is ready.",
         icon: createElement(ShoppingBag, { size: 15, className: "text-maia-success" }),
         onClick: () => navigate("/portal/taobao"),
+      });
+    }
+
+    if (student.masterBrainStatus === "Needs Revision") {
+      list.push({
+        id: "masterbrain-needs-revision",
+        message: "Your Master Brain needs revision — please check My Master Brain.",
+        icon: createElement(Brain, { size: 15, className: "text-maia-danger" }),
+        onClick: () => navigate("/portal/master-brain"),
+      });
+    }
+    if (student.masterBrainStatus === "Published") {
+      list.push({
+        id: "masterbrain-published",
+        message: "Your Brand Master Brain is ready!",
+        icon: createElement(Brain, { size: 15, className: "text-maia-success" }),
+        onClick: () => navigate("/portal/master-brain"),
       });
     }
 

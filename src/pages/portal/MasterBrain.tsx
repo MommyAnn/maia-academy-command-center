@@ -1,155 +1,156 @@
-import { useState } from "react";
-import { Brain, Save, Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Brain, Sparkles } from "lucide-react";
 import { Card, CardHeader } from "@/components/common/Card";
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { ProgressBar } from "@/components/common/ProgressBar";
-import { TextField } from "@/components/common/TextField";
+import { PublishedMasterBrainDocument } from "@/components/portal/PublishedMasterBrainDocument";
 import { useStudentPortal } from "@/context/StudentPortalContext";
-import { useStudentStore } from "@/data/studentStore";
-import { usePortalStore } from "@/data/portalStore";
+import { useMasterBrainStore } from "@/data/masterBrainStore";
 import { MASTER_BRAIN_STATUS_TONE } from "@/components/students/statusMeta";
+import { stepLabel } from "@/utils/masterBrain";
 import { formatDateTime } from "@/utils/students";
-import type { MasterBrainStatus } from "@/types/student";
 
-const WORKFLOW_STEPS: MasterBrainStatus[] = ["Not Started", "In Progress", "Submitted", "Under Review", "Completed"];
+const FINALIZING_STATUSES = ["Approved for Generation", "Generating", "Draft Ready", "Final Review", "Completed"];
 
 export function MasterBrain() {
   const { student } = useStudentPortal();
-  const { updateMasterBrainStatus } = useStudentStore();
-  const { masterBrainProgress, saveMasterBrainProgress } = usePortalStore();
-  const [businessBrand, setBusinessBrand] = useState(
-    () => masterBrainProgress.find((p) => p.studentId === student.id)?.businessBrand ?? "",
-  );
+  const { getSubmissionForStudent, getPublishedDocument, startSubmission } = useMasterBrainStore();
+  const navigate = useNavigate();
 
-  const progress = masterBrainProgress.find((p) => p.studentId === student.id);
-  const currentStepIndex = WORKFLOW_STEPS.indexOf(student.masterBrainStatus);
+  const submission = getSubmissionForStudent(student.id);
+  const publishedDoc = getPublishedDocument(student.id);
+  const status = submission?.status ?? "Not Started";
 
   function handleStart() {
-    updateMasterBrainStatus(student.id, "In Progress");
-    saveMasterBrainProgress(student.id, { progressPercent: 0 });
+    startSubmission(student.id);
+    navigate("/portal/master-brain/questionnaire");
   }
 
-  function handleSaveProgress() {
-    const nextPercent = Math.min(100, (progress?.progressPercent ?? 0) + 20);
-    saveMasterBrainProgress(student.id, { progressPercent: nextPercent, businessBrand });
+  if (status === "Not Started" || !submission) {
+    return (
+      <Card>
+        <div className="flex flex-col items-center gap-4 py-8 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-maia-gold-bg text-maia-gold-deep">
+            <Brain size={26} strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 className="font-display text-lg font-bold text-maia-ink">Build Your Brand Master Brain</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-maia-ink-soft">
+              Your Brand Master Brain will become the central intelligence of your business — helping AI understand
+              your brand, customers, offers, positioning, voice, strategy and direction.
+            </p>
+          </div>
+          <Button onClick={handleStart}>
+            <Sparkles size={15} />
+            START MY BRAND MASTER BRAIN
+          </Button>
+        </div>
+      </Card>
+    );
   }
 
-  function handleSubmit() {
-    saveMasterBrainProgress(student.id, { progressPercent: 100, businessBrand });
-    updateMasterBrainStatus(student.id, "Submitted");
+  if (status === "Published" && publishedDoc) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Card className="no-print border-maia-success/30 bg-maia-success-bg/40">
+          <p className="font-display text-base font-bold text-maia-ink">Your Brand Master Brain is Ready!</p>
+          <p className="mt-1 text-sm text-maia-ink-soft">
+            This is your business&rsquo;s central intelligence document — use it to brief AI tools, your team, or
+            anyone helping grow your brand.
+          </p>
+        </Card>
+        <PublishedMasterBrainDocument document={publishedDoc} businessName={submission.businessFoundation.businessName} />
+      </div>
+    );
   }
 
-  return (
-    <div className="flex flex-col gap-4">
+  if (status === "In Progress") {
+    return (
       <Card>
         <CardHeader
-          title="Master Brain Status"
-          subtitle="Your business/brand questionnaire workflow."
-          action={<Badge tone={MASTER_BRAIN_STATUS_TONE[student.masterBrainStatus]}>{student.masterBrainStatus}</Badge>}
+          title="My Master Brain"
+          subtitle="Continue where you left off."
+          action={<Badge tone={MASTER_BRAIN_STATUS_TONE[status]}>{status}</Badge>}
         />
-
-        <div className="flex flex-wrap items-center gap-2">
-          {WORKFLOW_STEPS.map((step, idx) => (
-            <div key={step} className="flex items-center gap-2">
-              <span
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                  idx <= currentStepIndex
-                    ? "bg-maia-gold text-maia-black"
-                    : "border border-maia-border text-maia-ink-soft"
-                }`}
-              >
-                {step}
-              </span>
-              {idx < WORKFLOW_STEPS.length - 1 && <span className="text-maia-ink-soft/50">&rarr;</span>}
-            </div>
-          ))}
+        <div className="mb-4">
+          <div className="mb-2 flex items-end justify-between text-sm">
+            <p className="text-maia-ink">
+              Step {submission.currentStep} of 12 — {stepLabel(submission.currentStep)}
+            </p>
+            <p className="font-display font-bold text-maia-gold-deep">{submission.progressPercent}%</p>
+          </div>
+          <ProgressBar percent={submission.progressPercent} />
         </div>
-      </Card>
-
-      <Card className="border-maia-gold/30 bg-maia-gold-bg/30">
-        <div className="flex items-start gap-3">
-          <Brain size={18} className="mt-0.5 flex-shrink-0 text-maia-gold-deep" />
-          <p className="text-sm text-maia-ink-soft">
-            The full Master Brain questionnaire is not available yet. This page previews the workflow and the
-            Save &amp; Continue Later architecture the full questionnaire will use — your progress here is not a
-            complete business plan submission.
-          </p>
-        </div>
-      </Card>
-
-      {student.masterBrainStatus === "Not Started" && (
-        <Card>
-          <p className="mb-4 text-sm text-maia-ink-soft">
-            Ready to begin? Starting will open your Master Brain workspace so you can save progress and come back
-            anytime.
-          </p>
-          <Button onClick={handleStart}>START MY MASTER BRAIN</Button>
-        </Card>
-      )}
-
-      {student.masterBrainStatus === "In Progress" && (
-        <Card>
-          <CardHeader title="Save & Continue Later" subtitle="Your progress is saved so you never lose your place." />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Submission ID" value={progress?.submissionId.slice(0, 8) ?? "—"} />
-              <Field label="Questionnaire Version" value={progress?.questionnaireVersion ?? "v1.0"} />
-              <Field label="Last Saved" value={progress?.lastSaved ? formatDateTime(progress.lastSaved) : "Not saved yet"} />
-              <Field label="Progress" value={`${progress?.progressPercent ?? 0}%`} />
-            </div>
-
-            <div className="mt-4">
-              <ProgressBar percent={progress?.progressPercent ?? 0} />
-            </div>
-
-            <div className="mt-5">
-              <TextField
-                label="Business / Brand Name"
-                value={businessBrand}
-                onChange={(e) => setBusinessBrand(e.target.value)}
-                placeholder="e.g. Juana's Home Finds"
-                hint="A starting point for your questionnaire — the full set of questions will be added in a later build."
-              />
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={handleSaveProgress}>
-                <Save size={14} />
-                SAVE & CONTINUE LATER
-              </Button>
-              <Button onClick={handleSubmit}>
-                <Send size={14} />
-                SUBMIT FOR REVIEW
-              </Button>
-            </div>
-          </Card>
+        {submission.lastSaved && (
+          <p className="mb-4 text-xs text-maia-ink-soft">Last saved {formatDateTime(submission.lastSaved)}</p>
         )}
+        <Button onClick={() => navigate(`/portal/master-brain/questionnaire?step=${submission.currentStep}`)}>
+          CONTINUE MY ASSESSMENT
+        </Button>
+      </Card>
+    );
+  }
 
-      {(student.masterBrainStatus === "Submitted" || student.masterBrainStatus === "Under Review") && (
+  if (status === "Needs Revision") {
+    const unresolved = submission.revisionRequests.filter((r) => !r.resolved);
+    return (
+      <div className="flex flex-col gap-4">
         <Card>
-          <p className="text-sm text-maia-ink-soft">
-            Your Master Brain submission is with the Academy for review. You&rsquo;ll be notified here once it&rsquo;s
-            reviewed.
-          </p>
+          <CardHeader
+            title="Master Brain Needs Revision"
+            subtitle="The M.A.I.A. team asked for updates on a few answers."
+            action={<Badge tone={MASTER_BRAIN_STATUS_TONE[status]}>{status}</Badge>}
+          />
+          <div className="flex flex-col gap-3">
+            {unresolved.map((r) => (
+              <div key={r.id} className="flex items-start gap-2.5 rounded-xl border border-maia-danger/30 bg-maia-danger-bg px-4 py-3.5">
+                <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-maia-danger" />
+                <div>
+                  <p className="text-sm font-semibold text-maia-ink">
+                    {r.section}
+                    {r.question ? ` — ${r.question}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-sm text-maia-ink-soft">{r.reason}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <Button className="mt-4" onClick={() => navigate(`/portal/master-brain/questionnaire?step=${submission.currentStep}`)}>
+            UPDATE MY ANSWERS
+          </Button>
         </Card>
-      )}
+      </div>
+    );
+  }
 
-      {student.masterBrainStatus === "Completed" && (
-        <Card>
-          <p className="text-sm text-maia-ink-soft">
-            Your Master Brain is complete! The Academy will reach out with your next steps.
-          </p>
-        </Card>
-      )}
-    </div>
-  );
-}
+  if (status === "Submitted" || status === "Under Review") {
+    return (
+      <Card>
+        <CardHeader
+          title="My Master Brain"
+          subtitle="Your assessment is with the M.A.I.A. team for review."
+          action={<Badge tone={MASTER_BRAIN_STATUS_TONE[status]}>{status}</Badge>}
+        />
+        <p className="text-sm text-maia-ink-soft">
+          You&rsquo;ll be notified here once it&rsquo;s reviewed. This usually takes a few business days.
+        </p>
+      </Card>
+    );
+  }
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold uppercase tracking-wide text-maia-ink-soft">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-maia-ink">{value}</dd>
-    </div>
-  );
+  if (FINALIZING_STATUSES.includes(status)) {
+    return (
+      <Card>
+        <CardHeader
+          title="My Master Brain"
+          subtitle="Your Brand Master Brain is being finalized by the M.A.I.A. team."
+          action={<Badge tone={MASTER_BRAIN_STATUS_TONE[status]}>{status}</Badge>}
+        />
+        <p className="text-sm text-maia-ink-soft">No action is needed from you right now — check back soon!</p>
+      </Card>
+    );
+  }
+
+  return null;
 }
