@@ -71,12 +71,14 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRoleName, PermissionMatrix> =
     Tasks: VIEW_EDIT,
     Calendar: VIEW_ONLY,
     Announcements: VIEW_ONLY,
+    Feedback: VIEW_EDIT,
   }),
   "Training Coordinator": buildPermissionMatrix({
     Dashboard: VIEW_ONLY,
     Students: VIEW_ONLY,
     Training: ALL_ACTIONS,
     Certificates: ALL_ACTIONS,
+    Courses: VIEW_EDIT,
     Batches: VIEW_ONLY,
     Tasks: VIEW_EDIT,
     Calendar: VIEW_EDIT,
@@ -90,6 +92,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRoleName, PermissionMatrix> =
   "Marketing Staff": buildPermissionMatrix({
     Dashboard: VIEW_ONLY,
     Announcements: ALL_ACTIONS,
+    "Feedback - Marketing": ALL_ACTIONS,
     Reports: VIEW_ONLY,
     Tasks: VIEW_EDIT,
     Calendar: VIEW_ONLY,

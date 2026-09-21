@@ -30,6 +30,8 @@ export const TASK_CATEGORY_TONE: Record<TaskCategory, Tone> = {
   Inventory: "neutral",
   Marketing: "neutral",
   "Event Prep": "warning",
+  Courses: "gold",
+  Feedback: "info",
   General: "neutral",
 };
 

@@ -3,8 +3,6 @@
 import type { StudentRecord } from "@/types/student";
 import type {
   Announcement,
-  Course,
-  CourseAccessGrant,
   SupportRequest,
   UpdateRequest,
 } from "@/types/portal";
@@ -44,20 +42,10 @@ export function isAnnouncementVisibleToStudent(announcement: Announcement, stude
   }
 }
 
-/** Whether `student` currently has access to `course`, either via its access rule or a manual grant — never assumes every student gets every course. */
-export function hasCourseAccess(course: Course, student: StudentRecord, manualGrants: CourseAccessGrant[]): boolean {
-  const manuallyGranted = manualGrants.some((g) => g.studentId === student.id && g.courseId === course.id);
-  if (manuallyGranted) return true;
-
-  const rule = course.accessRule;
-  if (rule.packages && !rule.packages.includes(student.package)) return false;
-  if (rule.batches && !rule.batches.includes(student.batch)) return false;
-  if (rule.requiresConfirmedEnrollment) {
-    const notReady = student.enrollmentStatus === "Pending Verification" || student.enrollmentStatus === "Incomplete Requirements";
-    if (notReady) return false;
-  }
-  return true;
-}
+// hasCourseAccess used to live here as a Step 7 stub. Step 9 builds the
+// full course access resolver (package matrix + individual grants + the
+// configurable full-payment automation rule) — see resolveCourseAccess in
+// src/utils/lms.ts.
 
 // ---------------------------------------------------------------------------
 // "MY JOURNEY" tracker + "WHAT'S NEXT?" — the Student Home Dashboard's two

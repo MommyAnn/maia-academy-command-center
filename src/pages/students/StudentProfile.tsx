@@ -10,6 +10,7 @@ import { MasterBrainTab } from "@/components/students/profile/MasterBrainTab";
 import { TasksTab } from "@/components/students/profile/TasksTab";
 import { TrainingTab } from "@/components/students/profile/TrainingTab";
 import { CertificatesTab } from "@/components/students/profile/CertificatesTab";
+import { LearningTab } from "@/components/students/profile/LearningTab";
 import { NotesTab } from "@/components/students/profile/NotesTab";
 import { ActivityTab } from "@/components/students/profile/ActivityTab";
 import { PortalTab } from "@/components/students/profile/PortalTab";
@@ -24,6 +25,7 @@ const TABS = [
   { value: "tasks", label: "Tasks" },
   { value: "training", label: "Training" },
   { value: "certificates", label: "Certificates" },
+  { value: "learning", label: "Learning" },
   { value: "portal", label: "Student Portal" },
   { value: "notes", label: "Admin Notes" },
   { value: "activity", label: "Activity History" },
@@ -54,6 +56,7 @@ export function StudentProfile() {
       {tab === "tasks" && <TasksTab student={student} />}
       {tab === "training" && <TrainingTab student={student} />}
       {tab === "certificates" && <CertificatesTab student={student} />}
+      {tab === "learning" && <LearningTab student={student} />}
       {tab === "portal" && <PortalTab student={student} />}
       {tab === "notes" && <NotesTab student={student} />}
       {tab === "activity" && <ActivityTab student={student} />}

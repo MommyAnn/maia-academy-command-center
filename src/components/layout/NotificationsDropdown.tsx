@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Award, Bell, CalendarClock, ClipboardCheck, PackageX } from "lucide-react";
+import { AlertTriangle, Award, Bell, CalendarClock, ClipboardCheck, MessageSquareHeart, PackageX, Video } from "lucide-react";
 import { useTaskStore } from "@/data/taskStore";
 import { useFinanceStore } from "@/data/financeStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
+import { useFeedbackStore } from "@/data/feedbackStore";
 import { isTaskDueToday, isTaskOverdue } from "@/utils/staffTasks";
 import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
 
@@ -31,6 +32,7 @@ export function NotificationsDropdown() {
   const { transactions } = useFinanceStore();
   const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
   const { sessions, enrollments, certificates } = useTrainingStore();
+  const { submissions: feedbackSubmissions, consents } = useFeedbackStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,8 +140,41 @@ export function NotificationsDropdown() {
       });
     }
 
+    const pendingFeedback = feedbackSubmissions.filter((s) => !s.isDraft && s.status === "Submitted");
+    if (pendingFeedback.length > 0) {
+      list.push({
+        id: "feedback-needs-review",
+        message: `${pendingFeedback.length} feedback submission(s) need review`,
+        icon: <MessageSquareHeart size={15} className="text-maia-gold-deep" />,
+        onClick: () => navigate("/feedback/all?status=Submitted"),
+      });
+    }
+
+    const newVideoFeedback = pendingFeedback.filter((s) => s.videoAsset);
+    if (newVideoFeedback.length > 0) {
+      list.push({
+        id: "new-video-feedback",
+        message: `${newVideoFeedback.length} new video testimonial(s) submitted`,
+        icon: <Video size={15} className="text-maia-info" />,
+        onClick: () => navigate("/feedback/all?type=Video"),
+      });
+    }
+
+    const recentConsents = consents.filter((c) => c.status === "Granted");
+    const pendingApproval = feedbackSubmissions.filter(
+      (s) => !s.isDraft && s.status !== "Approved for Marketing" && s.status !== "Featured" && recentConsents.some((c) => c.feedbackId === s.feedbackId),
+    );
+    if (pendingApproval.length > 0) {
+      list.push({
+        id: "marketing-consent-granted",
+        message: `${pendingApproval.length} feedback record(s) have marketing consent awaiting review`,
+        icon: <Award size={15} className="text-maia-gold-deep" />,
+        onClick: () => navigate("/feedback/all"),
+      });
+    }
+
     return list.slice(0, 10);
-  }, [tasks, transactions, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, navigate]);
+  }, [tasks, transactions, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions, consents, navigate]);
 
   return (
     <div className="relative" ref={containerRef}>

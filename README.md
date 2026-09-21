@@ -3,14 +3,16 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 8 of the build:** The M.A.I.A. Brand Master Brain Builder, on top
-> of Step 1 (Login + App Shell), Step 2 (Enrollment Form + Student Records +
-> Student Profile), Step 3 (Finance & Payment Management), Step 4 (Owner
-> Executive Dashboard & Business Analytics), Step 5 (Staff, Task Management
-> & Operations System), Step 6 (Inventory, Training, Attendance &
-> Certificate Operations), and Step 7 (the complete Student Portal). All
-> data is DEMO/LOCAL DATA and is not connected to a real database,
-> authentication system, AI API, or file storage backend yet.
+> **Step 9 of the build:** M.A.I.A. Course Access + LMS + Global Feedback &
+> Testimonial System, on top of Step 1 (Login + App Shell), Step 2
+> (Enrollment Form + Student Records + Student Profile), Step 3 (Finance &
+> Payment Management), Step 4 (Owner Executive Dashboard & Business
+> Analytics), Step 5 (Staff, Task Management & Operations System), Step 6
+> (Inventory, Training, Attendance & Certificate Operations), Step 7 (the
+> complete Student Portal), and Step 8 (the M.A.I.A. Brand Master Brain
+> Builder). All data is DEMO/LOCAL DATA and is not connected to a real
+> database, authentication system, AI API, video hosting, or file storage
+> backend yet.
 
 ## Tech Stack
 
@@ -80,12 +82,17 @@ src/
                         SessionDetail, Attendance, Certificates)
   pages/communication/    Admin-side Announcements + Support Requests pages
   pages/portal/          Student Portal pages (Home, Enrollment, Payments, Requirements,
-                        Taobao, MasterBrain, Training, Courses, Certificates,
-                        Announcements, Profile, Support) — same components render both a
-                        real student's own session and the admin "View As Student" preview
+                        Taobao, MasterBrain, Training, Courses, CoursePage, LessonPlayer,
+                        Certificates, Feedback, FeedbackSubmit, Announcements, Profile,
+                        Support) — same components render both a real student's own
+                        session and the admin "View As Student" preview
   pages/portal/masterBrain/  The 12-step Brand Master Brain questionnaire wizard
   pages/masterbrain/      Admin Master Brain Dashboard (Overview, Submissions,
                         SubmissionDetail, DocumentEditor, Templates)
+  pages/courses/          Admin Course/LMS pages (Library, CourseBuilder, CourseManage,
+                        StudentAccess, Progress, Resources)
+  pages/feedback/         Admin Global Feedback pages (Overview, Requests, AllFeedback,
+                        FeedbackDetail, MarketingLibrary, Incentives, Settings)
   layouts/              App shell layouts (AppLayout for Admin/Staff, PortalLayout for
                         the Student Portal — sidebar + header + content in each)
   components/
@@ -112,8 +119,8 @@ src/
                         showing — real session or admin preview)
   router/                AppRoutes, ProtectedRoute (admin/staff), StudentProtectedRoute
   data/                  DEMO DATA, config, and the local student/finance/staff/task/
-                        inventory/training/portal/masterBrain stores — kept separate from
-                        UI so real API/DB calls can replace them later
+                        inventory/training/portal/masterBrain/lms/feedback stores — kept
+                        separate from UI so real API/DB calls can replace them later
   integrations/          Prepared, hooks-only integration points (e.g. GoHighLevel) — not
                         connected to any real external service yet
   types/                 Shared TypeScript types/interfaces
@@ -149,6 +156,152 @@ Total paid, remaining balance, and payment status (Unpaid / Partial
 Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
+
+## What's Included in Step 9
+
+**M.A.I.A. Course Access + LMS + Global Feedback & Testimonial System.**
+See `src/types/lms.ts` / `src/data/lmsStore.tsx` for the LMS domain and
+`src/types/feedback.ts` / `src/data/feedbackStore.tsx` for the feedback
+domain. This fully supersedes Step 7's course-access stub (removed from
+`src/types/portal.ts` / `src/utils/portal.ts` / `src/data/portalConfig.ts`
+— it was never wired to any admin UI, so nothing broke).
+
+**Course Access & LMS**
+
+- **Course Library** (`/courses/library`) — cards for every course with
+  category, instructor, module/lesson counts, students-with-access count,
+  and VIEW / EDIT / MANAGE LESSONS / MANAGE ACCESS / DUPLICATE / ARCHIVE
+  actions. Categories (`COURSE_CATEGORIES` in `src/types/lms.ts`) are
+  configurable, not hard-coded into any component.
+- **Course Builder** (`/courses/builder`, `/courses/:id/edit`) — course
+  metadata, page content (introduction / learning outcomes / who this is
+  for / requirements), access type (Package / Manual / Open), certificate
+  eligibility, and Save Draft / Publish / Preview.
+- **Module & Lesson Manager** (`/courses/:id`) — add/edit/reorder/archive
+  modules; add/edit/reorder/publish lessons with type (Video / Text /
+  Downloadable Resource / External Resource / Assignment / Quiz
+  Placeholder / Live Session-Replay), a video-provider field prepared for a
+  real Vimeo/secure-hosting integration later (an embed reference only,
+  never a raw playback URL — hiding a download button is explicitly **not**
+  treated as real protection anywhere in this build), and attached
+  resources.
+- **Course access resolution** (`resolveCourseAccess` in `src/utils/lms.ts`)
+  layers, in order: an active individual `CourseAccessGrant` → the
+  Package→Courses matrix (`/courses/access`, sample mapping, fully
+  admin-editable) → an `Open` course flag — falling back to
+  Expired/Revoked-specific or a generic Locked reason with a
+  student-friendly explanation. A configurable, off-by-default automation
+  toggle (Settings-style, see `CourseAccessAutomationSettings`) can require
+  Fully Paid + Confirmed before package access unlocks.
+- **Course/lesson progress** is never a stored, duplicated field — every
+  page computes it live from `LessonProgress` records via
+  `computeCourseProgress()`, the same "always compute from the ledger"
+  principle Finance uses for a student's balance.
+- **Student Course Library** (`/portal/courses`) — a M.A.I.A.-branded (not
+  Netflix-branded) learning library: Continue Learning row, category rows
+  filtered to the student's actually-accessible courses, a Completed
+  Courses section, and a "More Courses" row showing locked courses with
+  their unlock reason.
+- **Course Page** (`/portal/courses/:id`) and **Lesson Player**
+  (`/portal/courses/:id/lessons/:lessonId`) — sequential Completed / Current
+  / Locked lesson states, a responsive layout (content first on mobile,
+  content + course-content side panel on desktop), Previous/Next
+  navigation, and Mark as Complete.
+- **Student Access** (`/courses/access`) — the package matrix plus
+  individual grant/remove/extend, all logged to the student's Activity
+  History. **Progress** (`/courses/progress`) — a filterable admin table
+  (student/batch/package/course/progress %/lessons completed/last
+  accessed/status/completion date). **Resources** (`/courses/resources`) —
+  every lesson resource in one filterable list.
+- **Student Profile → Learning tab** — Courses Available/Started/Completed,
+  overall progress, last activity, full course history, and the same
+  grant/remove/extend actions scoped to that one student.
+- **Certificate connection** — when a completed course has
+  `certificateEligible: true`, both the Course Page and the Learning tab
+  surface a "Certificate Eligible" banner/icon linking into the **existing**
+  Step 6 Certificates flow — no duplicate certificate record type was
+  created.
+
+**Global Feedback & Testimonial System** (deliberately global — not nested
+under Courses)
+
+- **CRITICAL separation, enforced in the data model**: a `FeedbackSubmission`
+  (private) and a `MarketingConsent` (optional, separate) are never the
+  same record and never implied by each other. Submitting feedback never
+  touches consent; a student can submit rich, even critical, feedback while
+  leaving the Marketing Permission section untouched.
+- **Share Your Experience / My Feedback** (`/portal/feedback`) — open
+  requests targeted at the student (deduped so the same person is never
+  asked twice for the same source — `hasExistingFeedbackRequest()`), plus a
+  private submission history.
+- **Submit Feedback** (`/portal/feedback/:requestId`) — optional star
+  rating, written feedback (2000-char limit) and/or a video "upload"
+  (filename/size metadata only, with an explicit on-screen notice that no
+  real secure video storage exists), the request's configurable questions,
+  Save Draft / Submit, and a **separate** optional Marketing Permission
+  section (its own consent-statement text, its own permitted-asset
+  checkboxes) that never blocks submission when left unchecked.
+- **Incentives are submission-gated, never rating-gated** —
+  `isEligibleForIncentive()` in `src/utils/feedback.ts` checks only that
+  genuine written/video content exists, never the rating or sentiment. A
+  1-star or constructive submission unlocks a bonus exactly like a 5-star
+  one (see Bea Fernandez's seed data). A Bonus Course incentive grants real
+  access through the same `CourseAccessGrant` system above — never a
+  separate, parallel "access" concept.
+- **Admin Feedback** — Overview (`/feedback/overview`, KPI tiles + feedback
+  by source — ratings are never treated as the sole quality signal),
+  Requests (`/feedback/requests`, create/manage with a configurable
+  question bank), All Feedback (`/feedback/all`, filterable table), and a
+  Review detail page (`/feedback/all/:id`) with internal notes, internal
+  marketing tags, and Mark Reviewed / Approve for Marketing / Keep Private
+  / Feature / Archive. **Approve for Marketing is only enabled when a
+  currently-Granted consent exists** for that exact feedback record.
+- **Marketing Testimonial Library** (`/feedback/marketing-library`) — the
+  curated, public-facing view: a testimonial only appears here with BOTH
+  admin approval AND valid consent, and each card renders only the fields
+  the student's consent actually permits (name form, business name, photo,
+  written/video) — nothing the student didn't authorize.
+- **Consent is revocable without deleting history** —
+  `MarketingConsent.history` is append-only; withdrawing consent adds a
+  "Withdrawn" entry and immediately un-approves any Approved-for-Marketing
+  submission tied to it, but the original Granted record is never erased.
+- **Incentives** (`/feedback/incentives`) — CRUD plus a Redemptions table
+  showing Unlocked/Delivered status per student, with a manual "Mark
+  Delivered" action for non-course resource incentives (a course-bonus
+  incentive is delivered automatically via `CourseAccessGrant`).
+- **Settings** (`/feedback/settings`) — the default question bank and
+  configurable automatic feedback-request triggers. Only "On Course
+  Completed" is wired to a real event in this build (see automation below);
+  the others (Training/Masterclass/Full Program Completed, Free Webinar
+  Attended) are prepared toggles only, honestly labeled as not yet wired —
+  the full Free Webinar Lead System is intentionally **not** built in Step 9.
+- **Permission separation** — `"Feedback"` (private submissions/review) and
+  `"Feedback - Marketing"` (the Marketing Library) are two distinct
+  permission modules (`src/types/staff.ts`). Marketing Staff hold the
+  latter only by default, and the Review detail page hides written
+  feedback/internal notes/answers from a marketing-only viewer unless the
+  student's own consent already makes that content shareable.
+
+**Automation wired into existing Step 5/8 systems** (`src/data/taskStore.tsx`,
+`src/data/feedbackStore.tsx`)
+
+- The first time any student completes a Published course, one course-wide
+  `FeedbackRequest` opens automatically (deduped one-per-course, toggle in
+  Feedback Settings) — so every future completer sees it too.
+- A submitted video testimonial auto-creates a "Review video testimonial"
+  task for Marketing Staff; a rating of 2 or below auto-creates a "Follow
+  up on feedback" task for a Student Success Coordinator — both
+  auto-resolve once the submission moves past "Submitted" (or gets an
+  internal note, for the follow-up task), and both are deduped by a stable
+  `autoTriggerKey` exactly like every other Step 5/6/8 automatic task.
+- Student notifications add Feedback Requested, Bonus Unlocked, and Course
+  Completed; the admin bell adds Feedback Needs Review, New Video
+  Testimonial, and Marketing Consent Granted — all computed live, same
+  "prepared, not real-time" caveat as every other notification in this app.
+- The Owner Dashboard gained one compact card (Courses Active / Students
+  Learning / Courses Completed / Feedback Received / Video Testimonials /
+  Testimonials For Review) — detailed analytics stay inside the Courses and
+  Feedback modules, not the Dashboard.
 
 ## What's Included in Step 8
 
@@ -516,25 +669,36 @@ yet, and the same is true of the role-based login redirect described above.
 
 ## Not Yet Built (future steps)
 
-Real Course/LMS video hosting (Step 7 only built the course-access-gated
-catalog view), a working GoHighLevel connection (only typed hook points
-exist today, now including the Step 8 Master Brain events), a real AI
-provider connection for Master Brain generation (Step 8's generator is a
-deterministic template transform, explicitly not a real AI call — see
-"What's Included in Step 8" above), real production multi-account
-authentication (this demo's login resolves a role from a seeded email —
-there are no real passwords or sessions), server-side enforcement of the
-Step 5 permission matrix, Step 7's student data isolation, or Step 8's
-Master Brain privacy rules (all UI-only in this build — a real backend
-must enforce every one of these checks itself), real-time push
+Real Course/LMS video hosting (Step 9 only prepares a swappable
+provider/embed-reference field — see "What's Included in Step 9" above; no
+Vimeo/DRM integration exists, and hiding a download button is never treated
+as real protection anywhere in this build), real secure video/file upload
+storage for testimonials or lesson resources (every "uploaded" asset in
+Step 9 is filename/size/type metadata only), a working GoHighLevel
+connection (only typed hook points exist today, now including the Step 9
+course/feedback events), a real AI provider connection for Master Brain
+generation (Step 8's generator is a deterministic template transform,
+explicitly not a real AI call — see "What's Included in Step 8" above),
+real production multi-account authentication (this demo's login resolves a
+role from a seeded email — there are no real passwords or sessions),
+server-side enforcement of the Step 5 permission matrix, Step 7's student
+data isolation, Step 8's Master Brain privacy rules, or Step 9's private
+vs. marketing feedback separation (all UI-only in this build — a real
+backend must enforce every one of these checks itself), real-time push
 notifications, real QR-code scanning for attendance (only the identifier
 data model is prepared), a real portal account-creation/provisioning
 workflow (Portal Access today just flips a local demo flag — no email is
 actually sent), a full support helpdesk (Step 7 only built a simple
 request log, by design), a real Master Brain document export/download file
-(Print/Save-as-PDF works today; no PDF/DOCX generation engine exists), and
+(Print/Save-as-PDF works today; no PDF/DOCX generation engine exists),
 multiple businesses per student or multiple questionnaire template
 versions (the data model is prepared for both — `businessId` on every
 Master Brain record, `documentVersion` on every document — but the UI
 still assumes one business and one active questionnaire version per
-student).
+student), the full Free Webinar Lead System (Step 9 only prepares "Free
+Webinar" as a Feedback Source Type, per spec), AI sentiment analysis over
+feedback text (no analysis service exists — "Feedback by Source" counts are
+the only aggregation shown), and automatic feedback-request triggers for
+Training/Masterclass/Full Program completion or Free Webinar attendance
+(the toggles exist in Feedback Settings, honestly labeled as not yet wired
+to a real event — only "On Course Completed" is live).

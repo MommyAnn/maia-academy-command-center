@@ -15,6 +15,8 @@ import { useTaskStore } from "@/data/taskStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { usePortalStore } from "@/data/portalStore";
+import { useLmsStore } from "@/data/lmsStore";
+import { useFeedbackStore } from "@/data/feedbackStore";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceDateFilter, DEFAULT_DATE_FILTER } from "@/components/finance/FinanceDateFilter";
 import { ActionCenterCard, ACTION_CENTER_ICONS, type ActionCenterItem } from "@/components/dashboard/ActionCenterCard";
@@ -31,6 +33,7 @@ import { TrainingAttendanceSnapshotCard } from "@/components/dashboard/TrainingA
 import { NeedsAttentionCard } from "@/components/dashboard/NeedsAttentionCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StudentPortalSnapshotCard } from "@/components/dashboard/StudentPortalSnapshotCard";
+import { LmsFeedbackSnapshotCard } from "@/components/dashboard/LmsFeedbackSnapshotCard";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -50,6 +53,7 @@ import {
   matchesDateFilter,
 } from "@/utils/finance";
 import { formatPeso } from "@/utils/format";
+import { computeCourseProgress } from "@/utils/lms";
 import type { Batch } from "@/types/student";
 
 const MASTER_BRAIN_COLORS: Record<string, string> = {
@@ -96,6 +100,8 @@ export function Dashboard() {
   const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
   const { sessions, enrollments, certificates } = useTrainingStore();
   const { getPortalAccess, updateRequests, supportRequests } = usePortalStore();
+  const { courses: lmsCourses, lessons: lmsLessons, lessonProgress } = useLmsStore();
+  const { submissions: feedbackSubmissions } = useFeedbackStore();
 
   const [dateFilter, setDateFilter] = useState(DEFAULT_DATE_FILTER);
   const [batch, setBatch] = useState("all");
@@ -191,6 +197,22 @@ export function Dashboard() {
   const certsForPrep = certificates.filter((c) => c.status === "For Preparation").length;
   const certsReady = certificates.filter((c) => c.status === "Ready").length;
   const certsIssued = certificates.filter((c) => c.status === "Issued").length;
+
+  const publishedCourses = lmsCourses.filter((c) => c.status === "Published");
+  const scopedCourseProgress = scopedStudents.flatMap((s) =>
+    publishedCourses.map((c) => computeCourseProgress(s.id, c.id, lmsLessons, lessonProgress)),
+  );
+  const coursesActive = publishedCourses.length;
+  const studentsLearning = new Set(
+    scopedStudents
+      .filter((s) => publishedCourses.some((c) => computeCourseProgress(s.id, c.id, lmsLessons, lessonProgress).status === "In Progress"))
+      .map((s) => s.id),
+  ).size;
+  const coursesCompletedCount = scopedCourseProgress.filter((p) => p.status === "Completed").length;
+  const scopedFeedback = feedbackSubmissions.filter((s) => !s.isDraft && scopedStudents.some((st) => st.id === s.studentId));
+  const feedbackReceivedCount = scopedFeedback.length;
+  const videoTestimonialsCount = scopedFeedback.filter((s) => s.videoAsset).length;
+  const testimonialsForReviewCount = scopedFeedback.filter((s) => s.status === "Submitted").length;
 
   const portalAccountsActive = scopedStudents.filter((s) => getPortalAccess(s.id).activated).length;
   const neverLoggedIn = scopedStudents.filter((s) => getPortalAccess(s.id).lastLogin === null).length;
@@ -491,6 +513,15 @@ export function Dashboard() {
         openSupportRequests={openSupportRequests}
         masterBrainNotStarted={masterBrainNotStarted}
         requirementsMissing={actionCounts.incompleteRequirements}
+      />
+
+      <LmsFeedbackSnapshotCard
+        coursesActive={coursesActive}
+        studentsLearning={studentsLearning}
+        coursesCompleted={coursesCompletedCount}
+        feedbackReceived={feedbackReceivedCount}
+        videoTestimonials={videoTestimonialsCount}
+        testimonialsForReview={testimonialsForReviewCount}
       />
 
       <InventorySnapshotCard snapshot={inventorySnapshot} lowStockItems={lowStockAlerts} />

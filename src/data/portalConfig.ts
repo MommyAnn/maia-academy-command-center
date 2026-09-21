@@ -1,13 +1,13 @@
 // Configuration + demo seed data for the Student Portal (Step 7).
 
-import type { Announcement, Course } from "@/types/portal";
+import type { Announcement } from "@/types/portal";
 
 export const CURRENT_DEMO_USER = "Mommy Ann";
 
 // ---------------------------------------------------------------------------
-// DEMO DATA ONLY — sample announcements and courses so the portal has
-// something real-looking to render. None of this is connected to a real
-// CMS or LMS backend.
+// DEMO DATA ONLY — sample announcements so the portal has something
+// real-looking to render. None of this is connected to a real CMS backend.
+// Demo courses now live in src/data/lmsConfig.ts (Step 9's full LMS).
 // ---------------------------------------------------------------------------
 
 export const DEMO_ANNOUNCEMENTS: Announcement[] = [
@@ -73,68 +73,3 @@ export const DEMO_ANNOUNCEMENTS: Announcement[] = [
   },
 ];
 
-export const DEMO_COURSES: Course[] = [
-  {
-    id: "course-importation",
-    name: "Importation Fundamentals",
-    description: "The foundational course every M.A.I.A. student takes — sourcing basics, logistics, and landed cost.",
-    category: "Importation",
-    accessRule: { requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-sourcing",
-    name: "Direct Manufacturer Sourcing Mastery",
-    description: "Go straight to the factory — supplier vetting, negotiation, and sample management.",
-    category: "Direct Manufacturer Sourcing",
-    accessRule: { packages: ["VIP", "Dual VIP"], requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-strategy",
-    name: "Business Strategy Blueprint",
-    description: "Build a business model and roadmap around your imported product line.",
-    category: "Business Strategy",
-    accessRule: { requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-marketing",
-    name: "Strategic Marketing Playbook",
-    description: "Position and price your products for the Philippine market.",
-    category: "Strategic Marketing",
-    accessRule: { requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-fb-ads",
-    name: "Facebook Ads Accelerator",
-    description: "Run profitable Facebook ad campaigns for your import business.",
-    category: "Facebook Ads",
-    accessRule: { packages: ["VIP", "Dual VIP"], requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-ai-creatives",
-    name: "AI Creatives Workshop",
-    description: "Use AI tools to produce ad creatives and product photography at scale.",
-    category: "AI Creatives",
-    accessRule: { packages: ["Dual VIP"], requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-automation",
-    name: "Automation Systems",
-    description: "Automate order processing, customer replies, and fulfillment workflows.",
-    category: "Automation",
-    accessRule: { packages: ["Dual VIP"], requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-live-selling",
-    name: "Live Selling Mastery",
-    description: "Run high-converting live selling sessions on Facebook and TikTok.",
-    category: "Live Selling",
-    accessRule: { requiresConfirmedEnrollment: true },
-  },
-  {
-    id: "course-systems",
-    name: "Business Systems & Scaling",
-    description: "Put SOPs, team structure, and reporting in place to scale beyond a solo operation.",
-    category: "Business Systems",
-    accessRule: { packages: ["VIP", "Dual VIP"], requiresConfirmedEnrollment: true },
-  },
-];

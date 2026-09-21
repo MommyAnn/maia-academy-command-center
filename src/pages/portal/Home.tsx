@@ -5,28 +5,34 @@ import {
   ClipboardList,
   CreditCard,
   FileCheck2,
+  GraduationCap,
   MessagesSquare,
+  PlayCircle,
   ShoppingBag,
 } from "lucide-react";
 import { Card, CardHeader } from "@/components/common/Card";
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
+import { ProgressBar } from "@/components/common/ProgressBar";
 import { useStudentPortal } from "@/context/StudentPortalContext";
 import { useFinanceStore } from "@/data/financeStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { usePortalStore } from "@/data/portalStore";
+import { useLmsStore } from "@/data/lmsStore";
 import { useStudentNotifications } from "@/components/portal/useStudentNotifications";
 import { ENROLLMENT_STATUS_TONE } from "@/components/students/statusMeta";
 import { JOURNEY_STEP_STATUS_TONE } from "@/components/portal/statusMeta";
 import { getStudentFinanceSummary } from "@/utils/finance";
 import { getRequirementsSummary } from "@/utils/students";
 import { computeJourneySteps, computeNextAction, isAnnouncementVisibleToStudent } from "@/utils/portal";
+import { computeCourseProgress, resolveCourseAccess } from "@/utils/lms";
 
 export function Home() {
   const { student } = useStudentPortal();
   const { transactions, adjustments } = useFinanceStore();
   const { sessions, getEnrollmentsForStudent, getCertificatesForStudent } = useTrainingStore();
   const { announcements } = usePortalStore();
+  const { courses, modules, lessons, packageAccessMatrix, accessGrants, lessonProgress, automationSettings } = useLmsStore();
   const notifications = useStudentNotifications();
   const navigate = useNavigate();
 
@@ -35,6 +41,30 @@ export function Home() {
   const certificates = getCertificatesForStudent(student.id);
   const journey = computeJourneySteps({ student, finance, sessionEnrollments, sessions, certificates });
   const nextAction = computeNextAction(journey);
+
+  const isFullyPaidAndConfirmed = finance.status === "Fully Paid" && student.enrollmentStatus === "Confirmed Student";
+  const publishedCourses = courses.filter((c) => c.status === "Published");
+  const courseSummaries = publishedCourses.map((course) => ({
+    course,
+    access: resolveCourseAccess(course, student, packageAccessMatrix, accessGrants, lessons, lessonProgress, automationSettings, isFullyPaidAndConfirmed),
+    progress: computeCourseProgress(student.id, course.id, lessons, lessonProgress),
+  }));
+  const accessibleCourses = courseSummaries.filter(
+    (s) => s.access.status !== "Locked" && s.access.status !== "Revoked" && s.access.status !== "Expired",
+  );
+  const coursesInProgress = accessibleCourses.filter((s) => s.progress.status === "In Progress");
+  const coursesCompleted = accessibleCourses.filter((s) => s.progress.status === "Completed");
+
+  const mostRecentInProgress = coursesInProgress.sort((a, b) =>
+    (b.progress.lastAccessedAt ?? "").localeCompare(a.progress.lastAccessedAt ?? ""),
+  )[0];
+  const mostRecentLessonProgress = mostRecentInProgress
+    ? lessonProgress
+        .filter((p) => p.studentId === student.id && p.courseId === mostRecentInProgress.course.id)
+        .sort((a, b) => b.lastAccessedAt.localeCompare(a.lastAccessedAt))[0]
+    : undefined;
+  const mostRecentLesson = mostRecentLessonProgress ? lessons.find((l) => l.id === mostRecentLessonProgress.lessonId) : undefined;
+  const mostRecentModule = mostRecentLesson ? modules.find((m) => m.id === mostRecentLesson.moduleId) : undefined;
 
   const importantAnnouncement = announcements
     .filter((a) => a.important && isAnnouncementVisibleToStudent(a, student))
@@ -163,9 +193,53 @@ export function Home() {
           icon={<Award size={16} />}
           label="Certificate"
           value={certificates[0]?.status ?? "Not Started"}
-          onClick={() => navigate("/portal/certificates")}
+          onClick={() => navigate("/portal/courses")}
+        />
+        <QuickStatusCard
+          icon={<GraduationCap size={16} />}
+          label="Courses"
+          value={`${accessibleCourses.length} avail · ${coursesInProgress.length} in progress · ${coursesCompleted.length} done`}
+          onClick={() => navigate("/portal/courses")}
         />
       </div>
+
+      {/* Continue Learning */}
+      <Card>
+        <CardHeader title="Continue Learning" action={<Button variant="ghost" size="sm" onClick={() => navigate("/portal/courses")}>MY COURSES</Button>} />
+        {mostRecentInProgress ? (
+          <button
+            onClick={() =>
+              mostRecentLesson
+                ? navigate(`/portal/courses/${mostRecentInProgress.course.id}/lessons/${mostRecentLesson.id}`)
+                : navigate(`/portal/courses/${mostRecentInProgress.course.id}`)
+            }
+            className="flex w-full flex-col gap-3 rounded-xl bg-maia-bg px-4 py-3.5 text-left transition-colors hover:bg-maia-gold-bg sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-maia-gold-bg text-lg">
+                {mostRecentInProgress.course.thumbnailLabel}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-maia-ink">{mostRecentInProgress.course.title}</p>
+                {mostRecentModule && mostRecentLesson && (
+                  <p className="text-xs text-maia-ink-soft">{mostRecentModule.title} · {mostRecentLesson.title}</p>
+                )}
+                <div className="mt-1.5 w-40">
+                  <ProgressBar percent={mostRecentInProgress.progress.percent} />
+                </div>
+              </div>
+            </div>
+            <Button className="w-full sm:w-auto" onClick={(e) => e.stopPropagation()}>
+              <PlayCircle size={14} />
+              CONTINUE ({mostRecentInProgress.progress.percent}%)
+            </Button>
+          </button>
+        ) : (
+          <p className="rounded-xl bg-maia-bg px-4 py-6 text-center text-sm text-maia-ink-soft">
+            {accessibleCourses.length > 0 ? "Start a course to see your progress here." : "No courses available yet."}
+          </p>
+        )}
+      </Card>
 
       {/* Upcoming training preview */}
       <Card>

@@ -39,6 +39,19 @@ import { Submissions as MasterBrainSubmissions } from "@/pages/masterbrain/Submi
 import { SubmissionDetail as MasterBrainSubmissionDetail } from "@/pages/masterbrain/SubmissionDetail";
 import { DocumentEditor as MasterBrainDocumentEditor } from "@/pages/masterbrain/DocumentEditor";
 import { Templates as MasterBrainTemplates } from "@/pages/masterbrain/Templates";
+import { Library as CourseLibrary } from "@/pages/courses/Library";
+import { CourseBuilder } from "@/pages/courses/CourseBuilder";
+import { CourseManage } from "@/pages/courses/CourseManage";
+import { StudentAccess as CourseStudentAccess } from "@/pages/courses/StudentAccess";
+import { Progress as CourseProgress } from "@/pages/courses/Progress";
+import { Resources as CourseResources } from "@/pages/courses/Resources";
+import { Overview as FeedbackOverview } from "@/pages/feedback/Overview";
+import { Requests as FeedbackRequests } from "@/pages/feedback/Requests";
+import { AllFeedback } from "@/pages/feedback/AllFeedback";
+import { FeedbackDetail } from "@/pages/feedback/FeedbackDetail";
+import { MarketingLibrary } from "@/pages/feedback/MarketingLibrary";
+import { Incentives as FeedbackIncentives } from "@/pages/feedback/Incentives";
+import { Settings as FeedbackSettings } from "@/pages/feedback/Settings";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { StudentProtectedRoute } from "./StudentProtectedRoute";
@@ -52,7 +65,11 @@ import { MasterBrain as PortalMasterBrain } from "@/pages/portal/MasterBrain";
 import { Questionnaire as PortalMasterBrainQuestionnaire } from "@/pages/portal/masterBrain/Questionnaire";
 import { Training as PortalTraining } from "@/pages/portal/Training";
 import { Courses as PortalCourses } from "@/pages/portal/Courses";
+import { CoursePage as PortalCoursePage } from "@/pages/portal/CoursePage";
+import { LessonPlayer as PortalLessonPlayer } from "@/pages/portal/LessonPlayer";
 import { Certificates as PortalCertificates } from "@/pages/portal/Certificates";
+import { Feedback as PortalFeedback } from "@/pages/portal/Feedback";
+import { FeedbackSubmit as PortalFeedbackSubmit } from "@/pages/portal/FeedbackSubmit";
 import { Announcements as PortalAnnouncements } from "@/pages/portal/Announcements";
 import { Profile as PortalProfile } from "@/pages/portal/Profile";
 import { Support as PortalSupport } from "@/pages/portal/Support";
@@ -87,6 +104,17 @@ const BUILT_PATHS = new Set([
   "/master-brain/overview",
   "/master-brain/submissions",
   "/master-brain/templates",
+  "/courses/library",
+  "/courses/builder",
+  "/courses/access",
+  "/courses/progress",
+  "/courses/resources",
+  "/feedback/overview",
+  "/feedback/requests",
+  "/feedback/all",
+  "/feedback/marketing-library",
+  "/feedback/incentives",
+  "/feedback/settings",
 ]);
 
 export function AppRoutes() {
@@ -111,7 +139,11 @@ export function AppRoutes() {
         <Route path="/portal/master-brain/questionnaire" element={<PortalMasterBrainQuestionnaire />} />
         <Route path="/portal/training" element={<PortalTraining />} />
         <Route path="/portal/courses" element={<PortalCourses />} />
+        <Route path="/portal/courses/:courseId" element={<PortalCoursePage />} />
+        <Route path="/portal/courses/:courseId/lessons/:lessonId" element={<PortalLessonPlayer />} />
         <Route path="/portal/certificates" element={<PortalCertificates />} />
+        <Route path="/portal/feedback" element={<PortalFeedback />} />
+        <Route path="/portal/feedback/:requestId" element={<PortalFeedbackSubmit />} />
         <Route path="/portal/announcements" element={<PortalAnnouncements />} />
         <Route path="/portal/profile" element={<PortalProfile />} />
         <Route path="/portal/support" element={<PortalSupport />} />
@@ -167,6 +199,22 @@ export function AppRoutes() {
         <Route path="/master-brain/submissions/:submissionId" element={<MasterBrainSubmissionDetail />} />
         <Route path="/master-brain/submissions/:submissionId/editor/:documentId" element={<MasterBrainDocumentEditor />} />
         <Route path="/master-brain/templates" element={<MasterBrainTemplates />} />
+
+        <Route path="/courses/library" element={<CourseLibrary />} />
+        <Route path="/courses/builder" element={<CourseBuilder />} />
+        <Route path="/courses/access" element={<CourseStudentAccess />} />
+        <Route path="/courses/progress" element={<CourseProgress />} />
+        <Route path="/courses/resources" element={<CourseResources />} />
+        <Route path="/courses/:courseId/edit" element={<CourseBuilder />} />
+        <Route path="/courses/:courseId" element={<CourseManage />} />
+
+        <Route path="/feedback/overview" element={<FeedbackOverview />} />
+        <Route path="/feedback/requests" element={<FeedbackRequests />} />
+        <Route path="/feedback/all" element={<AllFeedback />} />
+        <Route path="/feedback/all/:feedbackId" element={<FeedbackDetail />} />
+        <Route path="/feedback/marketing-library" element={<MarketingLibrary />} />
+        <Route path="/feedback/incentives" element={<FeedbackIncentives />} />
+        <Route path="/feedback/settings" element={<FeedbackSettings />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

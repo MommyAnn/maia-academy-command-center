@@ -1,16 +1,13 @@
 // Student Portal support domain types for Step 7 — announcements, support
-// requests, profile/enrollment update requests, portal access records, and
-// the course-access preparation. Backed by demo/local state — see
-// src/data/portalStore.tsx.
+// requests, profile/enrollment update requests, and portal access records.
+// Backed by demo/local state — see src/data/portalStore.tsx.
 //
 // These are intentionally kept separate from StudentRecord itself (Step 2)
 // rather than bolted onto it, so the Student Portal reads/writes through
 // its own small store while still treating StudentRecord as the one
 // source of truth for enrollment/payment/requirements/Taobao/Master Brain
-// data — see the doc comment on PortalAccessRecord and CourseAccessGrant
-// below for why each exists as its own record instead.
-
-import type { Batch, PackageType } from "@/types/student";
+// data — see the doc comment on PortalAccessRecord below for why it exists
+// as its own record instead.
 
 export type AnnouncementAudienceType =
   | "All Students"
@@ -124,59 +121,12 @@ export interface PortalAccessRecord {
   instructionsSentAt: string | null;
 }
 
-export type CourseCategory =
-  | "Importation"
-  | "Direct Manufacturer Sourcing"
-  | "Business Strategy"
-  | "Strategic Marketing"
-  | "Facebook Ads"
-  | "AI Creatives"
-  | "Automation"
-  | "Live Selling"
-  | "Business Systems"
-  | "Other";
-
-export const COURSE_CATEGORIES: CourseCategory[] = [
-  "Importation",
-  "Direct Manufacturer Sourcing",
-  "Business Strategy",
-  "Strategic Marketing",
-  "Facebook Ads",
-  "AI Creatives",
-  "Automation",
-  "Live Selling",
-  "Business Systems",
-  "Other",
-];
-
-/** Access rule for a course — ALL set conditions must match (AND). Leaving a condition unset means "no restriction on that dimension." */
-export interface CourseAccessRule {
-  packages?: PackageType[];
-  batches?: Batch[];
-  requiresConfirmedEnrollment?: boolean;
-}
-
-export interface Course {
-  id: string;
-  name: string;
-  description: string;
-  category: CourseCategory;
-  accessRule: CourseAccessRule;
-}
-
-/**
- * A manual, one-off access grant — e.g. the Academy gives one student
- * access to a course outside their package's normal rule (or a future
- * product purchase would create a record like this too).
- */
-export interface CourseAccessGrant {
-  id: string;
-  studentId: string;
-  courseId: string;
-  grantedBy: string;
-  grantedAt: string;
-  reason: string;
-}
+// NOTE: Course/CourseAccessRule/CourseAccessGrant used to live here as a
+// Step 7 stub ("prepare access rules, not a full LMS yet"). Step 9 builds
+// the complete Course/Module/Lesson/CourseAccess system — see
+// src/types/lms.ts — which fully supersedes this stub. The old fields were
+// never wired to any admin action (no UI ever called grantCourseAccess),
+// so removing them here breaks nothing.
 
 /**
  * Save & Continue Later architecture for Master Brain (spec section 15).

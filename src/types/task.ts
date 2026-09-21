@@ -21,6 +21,8 @@ export type TaskCategory =
   | "Inventory"
   | "Marketing"
   | "Event Prep"
+  | "Courses"
+  | "Feedback"
   | "General";
 
 export const TASK_CATEGORIES: TaskCategory[] = [
@@ -34,6 +36,8 @@ export const TASK_CATEGORIES: TaskCategory[] = [
   "Inventory",
   "Marketing",
   "Event Prep",
+  "Courses",
+  "Feedback",
   "General",
 ];
 

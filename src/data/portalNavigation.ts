@@ -13,6 +13,7 @@ export const PORTAL_NAV_ITEMS: NavLeafItem[] = [
   { label: "My Training", path: "/portal/training" },
   { label: "My Courses", path: "/portal/courses" },
   { label: "My Certificates", path: "/portal/certificates" },
+  { label: "My Feedback", path: "/portal/feedback" },
   { label: "Announcements", path: "/portal/announcements" },
   { label: "My Profile", path: "/portal/profile" },
   { label: "Need Help", path: "/portal/support" },

@@ -17,6 +17,7 @@ import { useFinanceStore } from "@/data/financeStore";
 import { useStaffStore } from "@/data/staffStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
+import { useFeedbackStore } from "@/data/feedbackStore";
 import { getRequirementsBucket } from "@/utils/dashboard";
 import { getStudentFinanceSummary } from "@/utils/finance";
 import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
@@ -136,6 +137,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const { staff } = useStaffStore();
   const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
   const { sessions, enrollments, certificates } = useTrainingStore();
+  const { submissions: feedbackSubmissions } = useFeedbackStore();
 
   const updateTasksState = useCallback((updater: (prev: TaskRecord[]) => TaskRecord[]) => {
     setTasks((prev) => {
@@ -510,6 +512,41 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      for (const submission of feedbackSubmissions) {
+        if (submission.isDraft) continue;
+        const student = students.find((s) => s.id === submission.studentId);
+
+        if (submission.videoAsset) {
+          addAuto({
+            key: `feedback-video-review-${submission.id}`,
+            title: `Review video testimonial: ${submission.sourceLabel}`,
+            description: `${student?.fullName ?? "A student"} submitted a video testimonial (${submission.feedbackId}) for ${submission.sourceLabel} — review and consider for the Marketing Library.`,
+            category: "Feedback",
+            priority: "Medium",
+            role: "Marketing Staff",
+            dueOffsetDays: 3,
+            relatedStudentId: student?.id,
+            relatedStudentName: student?.fullName,
+            relatedBatch: submission.batch,
+          });
+        }
+
+        if (submission.rating !== null && submission.rating <= 2) {
+          addAuto({
+            key: `feedback-followup-${submission.id}`,
+            title: `Follow up on feedback: ${student?.fullName ?? "student"}`,
+            description: `${student?.fullName ?? "A student"} left a low rating (${submission.rating}/5) on ${submission.sourceLabel} (${submission.feedbackId}) — reach out and see how we can help.`,
+            category: "Feedback",
+            priority: "High",
+            role: "Student Success Coordinator",
+            dueOffsetDays: 2,
+            relatedStudentId: student?.id,
+            relatedStudentName: student?.fullName,
+            relatedBatch: submission.batch,
+          });
+        }
+      }
+
       // Auto-complete: resolve automatic tasks whose trigger condition no longer holds.
       for (let i = 0; i < next.length; i++) {
         const t = next[i];
@@ -566,6 +603,14 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         } else if (t.autoTriggerKey.startsWith("certificate-prepare-task::")) {
           const [studentId, batch] = t.autoTriggerKey.replace("certificate-prepare-task::", "").split("::");
           resolved = certificates.some((c) => c.studentId === studentId && c.batch === batch);
+        } else if (t.autoTriggerKey.startsWith("feedback-video-review-")) {
+          const submissionId = t.autoTriggerKey.replace("feedback-video-review-", "");
+          const submission = feedbackSubmissions.find((s) => s.id === submissionId);
+          resolved = !submission || submission.status !== "Submitted";
+        } else if (t.autoTriggerKey.startsWith("feedback-followup-")) {
+          const submissionId = t.autoTriggerKey.replace("feedback-followup-", "");
+          const submission = feedbackSubmissions.find((s) => s.id === submissionId);
+          resolved = !submission || submission.internalNotes.length > 0 || submission.status !== "Submitted";
         }
 
         if (resolved) {
@@ -590,7 +635,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, transactions, adjustments, staff, inventoryItems, inventoryTransactions, sessions, enrollments, certificates]);
+  }, [students, transactions, adjustments, staff, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions]);
 
   const logStudentActivity = useCallback(
     (task: TaskRecord, message: string) => {

@@ -34,7 +34,14 @@ export type GhlEventType =
   | "student.taobao_otp_needed"
   | "student.master_brain_submitted"
   | "training.scheduled"
-  | "certificate.ready";
+  | "certificate.ready"
+  // Course Access & LMS events (Step 9) — same "prepared hook" rule.
+  | "student.course_access_granted"
+  | "student.course_completed"
+  // Global Feedback & Testimonial events (Step 9).
+  | "student.feedback_submitted"
+  | "student.marketing_consent_granted"
+  | "student.incentive_unlocked";
 
 export interface GhlEventPayload {
   type: GhlEventType;

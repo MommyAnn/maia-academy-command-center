@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import type {
   Announcement,
   AnnouncementAudienceType,
-  CourseAccessGrant,
   MasterBrainProgress,
   PortalAccessRecord,
   SupportCategory,
@@ -37,7 +36,6 @@ interface PortalState {
   supportRequests: SupportRequest[];
   updateRequests: UpdateRequest[];
   portalAccess: PortalAccessRecord[];
-  courseAccessGrants: CourseAccessGrant[];
   masterBrainProgress: MasterBrainProgress[];
 }
 
@@ -52,7 +50,6 @@ function loadInitialState(): PortalState {
           supportRequests: parsed.supportRequests ?? [],
           updateRequests: parsed.updateRequests ?? [],
           portalAccess: parsed.portalAccess ?? [],
-          courseAccessGrants: parsed.courseAccessGrants ?? [],
           masterBrainProgress: parsed.masterBrainProgress ?? [],
         };
       }
@@ -65,7 +62,6 @@ function loadInitialState(): PortalState {
     supportRequests: [],
     updateRequests: [],
     portalAccess: [],
-    courseAccessGrants: [],
     masterBrainProgress: [],
   };
 }
@@ -122,7 +118,6 @@ interface PortalStoreValue {
   supportRequests: SupportRequest[];
   updateRequests: UpdateRequest[];
   portalAccess: PortalAccessRecord[];
-  courseAccessGrants: CourseAccessGrant[];
   masterBrainProgress: MasterBrainProgress[];
   getPortalAccess: (studentId: string) => PortalAccessRecord;
   createAnnouncement: (input: CreateAnnouncementInput) => Announcement;
@@ -138,7 +133,6 @@ interface PortalStoreValue {
   resetAccess: (studentId: string) => void;
   recordLogin: (studentId: string) => void;
   saveMasterBrainProgress: (studentId: string, patch: { progressPercent?: number; businessBrand?: string }) => void;
-  grantCourseAccess: (studentId: string, courseId: string, reason: string) => void;
 }
 
 const PortalStoreContext = createContext<PortalStoreValue | undefined>(undefined);
@@ -409,27 +403,12 @@ export function PortalStoreProvider({ children }: { children: ReactNode }) {
     [updateState, appendActivity],
   );
 
-  const grantCourseAccess = useCallback(
-    (studentId: string, courseId: string, reason: string) => {
-      const { iso } = nowParts();
-      updateState((prev) => ({
-        ...prev,
-        courseAccessGrants: [
-          ...prev.courseAccessGrants,
-          { id: crypto.randomUUID(), studentId, courseId, grantedBy: CURRENT_DEMO_USER, grantedAt: iso, reason },
-        ],
-      }));
-    },
-    [updateState],
-  );
-
   const value = useMemo<PortalStoreValue>(
     () => ({
       announcements: state.announcements,
       supportRequests: state.supportRequests,
       updateRequests: state.updateRequests,
       portalAccess: state.portalAccess,
-      courseAccessGrants: state.courseAccessGrants,
       masterBrainProgress: state.masterBrainProgress,
       getPortalAccess,
       createAnnouncement,
@@ -445,7 +424,6 @@ export function PortalStoreProvider({ children }: { children: ReactNode }) {
       resetAccess,
       recordLogin,
       saveMasterBrainProgress,
-      grantCourseAccess,
     }),
     [
       state,
@@ -463,7 +441,6 @@ export function PortalStoreProvider({ children }: { children: ReactNode }) {
       resetAccess,
       recordLogin,
       saveMasterBrainProgress,
-      grantCourseAccess,
     ],
   );
 

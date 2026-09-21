@@ -56,6 +56,9 @@ export const PERMISSION_MODULES = [
   "Calendar",
   "Reports",
   "Announcements",
+  "Courses",
+  "Feedback",
+  "Feedback - Marketing",
   "System Settings",
 ] as const;
 

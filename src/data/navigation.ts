@@ -44,6 +44,27 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Courses",
+    items: [
+      { label: "Course Library", path: "/courses/library" },
+      { label: "Course Builder", path: "/courses/builder" },
+      { label: "Student Access", path: "/courses/access" },
+      { label: "Progress", path: "/courses/progress" },
+      { label: "Resources", path: "/courses/resources" },
+    ],
+  },
+  {
+    label: "Feedback",
+    items: [
+      { label: "Overview", path: "/feedback/overview" },
+      { label: "Requests", path: "/feedback/requests" },
+      { label: "All Feedback", path: "/feedback/all" },
+      { label: "Marketing Library", path: "/feedback/marketing-library" },
+      { label: "Incentives", path: "/feedback/incentives" },
+      { label: "Settings", path: "/feedback/settings" },
+    ],
+  },
+  {
     label: "Inventory",
     items: [
       { label: "All Items", path: "/inventory/all-items" },
