@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ClipboardList, CreditCard, Search, User, Users } from "lucide-react";
+import { Award, CalendarClock, ClipboardList, CreditCard, Package, Search, Truck, User, Users } from "lucide-react";
 import { useStudentStore } from "@/data/studentStore";
 import { useFinanceStore } from "@/data/financeStore";
 import { useTaskStore } from "@/data/taskStore";
 import { useStaffStore } from "@/data/staffStore";
+import { useInventoryStore } from "@/data/inventoryStore";
+import { useTrainingStore } from "@/data/trainingStore";
 
 const MAX_PER_GROUP = 5;
 
@@ -13,6 +15,8 @@ export function GlobalSearch() {
   const { transactions } = useFinanceStore();
   const { tasks } = useTaskStore();
   const { staff } = useStaffStore();
+  const { items, suppliers } = useInventoryStore();
+  const { sessions, certificates } = useTrainingStore();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -31,7 +35,7 @@ export function GlobalSearch() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return { students: [], payments: [], tasks: [], staff: [] };
+    if (!q) return { students: [], payments: [], tasks: [], staff: [], sessions: [], certificates: [], items: [], suppliers: [] };
 
     const studentMatches = students
       .filter((s) =>
@@ -51,11 +55,45 @@ export function GlobalSearch() {
       .filter((s) => `${s.fullName} ${s.staffId} ${s.email} ${s.role}`.toLowerCase().includes(q))
       .slice(0, MAX_PER_GROUP);
 
-    return { students: studentMatches, payments: paymentMatches, tasks: taskMatches, staff: staffMatches };
-  }, [query, students, transactions, tasks, staff]);
+    const sessionMatches = sessions
+      .filter((s) => `${s.sessionId} ${s.title} ${s.batch}`.toLowerCase().includes(q))
+      .slice(0, MAX_PER_GROUP);
+
+    const certificateMatches = certificates
+      .filter((c) => {
+        const student = students.find((s) => s.id === c.studentId);
+        return `${c.certificateId} ${student?.fullName ?? ""} ${c.batch}`.toLowerCase().includes(q);
+      })
+      .slice(0, MAX_PER_GROUP);
+
+    const itemMatches = items
+      .filter((i) => `${i.itemId} ${i.name} ${i.sku} ${i.category}`.toLowerCase().includes(q))
+      .slice(0, MAX_PER_GROUP);
+
+    const supplierMatches = suppliers.filter((s) => `${s.name} ${s.contactPerson}`.toLowerCase().includes(q)).slice(0, MAX_PER_GROUP);
+
+    return {
+      students: studentMatches,
+      payments: paymentMatches,
+      tasks: taskMatches,
+      staff: staffMatches,
+      sessions: sessionMatches,
+      certificates: certificateMatches,
+      items: itemMatches,
+      suppliers: supplierMatches,
+    };
+  }, [query, students, transactions, tasks, staff, sessions, certificates, items, suppliers]);
 
   const hasResults =
-    results.students.length + results.payments.length + results.tasks.length + results.staff.length > 0;
+    results.students.length +
+      results.payments.length +
+      results.tasks.length +
+      results.staff.length +
+      results.sessions.length +
+      results.certificates.length +
+      results.items.length +
+      results.suppliers.length >
+    0;
 
   function goTo(path: string) {
     setOpen(false);
@@ -75,7 +113,7 @@ export function GlobalSearch() {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search students, payments, tasks, staff..."
+          placeholder="Search students, payments, tasks, staff, sessions..."
           className="w-full bg-transparent text-maia-ink outline-none placeholder:text-maia-ink-soft/60"
         />
       </div>
@@ -134,6 +172,51 @@ export function GlobalSearch() {
                       secondary={`${s.staffId} · ${s.role === "Custom Role" ? s.customRoleLabel || "Custom Role" : s.role}`}
                       onClick={() => goTo(`/team/staff/${s.id}`)}
                     />
+                  ))}
+                </ResultGroup>
+              )}
+
+              {results.sessions.length > 0 && (
+                <ResultGroup label="Training Sessions" icon={<CalendarClock size={13} />}>
+                  {results.sessions.map((s) => (
+                    <ResultRow
+                      key={s.id}
+                      primary={s.title}
+                      secondary={`${s.sessionId} · ${s.batch}`}
+                      onClick={() => goTo(`/training/sessions/${s.id}`)}
+                    />
+                  ))}
+                </ResultGroup>
+              )}
+
+              {results.certificates.length > 0 && (
+                <ResultGroup label="Certificates" icon={<Award size={13} />}>
+                  {results.certificates.map((c) => {
+                    const student = students.find((s) => s.id === c.studentId);
+                    return (
+                      <ResultRow
+                        key={c.id}
+                        primary={c.certificateId}
+                        secondary={student?.fullName ?? c.batch}
+                        onClick={() => goTo(student ? `/students/${student.id}` : "/training/certificates")}
+                      />
+                    );
+                  })}
+                </ResultGroup>
+              )}
+
+              {results.items.length > 0 && (
+                <ResultGroup label="Inventory Items" icon={<Package size={13} />}>
+                  {results.items.map((i) => (
+                    <ResultRow key={i.id} primary={i.name} secondary={`${i.itemId} · ${i.sku || "no SKU"}`} onClick={() => goTo("/inventory/all-items")} />
+                  ))}
+                </ResultGroup>
+              )}
+
+              {results.suppliers.length > 0 && (
+                <ResultGroup label="Suppliers" icon={<Truck size={13} />}>
+                  {results.suppliers.map((s) => (
+                    <ResultRow key={s.id} primary={s.name} secondary={s.contactPerson || "No contact person"} onClick={() => goTo("/inventory/suppliers")} />
                   ))}
                 </ResultGroup>
               )}

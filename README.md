@@ -3,10 +3,11 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 5 of the build:** Staff, Task Management & Operations System, on
-> top of Step 1 (Login + App Shell), Step 2 (Enrollment Form + Student
-> Records + Student Profile), Step 3 (Finance & Payment Management), and
-> Step 4 (Owner Executive Dashboard & Business Analytics). All data is
+> **Step 6 of the build:** Inventory, Training, Attendance & Certificate
+> Operations, on top of Step 1 (Login + App Shell), Step 2 (Enrollment Form
+> + Student Records + Student Profile), Step 3 (Finance & Payment
+> Management), Step 4 (Owner Executive Dashboard & Business Analytics), and
+> Step 5 (Staff, Task Management & Operations System). All data is
 > DEMO/LOCAL DATA and is not connected to a real database, authentication
 > system, or file storage backend yet.
 
@@ -59,6 +60,10 @@ src/
   pages/team/             Staff & Task Management pages (StaffManagement, StaffProfile,
                         StaffDashboardPreview, TaskManagement, TaskDetail, TeamCalendar,
                         Workload, ActivityLog)
+  pages/inventory/        Inventory pages (AllItems, StockIn, StockOut, LowStock,
+                        Suppliers, InventoryHistory)
+  pages/training/         Training/Attendance/Certificate pages (TrainingSessions,
+                        SessionDetail, Attendance, Certificates)
   layouts/              App shell layout (AppLayout: sidebar + header + content)
   components/
     layout/             Sidebar, SidebarDrawer, TopHeader, NotificationsDropdown
@@ -68,15 +73,19 @@ src/
     finance/            Payment/expense/adjustment modals, finance stat cards & filters
     team/               Staff/task modals (StaffFormModal, TaskFormModal, ReassignModal,
                         ApplyTemplateModal), PermissionsMatrixView, TaskFiltersBar, status meta
+    inventory/          Item/Stock In/Stock Out/Supplier modals + detail views, status meta
+    training/           Session form modal, status meta for sessions/attendance/certificates
     common/             Reusable UI primitives (Card, Button, Modal, Tabs, TextField, ConfirmDialog, ...)
   context/              AuthContext (demo authentication state)
   router/               AppRoutes + ProtectedRoute
-  data/                 DEMO DATA, config, and the local student/finance/staff/task stores —
-                        kept separate from UI so real API/DB calls can replace them later
+  data/                 DEMO DATA, config, and the local student/finance/staff/task/
+                        inventory/training stores — kept separate from UI so real API/DB
+                        calls can replace them later
   integrations/         Prepared, hooks-only integration points (e.g. GoHighLevel) — not
                         connected to any real external service yet
   types/                Shared TypeScript types/interfaces
-  utils/                Formatting, ID generation, and finance/task calculation helpers
+  utils/                Formatting, ID generation, and finance/task/inventory/training
+                        calculation helpers
 ```
 
 ## Data & Persistence Notice (Important)
@@ -107,6 +116,61 @@ Total paid, remaining balance, and payment status (Unpaid / Partial
 Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
+
+## What's Included in Step 6
+
+- **Inventory**: items with category/supplier/unit/reorder level/unit cost,
+  a real Stock In / Stock Out transaction ledger (mirrors the Step 3 finance
+  ledger principle — **Current Stock is never a single editable field**, it
+  is always calculated live from every recorded transaction), Low Stock
+  (auto-listed at/below reorder level with suggested reorder quantities),
+  Suppliers (one supplier can supply many items), and full Inventory History
+- **Stock Out never allows a negative balance** unless the reason is an
+  explicit, authorized "Adjustment"
+- **Training Sessions**: unique Session IDs (`TRN-B14-0001`), Face-to-Face
+  (venue/address/capacity) vs. Early Access Zoom (platform/link/meeting
+  ID/passcode) fields, assigned staff, a materials-needed list, and a full
+  student roster with Add Student / Add All Eligible From Batch / Remove
+  (removing a student from a session never touches their Academy record)
+- **Attendance**: a phone/tablet-friendly Quick Attendance screen (search +
+  one-tap Present/Late/Absent/Attended Online) plus Reports filterable by
+  batch/session/F2F vs. Zoom, with CSV export
+- **Certificates**: configurable eligibility rules (confirmed enrollment,
+  verified requirements, minimum attendance %, optional Fully Paid — all
+  toggleable by Owner/Admin, none hard-coded), a real
+  Not Eligible → Eligible → For Preparation → Ready → Issued workflow with
+  bulk actions, unique Certificate IDs (`CERT-B14-000001`), and Reissue
+  (the original record is kept, never erased)
+- **Batch Operations page** (`/students/batches/:batch`) — Overview /
+  Students / Finance / Training / Attendance / Tasks / Materials /
+  Certificates tabs per batch, including **Materials Planning** (required
+  vs. available quantities with shortage alerts — planning only, it never
+  deducts stock; only a confirmed Stock Out does that)
+- **Student Profile** gains **Training** (full session/attendance/
+  certificate-status history) and **Certificates** tabs
+- **Automatic task creation** extended: low stock creates a restock task,
+  an upcoming Face-to-Face session creates material-prep and attendance-list
+  tasks, a completed session creates an attendance-review task, and an
+  attended + eligible student creates a "prepare certificate" task — all
+  deduplicated the same way as Step 5's triggers
+- **Owner Dashboard** gains live Training (upcoming sessions, sessions this
+  month), Today's Attendance (expected/checked-in/absent), and Certificates
+  (for preparation/ready/issued) widgets, plus two new Action Center items
+  (Attendance Pending, Certificates to Prepare) — the old hardcoded
+  Inventory demo widget is now fed by real data too
+- **Team Calendar** now also plots training sessions (F2F, Zoom,
+  Masterclass, Workshop) alongside task due dates
+- **Global Search** extended to Training Sessions, Certificates, Inventory
+  Items/SKUs, and Suppliers
+- **Notifications dropdown** extended with low stock, session tomorrow,
+  attendance-not-yet-recorded, and certificate-ready alerts
+- **Activity Log** extended with Inventory (Stock In/Out/Adjustment/Damaged/
+  Lost) and Training (session created/updated, attendance recorded,
+  certificate prepared/issued/reissued) entries
+- **QR attendance groundwork** (`src/utils/qrAttendance.ts`) — a stable
+  identifier derivation only; there is no camera/scanning integration, by
+  design, until a real QR pipeline is built
+- Everything from Steps 1-5 remains unchanged and was re-verified
 
 ## What's Included in Step 5
 
@@ -211,10 +275,11 @@ voiding never deletes a record; it's marked and kept in history.
 
 ## Not Yet Built (future steps)
 
-Real Inventory Management, Attendance tracking, the full Master Brain
-questionnaire, real Training/Certificate operations (Step 6), a working
-GoHighLevel connection (only typed hook points exist today), real
+The full Master Brain questionnaire, real Course/LMS video hosting, a
+working GoHighLevel connection (only typed hook points exist today), real
 production multi-account authentication, server-side enforcement of the
 Step 5 permission matrix (demo only ever logs in as Owner — the matrix only
-controls what the UI shows), real-time push notifications, and the Student
-Portal (including the "My Payment" self-service view).
+controls what the UI shows), real-time push notifications, real QR-code
+scanning for attendance (only the identifier data model is prepared), and
+the Student Portal (including the "My Payment" self-service view and
+controlled visibility of Zoom session details).

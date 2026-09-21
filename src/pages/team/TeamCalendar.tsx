@@ -5,11 +5,22 @@ import { Card } from "@/components/common/Card";
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { TASK_PRIORITY_TONE } from "@/components/team/statusMeta";
+import { SESSION_STATUS_TONE } from "@/components/training/statusMeta";
 import { useTaskStore } from "@/data/taskStore";
+import { useTrainingStore } from "@/data/trainingStore";
 import { isTaskActive } from "@/utils/staffTasks";
-import type { TaskRecord } from "@/types/task";
 
 type CalendarView = "month" | "week" | "day";
+type EventTone = "danger" | "warning" | "info" | "neutral" | "gold" | "success";
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  kind: "Task" | "Session";
+  badgeLabel: string;
+  tone: EventTone;
+  onSelect: () => void;
+}
 
 function toDateKey(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -24,21 +35,45 @@ function startOfWeek(d: Date): Date {
 
 export function TeamCalendar() {
   const { tasks } = useTaskStore();
+  const { sessions } = useTrainingStore();
   const navigate = useNavigate();
   const [view, setView] = useState<CalendarView>("month");
   const [cursor, setCursor] = useState(() => new Date());
 
   const activeTasks = useMemo(() => tasks.filter((t) => isTaskActive(t.status) || t.status === "Completed"), [tasks]);
 
-  const tasksByDate = useMemo(() => {
-    const map = new Map<string, TaskRecord[]>();
-    for (const t of activeTasks) {
-      const list = map.get(t.dueDate) ?? [];
-      list.push(t);
-      map.set(t.dueDate, list);
+  const eventsByDate = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    function add(dateKey: string, event: CalendarEvent) {
+      const list = map.get(dateKey) ?? [];
+      list.push(event);
+      map.set(dateKey, list);
     }
+
+    for (const t of activeTasks) {
+      add(t.dueDate, {
+        id: `task-${t.id}`,
+        title: t.title,
+        kind: "Task",
+        badgeLabel: t.priority,
+        tone: TASK_PRIORITY_TONE[t.priority],
+        onSelect: () => navigate(`/team/tasks/${encodeURIComponent(t.id)}`),
+      });
+    }
+
+    for (const s of sessions.filter((s) => s.status !== "Cancelled")) {
+      add(s.date, {
+        id: `session-${s.id}`,
+        title: `${s.title} (${s.type})`,
+        kind: "Session",
+        badgeLabel: s.status,
+        tone: SESSION_STATUS_TONE[s.status],
+        onSelect: () => navigate(`/training/sessions/${s.id}`),
+      });
+    }
+
     return map;
-  }, [activeTasks]);
+  }, [activeTasks, sessions, navigate]);
 
   function shift(amount: number) {
     setCursor((prev) => {
@@ -56,7 +91,7 @@ export function TeamCalendar() {
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-maia-gold-deep">Team</p>
           <h1 className="mt-1 font-display text-2xl font-extrabold text-maia-ink sm:text-[28px]">Calendar</h1>
-          <p className="mt-1 text-sm text-maia-ink-soft">Task due dates across every staff member.</p>
+          <p className="mt-1 text-sm text-maia-ink-soft">Task due dates and training sessions (F2F, Zoom, Masterclass, Workshop) across the Academy.</p>
         </div>
         <div className="flex gap-1.5 rounded-lg border border-maia-border bg-maia-surface p-1">
           {(["month", "week", "day"] as CalendarView[]).map((v) => (
@@ -88,22 +123,14 @@ export function TeamCalendar() {
         </Button>
       </div>
 
-      {view === "month" && <MonthView cursor={cursor} tasksByDate={tasksByDate} onSelectTask={(id) => navigate(`/team/tasks/${encodeURIComponent(id)}`)} />}
-      {view === "week" && <WeekView cursor={cursor} tasksByDate={tasksByDate} onSelectTask={(id) => navigate(`/team/tasks/${encodeURIComponent(id)}`)} />}
-      {view === "day" && <DayView cursor={cursor} tasksByDate={tasksByDate} onSelectTask={(id) => navigate(`/team/tasks/${encodeURIComponent(id)}`)} />}
+      {view === "month" && <MonthView cursor={cursor} eventsByDate={eventsByDate} />}
+      {view === "week" && <WeekView cursor={cursor} eventsByDate={eventsByDate} />}
+      {view === "day" && <DayView cursor={cursor} eventsByDate={eventsByDate} />}
     </div>
   );
 }
 
-function MonthView({
-  cursor,
-  tasksByDate,
-  onSelectTask,
-}: {
-  cursor: Date;
-  tasksByDate: Map<string, TaskRecord[]>;
-  onSelectTask: (id: string) => void;
-}) {
+function MonthView({ cursor, eventsByDate }: { cursor: Date; eventsByDate: Map<string, CalendarEvent[]> }) {
   const firstOfMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
   const gridStart = startOfWeek(firstOfMonth);
   const cells = Array.from({ length: 42 }, (_, i) => {
@@ -126,7 +153,7 @@ function MonthView({
         {cells.map((d) => {
           const key = toDateKey(d);
           const inMonth = d.getMonth() === cursor.getMonth();
-          const dayTasks = tasksByDate.get(key) ?? [];
+          const dayEvents = eventsByDate.get(key) ?? [];
           return (
             <div
               key={key}
@@ -136,17 +163,19 @@ function MonthView({
                 {d.getDate()}
               </p>
               <div className="flex flex-col gap-1">
-                {dayTasks.slice(0, 3).map((t) => (
+                {dayEvents.slice(0, 3).map((e) => (
                   <button
-                    key={t.id}
-                    onClick={() => onSelectTask(t.id)}
-                    className="truncate rounded bg-maia-gold-bg px-1.5 py-0.5 text-left text-[10px] font-medium text-maia-gold-deep hover:bg-maia-gold/25"
-                    title={t.title}
+                    key={e.id}
+                    onClick={e.onSelect}
+                    className={`truncate rounded px-1.5 py-0.5 text-left text-[10px] font-medium hover:opacity-80 ${
+                      e.kind === "Session" ? "bg-maia-info-bg text-maia-info" : "bg-maia-gold-bg text-maia-gold-deep"
+                    }`}
+                    title={e.title}
                   >
-                    {t.title}
+                    {e.title}
                   </button>
                 ))}
-                {dayTasks.length > 3 && <p className="text-[10px] text-maia-ink-soft">+{dayTasks.length - 3} more</p>}
+                {dayEvents.length > 3 && <p className="text-[10px] text-maia-ink-soft">+{dayEvents.length - 3} more</p>}
               </div>
             </div>
           );
@@ -156,15 +185,7 @@ function MonthView({
   );
 }
 
-function WeekView({
-  cursor,
-  tasksByDate,
-  onSelectTask,
-}: {
-  cursor: Date;
-  tasksByDate: Map<string, TaskRecord[]>;
-  onSelectTask: (id: string) => void;
-}) {
+function WeekView({ cursor, eventsByDate }: { cursor: Date; eventsByDate: Map<string, CalendarEvent[]> }) {
   const start = startOfWeek(cursor);
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(start);
@@ -176,17 +197,17 @@ function WeekView({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-7">
       {days.map((d) => {
         const key = toDateKey(d);
-        const dayTasks = tasksByDate.get(key) ?? [];
+        const dayEvents = eventsByDate.get(key) ?? [];
         return (
           <Card key={key} className="!p-3">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-maia-ink-soft">
               {d.toLocaleDateString("en-PH", { weekday: "short", day: "numeric" })}
             </p>
             <div className="flex flex-col gap-1.5">
-              {dayTasks.map((t) => (
-                <TaskChip key={t.id} task={t} onClick={() => onSelectTask(t.id)} />
+              {dayEvents.map((e) => (
+                <EventChip key={e.id} event={e} />
               ))}
-              {dayTasks.length === 0 && <p className="text-xs text-maia-ink-soft/70">No tasks</p>}
+              {dayEvents.length === 0 && <p className="text-xs text-maia-ink-soft/70">No events</p>}
             </div>
           </Card>
         );
@@ -195,24 +216,16 @@ function WeekView({
   );
 }
 
-function DayView({
-  cursor,
-  tasksByDate,
-  onSelectTask,
-}: {
-  cursor: Date;
-  tasksByDate: Map<string, TaskRecord[]>;
-  onSelectTask: (id: string) => void;
-}) {
-  const dayTasks = tasksByDate.get(toDateKey(cursor)) ?? [];
+function DayView({ cursor, eventsByDate }: { cursor: Date; eventsByDate: Map<string, CalendarEvent[]> }) {
+  const dayEvents = eventsByDate.get(toDateKey(cursor)) ?? [];
   return (
     <Card>
-      {dayTasks.length === 0 ? (
-        <p className="py-6 text-center text-sm text-maia-ink-soft">No tasks due this day.</p>
+      {dayEvents.length === 0 ? (
+        <p className="py-6 text-center text-sm text-maia-ink-soft">No tasks or sessions this day.</p>
       ) : (
         <div className="flex flex-col gap-2">
-          {dayTasks.map((t) => (
-            <TaskChip key={t.id} task={t} onClick={() => onSelectTask(t.id)} expanded />
+          {dayEvents.map((e) => (
+            <EventChip key={e.id} event={e} expanded />
           ))}
         </div>
       )}
@@ -220,14 +233,17 @@ function DayView({
   );
 }
 
-function TaskChip({ task, onClick, expanded }: { task: TaskRecord; onClick: () => void; expanded?: boolean }) {
+function EventChip({ event, expanded }: { event: CalendarEvent; expanded?: boolean }) {
   return (
     <button
-      onClick={onClick}
+      onClick={event.onSelect}
       className={`flex items-center justify-between gap-2 rounded-lg bg-maia-bg px-3 py-2 text-left text-xs transition-colors hover:bg-maia-gold-bg ${expanded ? "text-sm" : ""}`}
     >
-      <span className="truncate text-maia-ink">{task.title}</span>
-      <Badge tone={TASK_PRIORITY_TONE[task.priority]}>{task.priority}</Badge>
+      <span className="truncate text-maia-ink">{event.title}</span>
+      <div className="flex flex-shrink-0 items-center gap-1.5">
+        <Badge tone="neutral">{event.kind}</Badge>
+        <Badge tone={event.tone}>{event.badgeLabel}</Badge>
+      </div>
     </button>
   );
 }

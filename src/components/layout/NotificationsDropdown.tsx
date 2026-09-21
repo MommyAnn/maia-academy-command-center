@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Bell, CalendarClock, ClipboardCheck } from "lucide-react";
+import { AlertTriangle, Award, Bell, CalendarClock, ClipboardCheck, PackageX } from "lucide-react";
 import { useTaskStore } from "@/data/taskStore";
 import { useFinanceStore } from "@/data/financeStore";
+import { useInventoryStore } from "@/data/inventoryStore";
+import { useTrainingStore } from "@/data/trainingStore";
 import { isTaskDueToday, isTaskOverdue } from "@/utils/staffTasks";
+import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
 
 // ---------------------------------------------------------------------------
 // PREPARED, NOT REAL-TIME
@@ -26,6 +29,8 @@ interface NotificationItem {
 export function NotificationsDropdown() {
   const { tasks } = useTaskStore();
   const { transactions } = useFinanceStore();
+  const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
+  const { sessions, enrollments, certificates } = useTrainingStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -44,7 +49,7 @@ export function NotificationsDropdown() {
     const list: NotificationItem[] = [];
 
     const overdueTasks = tasks.filter((t) => isTaskOverdue(t));
-    for (const t of overdueTasks.slice(0, 4)) {
+    for (const t of overdueTasks.slice(0, 3)) {
       list.push({
         id: `overdue-${t.id}`,
         message: `Overdue: "${t.title}" (${t.assignedToName})`,
@@ -54,7 +59,7 @@ export function NotificationsDropdown() {
     }
 
     const dueTodayTasks = tasks.filter((t) => isTaskDueToday(t));
-    for (const t of dueTodayTasks.slice(0, 3)) {
+    for (const t of dueTodayTasks.slice(0, 2)) {
       list.push({
         id: `due-today-${t.id}`,
         message: `Due today: "${t.title}" (${t.assignedToName})`,
@@ -73,8 +78,68 @@ export function NotificationsDropdown() {
       });
     }
 
-    return list.slice(0, 8);
-  }, [tasks, transactions, navigate]);
+    const lowStockItems = inventoryItems.filter((item) => {
+      const status = getInventoryItemStatus(item, getCurrentStock(item.id, inventoryTransactions));
+      return status === "Low Stock" || status === "Out of Stock";
+    });
+    if (lowStockItems.length > 0) {
+      list.push({
+        id: "low-stock",
+        message: `Low stock detected on ${lowStockItems.length} item(s)`,
+        icon: <PackageX size={15} className="text-maia-danger" />,
+        onClick: () => navigate("/inventory/low-stock"),
+      });
+    }
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowIso = tomorrow.toISOString().slice(0, 10);
+    const tomorrowSessions = sessions.filter((s) => s.status === "Scheduled" && s.date === tomorrowIso);
+    for (const s of tomorrowSessions.slice(0, 2)) {
+      list.push({
+        id: `session-tomorrow-${s.id}`,
+        message: `Training session tomorrow: "${s.title}"`,
+        icon: <CalendarClock size={15} className="text-maia-gold-deep" />,
+        onClick: () => navigate(`/training/sessions/${s.id}`),
+      });
+    }
+
+    const attendancePendingCount = enrollments.filter((e) => {
+      const session = sessions.find((s) => s.id === e.sessionId);
+      return session && session.status !== "Cancelled" && session.date <= todayIso && e.attendanceStatus === "Registered";
+    }).length;
+    if (attendancePendingCount > 0) {
+      list.push({
+        id: "attendance-incomplete",
+        message: `Attendance not yet recorded for ${attendancePendingCount} student(s)`,
+        icon: <ClipboardCheck size={15} className="text-maia-info" />,
+        onClick: () => navigate("/training/attendance"),
+      });
+    }
+
+    const certsForPrep = certificates.filter((c) => c.status === "For Preparation").length;
+    if (certsForPrep > 0) {
+      list.push({
+        id: "certs-for-prep",
+        message: `${certsForPrep} certificate(s) ready for preparation`,
+        icon: <Award size={15} className="text-maia-warning" />,
+        onClick: () => navigate("/training/certificates"),
+      });
+    }
+
+    const certsReady = certificates.filter((c) => c.status === "Ready").length;
+    if (certsReady > 0) {
+      list.push({
+        id: "certs-ready",
+        message: `${certsReady} certificate(s) ready for issuance`,
+        icon: <Award size={15} className="text-maia-gold-deep" />,
+        onClick: () => navigate("/training/certificates"),
+      });
+    }
+
+    return list.slice(0, 10);
+  }, [tasks, transactions, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, navigate]);
 
   return (
     <div className="relative" ref={containerRef}>

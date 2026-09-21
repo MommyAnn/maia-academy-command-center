@@ -3,6 +3,8 @@ import { AuthProvider } from "@/context/AuthContext";
 import { StudentStoreProvider } from "@/data/studentStore";
 import { FinanceStoreProvider } from "@/data/financeStore";
 import { StaffStoreProvider } from "@/data/staffStore";
+import { InventoryStoreProvider } from "@/data/inventoryStore";
+import { TrainingStoreProvider } from "@/data/trainingStore";
 import { TaskStoreProvider } from "@/data/taskStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
@@ -13,9 +15,13 @@ function App() {
         <StudentStoreProvider>
           <FinanceStoreProvider>
             <StaffStoreProvider>
-              <TaskStoreProvider>
-                <AppRoutes />
-              </TaskStoreProvider>
+              <InventoryStoreProvider>
+                <TrainingStoreProvider>
+                  <TaskStoreProvider>
+                    <AppRoutes />
+                  </TaskStoreProvider>
+                </TrainingStoreProvider>
+              </InventoryStoreProvider>
             </StaffStoreProvider>
           </FinanceStoreProvider>
         </StudentStoreProvider>

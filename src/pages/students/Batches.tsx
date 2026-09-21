@@ -98,7 +98,18 @@ function BatchCard({
 
   return (
     <Card id={`batch-${batch.replace(/\s+/g, "-")}`} className="scroll-mt-6">
-      <CardHeader title={batch} subtitle={`${batchStudents.length} total students`} />
+      <CardHeader
+        title={batch}
+        subtitle={`${batchStudents.length} total students`}
+        action={
+          <button
+            onClick={() => navigate(`/students/batches/${encodeURIComponent(batch)}`)}
+            className="text-xs font-semibold text-maia-gold-deep hover:underline"
+          >
+            Batch Operations →
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <MiniStat

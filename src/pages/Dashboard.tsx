@@ -12,6 +12,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useStudentStore } from "@/data/studentStore";
 import { useFinanceStore } from "@/data/financeStore";
 import { useTaskStore } from "@/data/taskStore";
+import { useInventoryStore } from "@/data/inventoryStore";
+import { useTrainingStore } from "@/data/trainingStore";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceDateFilter, DEFAULT_DATE_FILTER } from "@/components/finance/FinanceDateFilter";
 import { ActionCenterCard, ACTION_CENTER_ICONS, type ActionCenterItem } from "@/components/dashboard/ActionCenterCard";
@@ -24,9 +26,9 @@ import { StatusBreakdownCard } from "@/components/dashboard/StatusBreakdownCard"
 import { QuickActionsCard } from "@/components/dashboard/QuickActionsCard";
 import { StaffTaskSnapshotCard } from "@/components/dashboard/StaffTaskSnapshotCard";
 import { InventorySnapshotCard } from "@/components/dashboard/InventorySnapshotCard";
+import { TrainingAttendanceSnapshotCard } from "@/components/dashboard/TrainingAttendanceSnapshotCard";
 import { NeedsAttentionCard } from "@/components/dashboard/NeedsAttentionCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
-import { DEMO_INVENTORY_ALERTS, DEMO_INVENTORY_SNAPSHOT } from "@/data/demoDashboardData";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -37,6 +39,7 @@ import {
   getTodaysActivity,
 } from "@/utils/dashboard";
 import { getTaskSnapshot } from "@/utils/staffTasks";
+import { getCurrentStock, getInventoryItemStatus, getInventoryValue } from "@/utils/inventory";
 import {
   getNetCash,
   getTotalExpenses,
@@ -82,6 +85,8 @@ export function Dashboard() {
   const { students } = useStudentStore();
   const { transactions, adjustments, expenses } = useFinanceStore();
   const { tasks } = useTaskStore();
+  const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
+  const { sessions, enrollments, certificates } = useTrainingStore();
 
   const [dateFilter, setDateFilter] = useState(DEFAULT_DATE_FILTER);
   const [batch, setBatch] = useState("all");
@@ -141,6 +146,43 @@ export function Dashboard() {
     timestamp: a.timestamp,
   }));
 
+  const inventoryRows = inventoryItems.map((item) => {
+    const stock = getCurrentStock(item.id, inventoryTransactions);
+    return { item, stock, status: getInventoryItemStatus(item, stock) };
+  });
+  const lowStockRows = inventoryRows.filter((r) => r.status === "Low Stock" || r.status === "Out of Stock");
+  const inventorySnapshot = {
+    totalItems: inventoryItems.length,
+    lowStock: inventoryRows.filter((r) => r.status === "Low Stock").length,
+    outOfStock: inventoryRows.filter((r) => r.status === "Out of Stock").length,
+    inventoryValue: getInventoryValue(inventoryItems, inventoryTransactions),
+  };
+  const lowStockAlerts = lowStockRows.map((r) => ({
+    id: r.item.id,
+    item: r.item.name,
+    remaining: r.stock,
+    reorderLevel: r.item.reorderLevel,
+  }));
+
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const upcomingSessions = sessions.filter((s) => s.status === "Scheduled" && s.date >= todayIso).length;
+  const sessionsThisMonth = sessions.filter((s) => matchesDateFilter(s.date, { preset: "this_month" })).length;
+  const todaysSessionIds = new Set(sessions.filter((s) => s.date === todayIso).map((s) => s.id));
+  const todaysEnrollments = enrollments.filter((e) => todaysSessionIds.has(e.sessionId));
+  const expectedToday = todaysEnrollments.length;
+  const checkedInToday = todaysEnrollments.filter((e) =>
+    ["Present", "Late", "Online Attended"].includes(e.attendanceStatus),
+  ).length;
+  const absentToday = todaysEnrollments.filter((e) => e.attendanceStatus === "Absent").length;
+
+  const attendancePending = enrollments.filter((e) => {
+    const session = sessions.find((s) => s.id === e.sessionId);
+    return session && session.date <= todayIso && session.status !== "Cancelled" && e.attendanceStatus === "Registered";
+  }).length;
+  const certsForPrep = certificates.filter((c) => c.status === "For Preparation").length;
+  const certsReady = certificates.filter((c) => c.status === "Ready").length;
+  const certsIssued = certificates.filter((c) => c.status === "Issued").length;
+
   const attentionItems = [
     {
       id: "payments-verify",
@@ -187,9 +229,23 @@ export function Dashboard() {
     {
       id: "inventory-low-stock",
       label: "Inventory Items Low Stock",
-      count: DEMO_INVENTORY_SNAPSHOT.lowStock,
+      count: inventorySnapshot.lowStock,
       severity: "low" as const,
       onClick: () => navigate("/inventory/low-stock"),
+    },
+    {
+      id: "attendance-pending",
+      label: "Attendance Pending",
+      count: attendancePending,
+      severity: "medium" as const,
+      onClick: () => navigate("/training/attendance"),
+    },
+    {
+      id: "certificates-to-prepare",
+      label: "Certificates to Prepare",
+      count: certsForPrep,
+      severity: "low" as const,
+      onClick: () => navigate("/training/certificates"),
     },
   ];
 
@@ -239,9 +295,23 @@ export function Dashboard() {
     {
       key: "inventory",
       label: "Low Stock Items",
-      count: DEMO_INVENTORY_SNAPSHOT.lowStock,
+      count: inventorySnapshot.lowStock,
       icon: ACTION_CENTER_ICONS.inventory,
       onClick: () => navigate("/inventory/low-stock"),
+    },
+    {
+      key: "attendance",
+      label: "Attendance Pending",
+      count: attendancePending,
+      icon: ACTION_CENTER_ICONS.attendance,
+      onClick: () => navigate("/training/attendance"),
+    },
+    {
+      key: "certificates",
+      label: "Certificates to Prepare",
+      count: certsForPrep,
+      icon: ACTION_CENTER_ICONS.certificates,
+      onClick: () => navigate("/training/certificates"),
     },
   ];
 
@@ -377,7 +447,18 @@ export function Dashboard() {
 
       <StaffTaskSnapshotCard tasks={priorityTasks} snapshot={taskSnapshot} />
 
-      <InventorySnapshotCard snapshot={DEMO_INVENTORY_SNAPSHOT} lowStockItems={DEMO_INVENTORY_ALERTS} />
+      <TrainingAttendanceSnapshotCard
+        upcomingSessions={upcomingSessions}
+        sessionsThisMonth={sessionsThisMonth}
+        expectedToday={expectedToday}
+        checkedInToday={checkedInToday}
+        absentToday={absentToday}
+        certsForPrep={certsForPrep}
+        certsReady={certsReady}
+        certsIssued={certsIssued}
+      />
+
+      <InventorySnapshotCard snapshot={inventorySnapshot} lowStockItems={lowStockAlerts} />
 
       <RecentActivityCard
         items={todaysActivity}

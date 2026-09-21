@@ -8,6 +8,8 @@ import { PaymentTab } from "@/components/students/profile/PaymentTab";
 import { TaobaoTab } from "@/components/students/profile/TaobaoTab";
 import { MasterBrainTab } from "@/components/students/profile/MasterBrainTab";
 import { TasksTab } from "@/components/students/profile/TasksTab";
+import { TrainingTab } from "@/components/students/profile/TrainingTab";
+import { CertificatesTab } from "@/components/students/profile/CertificatesTab";
 import { NotesTab } from "@/components/students/profile/NotesTab";
 import { ActivityTab } from "@/components/students/profile/ActivityTab";
 import { useStudentStore } from "@/data/studentStore";
@@ -19,6 +21,8 @@ const TABS = [
   { value: "taobao", label: "Taobao" },
   { value: "master-brain", label: "Master Brain" },
   { value: "tasks", label: "Tasks" },
+  { value: "training", label: "Training" },
+  { value: "certificates", label: "Certificates" },
   { value: "notes", label: "Admin Notes" },
   { value: "activity", label: "Activity History" },
 ];
@@ -46,6 +50,8 @@ export function StudentProfile() {
       {tab === "taobao" && <TaobaoTab key={student.id} student={student} />}
       {tab === "master-brain" && <MasterBrainTab student={student} />}
       {tab === "tasks" && <TasksTab student={student} />}
+      {tab === "training" && <TrainingTab student={student} />}
+      {tab === "certificates" && <CertificatesTab student={student} />}
       {tab === "notes" && <NotesTab student={student} />}
       {tab === "activity" && <ActivityTab student={student} />}
     </div>

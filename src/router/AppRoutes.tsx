@@ -6,6 +6,7 @@ import { EnrollmentForm } from "@/pages/EnrollmentForm";
 import { NewEnrollments } from "@/pages/students/NewEnrollments";
 import { AllStudents } from "@/pages/students/AllStudents";
 import { Batches } from "@/pages/students/Batches";
+import { BatchDetail } from "@/pages/students/BatchDetail";
 import { StudentProfile } from "@/pages/students/StudentProfile";
 import { Overview as FinanceOverview } from "@/pages/finance/Overview";
 import { Payments } from "@/pages/finance/Payments";
@@ -20,6 +21,16 @@ import { TaskDetail } from "@/pages/team/TaskDetail";
 import { TeamCalendar } from "@/pages/team/TeamCalendar";
 import { Workload } from "@/pages/team/Workload";
 import { ActivityLog } from "@/pages/team/ActivityLog";
+import { AllItems } from "@/pages/inventory/AllItems";
+import { StockIn } from "@/pages/inventory/StockIn";
+import { StockOut } from "@/pages/inventory/StockOut";
+import { LowStock } from "@/pages/inventory/LowStock";
+import { Suppliers } from "@/pages/inventory/Suppliers";
+import { InventoryHistory } from "@/pages/inventory/InventoryHistory";
+import { TrainingSessions } from "@/pages/training/TrainingSessions";
+import { SessionDetail } from "@/pages/training/SessionDetail";
+import { Attendance } from "@/pages/training/Attendance";
+import { Certificates } from "@/pages/training/Certificates";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { NAV_SECTIONS } from "@/data/navigation";
@@ -39,6 +50,15 @@ const BUILT_PATHS = new Set([
   "/team/calendar",
   "/team/workload",
   "/team/activity",
+  "/inventory/all-items",
+  "/inventory/stock-in",
+  "/inventory/stock-out",
+  "/inventory/low-stock",
+  "/inventory/suppliers",
+  "/inventory/history",
+  "/training/sessions",
+  "/training/attendance",
+  "/training/certificates",
 ]);
 
 export function AppRoutes() {
@@ -58,6 +78,7 @@ export function AppRoutes() {
         <Route path="/students/all" element={<AllStudents />} />
         <Route path="/students/new-enrollments" element={<NewEnrollments />} />
         <Route path="/students/batches" element={<Batches />} />
+        <Route path="/students/batches/:batch" element={<BatchDetail />} />
         <Route path="/students/:studentId" element={<StudentProfile />} />
 
         <Route path="/finance/overview" element={<FinanceOverview />} />
@@ -74,6 +95,18 @@ export function AppRoutes() {
         <Route path="/team/calendar" element={<TeamCalendar />} />
         <Route path="/team/workload" element={<Workload />} />
         <Route path="/team/activity" element={<ActivityLog />} />
+
+        <Route path="/inventory/all-items" element={<AllItems />} />
+        <Route path="/inventory/stock-in" element={<StockIn />} />
+        <Route path="/inventory/stock-out" element={<StockOut />} />
+        <Route path="/inventory/low-stock" element={<LowStock />} />
+        <Route path="/inventory/suppliers" element={<Suppliers />} />
+        <Route path="/inventory/history" element={<InventoryHistory />} />
+
+        <Route path="/training/sessions" element={<TrainingSessions />} />
+        <Route path="/training/sessions/:sessionId" element={<SessionDetail />} />
+        <Route path="/training/attendance" element={<Attendance />} />
+        <Route path="/training/certificates" element={<Certificates />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

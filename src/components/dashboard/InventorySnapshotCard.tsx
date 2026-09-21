@@ -23,7 +23,7 @@ export function InventorySnapshotCard({
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <Card>
-        <CardHeader title="Inventory Status" subtitle="Demo snapshot — full Inventory Management is a future build." />
+        <CardHeader title="Inventory Status" subtitle="Live snapshot from the Inventory module (Step 6)." />
         <div className="grid grid-cols-2 gap-3">
           {tiles.map((tile) => (
             <button

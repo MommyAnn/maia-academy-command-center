@@ -15,8 +15,12 @@ import { generateTaskId, isTaskActive } from "@/utils/staffTasks";
 import { useStudentStore } from "@/data/studentStore";
 import { useFinanceStore } from "@/data/financeStore";
 import { useStaffStore } from "@/data/staffStore";
+import { useInventoryStore } from "@/data/inventoryStore";
+import { useTrainingStore } from "@/data/trainingStore";
 import { getRequirementsBucket } from "@/utils/dashboard";
 import { getStudentFinanceSummary } from "@/utils/finance";
+import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
+import { computeCertificateEligibility } from "@/utils/training";
 import { formatPeso } from "@/utils/format";
 import { dispatchGhlEvent } from "@/integrations/ghlEvents";
 
@@ -130,6 +134,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const { students, appendActivity } = useStudentStore();
   const { transactions, adjustments } = useFinanceStore();
   const { staff } = useStaffStore();
+  const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
+  const { sessions, enrollments, certificates } = useTrainingStore();
 
   const updateTasksState = useCallback((updater: (prev: TaskRecord[]) => TaskRecord[]) => {
     setTasks((prev) => {
@@ -339,6 +345,111 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // ---------------------------------------------------------------
+      // Step 6 triggers: Inventory (low stock) + Training (session prep,
+      // attendance review, certificate eligibility)
+      // ---------------------------------------------------------------
+      for (const item of inventoryItems) {
+        const stock = getCurrentStock(item.id, inventoryTransactions);
+        const status = getInventoryItemStatus(item, stock);
+        if (status === "Low Stock" || status === "Out of Stock") {
+          addAuto({
+            key: `restock-${item.id}`,
+            title: `Restock ${item.name}`,
+            description: `${item.name} (${item.itemId}) is ${status.toLowerCase()} — ${stock} on hand, reorder level ${item.reorderLevel}.`,
+            category: "Inventory",
+            priority: status === "Out of Stock" ? "Urgent" : "High",
+            role: "Inventory Officer",
+            dueOffsetDays: 2,
+          });
+        }
+      }
+
+      for (const session of sessions) {
+        if (session.status !== "Scheduled") continue;
+        const daysUntil = (new Date(`${session.date}T00:00:00`).getTime() - Date.now()) / 86_400_000;
+        if (daysUntil < 0 || daysUntil > 14) continue;
+
+        for (const line of session.materials) {
+          const item = inventoryItems.find((i) => i.id === line.itemId);
+          if (!item) continue;
+          addAuto({
+            key: `session-prep-material-${session.id}-${line.itemId}`,
+            title: `Prepare ${line.quantity} ${item.name} for ${session.title}`,
+            description: `${session.sessionId} (${session.date}) needs ${line.quantity} ${item.name} prepared.`,
+            category: "Event Prep",
+            priority: "Medium",
+            role: "Inventory Officer",
+            dueOffsetDays: Math.max(0, Math.floor(daysUntil) - 1),
+            relatedBatch: session.batch,
+          });
+        }
+
+        if (session.type === "Face-to-Face") {
+          addAuto({
+            key: `session-prep-attendance-${session.id}`,
+            title: `Prepare attendance list for ${session.title}`,
+            description: `Prepare the printed/digital attendance list for ${session.sessionId} on ${session.date}.`,
+            category: "Event Prep",
+            priority: "Medium",
+            role: "Training Coordinator",
+            dueOffsetDays: Math.max(0, Math.floor(daysUntil) - 1),
+            relatedBatch: session.batch,
+          });
+        }
+      }
+
+      for (const session of sessions) {
+        if (session.status === "Completed") {
+          addAuto({
+            key: `session-review-attendance-${session.id}`,
+            title: `Review attendance for ${session.title}`,
+            description: `${session.sessionId} has been marked Completed — review recorded attendance.`,
+            category: "Training",
+            priority: "Medium",
+            role: "Training Coordinator",
+            dueOffsetDays: 2,
+            relatedBatch: session.batch,
+          });
+
+          const roster = enrollments.filter((e) => e.sessionId === session.id);
+          for (const entry of roster) {
+            const attended =
+              entry.attendanceStatus === "Present" ||
+              entry.attendanceStatus === "Late" ||
+              entry.attendanceStatus === "Online Attended";
+            if (!attended) continue;
+            const student = students.find((s) => s.id === entry.studentId);
+            if (!student) continue;
+            const alreadyHasCertificate = certificates.some(
+              (c) => c.studentId === student.id && c.batch === session.batch,
+            );
+            if (alreadyHasCertificate) continue;
+            const { eligible } = computeCertificateEligibility(
+              student,
+              sessions,
+              enrollments,
+              transactions,
+              adjustments,
+              { requireConfirmedEnrollment: true, requireRequirementsVerified: true, minAttendancePercent: 80, requireFullyPaid: false },
+            );
+            if (!eligible) continue;
+            addAuto({
+              key: `certificate-prepare-task::${student.id}::${session.batch}`,
+              title: `Prepare certificate: ${student.fullName}`,
+              description: `${student.fullName} (${student.studentId}) is eligible for a certificate — prepare it.`,
+              category: "Certificates",
+              priority: "Low",
+              role: "Training Coordinator",
+              dueOffsetDays: 5,
+              relatedStudentId: student.id,
+              relatedStudentName: student.fullName,
+              relatedBatch: session.batch,
+            });
+          }
+        }
+      }
+
       // Auto-complete: resolve automatic tasks whose trigger condition no longer holds.
       for (let i = 0; i < next.length; i++) {
         const t = next[i];
@@ -366,6 +477,19 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           const studentId = t.autoTriggerKey.replace("enrollment-verify-", "");
           const student = students.find((s) => s.id === studentId);
           resolved = !student || student.enrollmentStatus !== "Pending Verification";
+        } else if (t.autoTriggerKey.startsWith("restock-")) {
+          const itemId = t.autoTriggerKey.replace("restock-", "");
+          const item = inventoryItems.find((i) => i.id === itemId);
+          if (!item) {
+            resolved = true;
+          } else {
+            const stock = getCurrentStock(item.id, inventoryTransactions);
+            const status = getInventoryItemStatus(item, stock);
+            resolved = status === "In Stock" || status === "Inactive";
+          }
+        } else if (t.autoTriggerKey.startsWith("certificate-prepare-task::")) {
+          const [studentId, batch] = t.autoTriggerKey.replace("certificate-prepare-task::", "").split("::");
+          resolved = certificates.some((c) => c.studentId === studentId && c.batch === batch);
         }
 
         if (resolved) {
@@ -390,7 +514,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, transactions, adjustments, staff]);
+  }, [students, transactions, adjustments, staff, inventoryItems, inventoryTransactions, sessions, enrollments, certificates]);
 
   const logStudentActivity = useCallback(
     (task: TaskRecord, message: string) => {

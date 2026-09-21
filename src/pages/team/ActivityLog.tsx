@@ -7,8 +7,10 @@ import { FilterSelect } from "@/components/common/FilterSelect";
 import { useStudentStore } from "@/data/studentStore";
 import { useStaffStore } from "@/data/staffStore";
 import { useTaskStore } from "@/data/taskStore";
+import { useInventoryStore } from "@/data/inventoryStore";
+import { useTrainingStore } from "@/data/trainingStore";
 
-type LogCategory = "Student" | "Staff" | "Task";
+type LogCategory = "Student" | "Staff" | "Task" | "Inventory" | "Training";
 
 interface LogEntry {
   id: string;
@@ -19,10 +21,12 @@ interface LogEntry {
   timestampLabel: string;
 }
 
-const CATEGORY_TONE: Record<LogCategory, "gold" | "info" | "success"> = {
+const CATEGORY_TONE: Record<LogCategory, "gold" | "info" | "success" | "warning" | "neutral"> = {
   Student: "gold",
   Staff: "info",
   Task: "success",
+  Inventory: "warning",
+  Training: "neutral",
 };
 
 function tryParseDateTime(date: string, time: string): number {
@@ -34,6 +38,8 @@ export function ActivityLog() {
   const { students } = useStudentStore();
   const { staff } = useStaffStore();
   const { tasks } = useTaskStore();
+  const { items, transactions: inventoryTransactions } = useInventoryStore();
+  const { sessions, enrollments, certificates } = useTrainingStore();
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | LogCategory>("all");
@@ -103,8 +109,85 @@ export function ActivityLog() {
       }
     }
 
+    for (const t of inventoryTransactions) {
+      const item = items.find((i) => i.id === t.itemId);
+      const created = new Date(t.createdAt);
+      list.push({
+        id: t.id,
+        message: `Inventory ${t.type}: ${item?.name ?? "Unknown item"} (${t.type === "Stock In" ? "+" : "-"}${t.quantity})`,
+        user: t.recordedBy,
+        category: "Inventory",
+        sortKey: created.getTime(),
+        timestampLabel: created.toLocaleString("en-PH"),
+      });
+    }
+
+    for (const s of sessions) {
+      const created = new Date(s.createdAt);
+      list.push({
+        id: `${s.id}-created`,
+        message: `Training session created: ${s.title} (${s.sessionId})`,
+        user: s.createdBy,
+        category: "Training",
+        sortKey: created.getTime(),
+        timestampLabel: created.toLocaleString("en-PH"),
+      });
+      if (s.updatedAt !== s.createdAt) {
+        const updated = new Date(s.updatedAt);
+        list.push({
+          id: `${s.id}-updated`,
+          message: `Training session updated: ${s.title} (${s.sessionId})`,
+          user: s.createdBy,
+          category: "Training",
+          sortKey: updated.getTime(),
+          timestampLabel: updated.toLocaleString("en-PH"),
+        });
+      }
+    }
+
+    for (const e of enrollments) {
+      if (!e.recordedAt || !e.recordedBy) continue;
+      const session = sessions.find((s) => s.id === e.sessionId);
+      const student = students.find((s) => s.id === e.studentId);
+      const recorded = new Date(e.recordedAt);
+      list.push({
+        id: `${e.id}-attendance`,
+        message: `Attendance recorded: ${e.attendanceStatus} — ${student?.fullName ?? "Unknown student"} (${session?.title ?? "Unknown session"})`,
+        user: e.recordedBy,
+        category: "Training",
+        sortKey: recorded.getTime(),
+        timestampLabel: recorded.toLocaleString("en-PH"),
+      });
+    }
+
+    for (const c of certificates) {
+      const student = students.find((s) => s.id === c.studentId);
+      if (c.preparedAt && c.preparedBy) {
+        const prepared = new Date(c.preparedAt);
+        list.push({
+          id: `${c.id}-prepared`,
+          message: `Certificate prepared: ${c.certificateId} — ${student?.fullName ?? "Unknown student"}`,
+          user: c.preparedBy,
+          category: "Training",
+          sortKey: prepared.getTime(),
+          timestampLabel: prepared.toLocaleString("en-PH"),
+        });
+      }
+      if (c.issuedAt && c.issuedBy) {
+        const issued = new Date(c.issuedAt);
+        list.push({
+          id: `${c.id}-issued`,
+          message: `Certificate ${c.status === "Reissued" ? "reissued" : "issued"}: ${c.certificateId} — ${student?.fullName ?? "Unknown student"}`,
+          user: c.issuedBy,
+          category: "Training",
+          sortKey: issued.getTime(),
+          timestampLabel: issued.toLocaleString("en-PH"),
+        });
+      }
+    }
+
     return list.sort((a, b) => b.sortKey - a.sortKey);
-  }, [students, staff, tasks]);
+  }, [students, staff, tasks, items, inventoryTransactions, sessions, enrollments, certificates]);
 
   const filtered = useMemo(
     () =>
@@ -121,7 +204,7 @@ export function ActivityLog() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-maia-gold-deep">Team</p>
         <h1 className="mt-1 font-display text-2xl font-extrabold text-maia-ink sm:text-[28px]">Activity Log</h1>
         <p className="mt-1 text-sm text-maia-ink-soft">
-          A combined feed of student, staff, and task activity — most recent 200 entries.
+          A combined feed of student, staff, task, inventory, and training activity — most recent 200 entries.
         </p>
       </div>
 
@@ -135,6 +218,8 @@ export function ActivityLog() {
             { value: "Student", label: "Student" },
             { value: "Staff", label: "Staff" },
             { value: "Task", label: "Task" },
+            { value: "Inventory", label: "Inventory" },
+            { value: "Training", label: "Training" },
           ]}
         />
       </div>

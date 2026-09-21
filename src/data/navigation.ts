@@ -38,6 +38,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Training",
     items: [
       { label: "Sessions", path: "/training/sessions" },
+      { label: "Attendance", path: "/training/attendance" },
       { label: "Certificates", path: "/training/certificates" },
     ],
   },
@@ -45,7 +46,11 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Inventory",
     items: [
       { label: "All Items", path: "/inventory/all-items" },
+      { label: "Stock In", path: "/inventory/stock-in" },
+      { label: "Stock Out", path: "/inventory/stock-out" },
       { label: "Low Stock", path: "/inventory/low-stock" },
+      { label: "Suppliers", path: "/inventory/suppliers" },
+      { label: "Inventory History", path: "/inventory/history" },
     ],
   },
   {

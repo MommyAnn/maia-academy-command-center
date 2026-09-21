@@ -58,6 +58,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRoleName, PermissionMatrix> =
     Students: VIEW_EDIT,
     Enrollment: ALL_ACTIONS,
     Batches: VIEW_ONLY,
+    Training: VIEW_ONLY,
     Tasks: VIEW_EDIT,
     Calendar: VIEW_ONLY,
   }),

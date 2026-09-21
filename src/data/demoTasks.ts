@@ -145,7 +145,7 @@ export const DEMO_TASKS: TaskRecord[] = [
     status: "For Review",
     assignedTo: "Jane Villareal",
     dueOffsetDays: -1,
-    relatedStudentDisplayId: "MAIA-B13-0001",
+    relatedStudentDisplayId: "MAIA-B13-0006",
     createdOffsetDays: 4,
   }),
   makeTask({
@@ -168,7 +168,7 @@ export const DEMO_TASKS: TaskRecord[] = [
     status: "Completed",
     assignedTo: "Anna Reyes",
     dueOffsetDays: -3,
-    relatedStudentDisplayId: "MAIA-B12-0001",
+    relatedStudentDisplayId: "MAIA-B12-0010",
     createdOffsetDays: 5,
     completedOffsetDays: 2,
   }),
