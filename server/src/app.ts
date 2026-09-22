@@ -25,6 +25,10 @@ import { incentiveRoutes } from "./modules/incentives/routes.js";
 import { webinarRoutes } from "./modules/webinar/routes.js";
 import { followUpRoutes } from "./modules/follow-ups/routes.js";
 import { webinarDashboardRoutes } from "./modules/webinar-dashboard/routes.js";
+import { ghlAdminRoutes } from "./modules/ghl/admin-routes.js";
+import { ghlWebhookRoutes } from "./modules/ghl/webhook.js";
+import { communicationsRoutes } from "./modules/communications/routes.js";
+import { startOutboxWorker } from "./modules/ghl/outbox.js";
 
 export interface BuildAppOptions {
   /** Overrides env.LOGIN_RATE_LIMIT_PER_MINUTE for this instance only — used by the brute-force test to prove the limiter actually blocks, without lowering the shared limit every other test's logins run against. */
@@ -84,6 +88,16 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(webinarRoutes);
   await app.register(followUpRoutes);
   await app.register(webinarDashboardRoutes);
+  await app.register(ghlAdminRoutes);
+  await app.register(ghlWebhookRoutes);
+  await app.register(communicationsRoutes);
+
+  // The outbox sweep is a real interval timer in every real environment —
+  // skipped only under test, where the test suite drives processing
+  // explicitly and deterministically instead (spec section 30).
+  if (env.NODE_ENV !== "test") {
+    startOutboxWorker();
+  }
 
   return app;
 }

@@ -60,6 +60,15 @@ export const AUDIT_ACTIONS = [
   "Duplicate Flagged",
   "Lead Assigned",
   "Consent Updated",
+  // Phase 5 — GHL / Communications integration (spec sections 4, 11-13, 30, 57).
+  "GHL Configuration Changed",
+  "GHL Connection Tested",
+  "GHL Mapping Changed",
+  "GHL Outbox Manually Retried",
+  "Message Template Changed",
+  "Automation Rule Changed",
+  "Message Sent",
+  "Bulk Message Sent",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

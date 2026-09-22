@@ -40,6 +40,8 @@ model Person {
   student Student?
   staff   Staff?
   user    User?
+  communicationLogs CommunicationLog[]
+  ghlContactMap     GhlContactMap?
 
   @@index([email])
 }
@@ -653,7 +655,12 @@ model DomainEvent {
   enrollmentId String?
   payloadJson Json
   occurredAt  DateTime @default(now())
-  processedAt DateTime? // set once a future consumer (e.g. GHL dispatch) actually handles it — always null in Phase 2
+  // Set once the Phase 5 GHL outbox consumer actually processes this event
+  // (SUCCESS) — the seam this field's own Phase 2 comment anticipated.
+  // Still null for any event type Phase 5 doesn't map to a GHL action.
+  processedAt DateTime?
+
+  outboxEvent IntegrationOutboxEvent?
 
   @@index([type])
   @@index([studentId])
@@ -1289,64 +1296,187 @@ model IncentiveRedemption {
 // ---------------------------------------------------------------------------
 
 model MessageTemplate {
-  id       String @id @default(cuid())
-  name     String
-  category String
-  channel  String
-  body     String
-  isActive Boolean @default(true)
+  id            String   @id @default(cuid())
+  name          String
+  channel       String   // Email | SMS | WhatsApp | Manual Viber | Manual Messenger | Other
+  purpose       String?
+  audience      String?
+  body          String
+  // The declared-safe variable names this template may reference (spec
+  // section 47) — e.g. ["firstName","webinarDate","batch"]. Enforced at
+  // render/preview time so a template can never interpolate a field it
+  // didn't declare.
+  variablesJson Json?
+  status        String   @default("Draft") // Draft | Active | Archived
+  version       Int      @default(1)
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  communications CommunicationLog[]
 }
 
+// personId is the stable anchor (a Person may be BOTH a Lead and a
+// Student — Phase 4's existing-student-registers-for-webinar case);
+// leadId/studentId are denormalized snapshots for the spec's own field
+// list (section 52), never the join key.
 model CommunicationLog {
-  id           String   @id @default(cuid())
-  personType   String   // "Student" | "Lead"
-  personId     String
-  channel      String
-  templateId   String?
-  status       String   // Sent | Skipped | Failed
-  reason       String?
-  occurredAt   DateTime @default(now())
-  sentById     String?
+  id                String   @id @default(cuid())
+  personId          String
+  person            Person   @relation(fields: [personId], references: [id])
+  leadId            String?
+  studentId         String?
+  channel           String
+  templateId        String?
+  template          MessageTemplate? @relation(fields: [templateId], references: [id])
+  triggerEvent      String?  // the DomainEvent type that caused this, or "Manual" / "Bulk"
+  provider          String   @default("GHL") // GHL | Manual
+  externalMessageId String?
+  // Queued | Sent | Delivered | Read | Failed | Skipped | Cancelled — never
+  // set to Delivered/Read without real provider confirmation (spec 53).
+  status            String
+  reason            String?  // required context for Skipped/Failed (spec 54)
+  queuedAt          DateTime @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  sentById          String?  // staff who triggered a manual send
 
-  @@index([personType, personId])
+  @@index([personId])
+  @@index([leadId])
+  @@index([studentId])
+  @@index([status])
 }
 
 model GhlContactMap {
-  id           String   @id @default(cuid())
-  personType   String
-  personId     String   @unique
-  ghlContactId String?
-  possibleDuplicate Boolean @default(false)
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  personId          String   @unique
+  person            Person   @relation(fields: [personId], references: [id])
+  leadId            String?
+  studentId         String?
+  ghlContactId      String?
+  ghlLocationId     String?
+  // NOT_SYNCED | QUEUED | SYNCING | SYNCED | FAILED | RETRYING | CONFLICT
+  syncStatus        String   @default("NOT_SYNCED")
+  lastSyncedAt      DateTime?
+  lastSyncDirection String?  // Outbound | Inbound
+  lastError         String?
+  possibleDuplicate Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
-model SyncLog {
-  id           String   @id @default(cuid())
-  personType   String
-  personId     String
-  event        String
-  status       String   // Success | Failed | Needs Review
-  retryCount   Int      @default(0)
-  occurredAt   DateTime @default(now())
-  resolvedAt   DateTime?
+// The outbox/retry-queue row for ONE (DomainEvent -> GHL action) pair
+// (spec sections 14, 29-31, 47). idempotencyKey is the actual duplicate-
+// processing guard — a unique DB constraint, not an in-memory check —
+// derived deterministically from the DomainEvent id, so reprocessing the
+// same event can never create a second row (spec section 31, 68).
+model IntegrationOutboxEvent {
+  id                String   @id @default(cuid())
+  domainEventId     String   @unique
+  domainEvent       DomainEvent @relation(fields: [domainEventId], references: [id])
+  idempotencyKey    String   @unique
+  eventType         String
+  personId          String?
+  // QUEUED | PROCESSING | SUCCESS | FAILED | RETRYING | DEAD_LETTER
+  status            String   @default("QUEUED")
+  attemptCount      Int      @default(0)
+  lastAttemptAt     DateTime?
+  nextRetryAt       DateTime?
+  lastError         String?
+  lastErrorCategory String?  // Timeout | RateLimited | AuthenticationFailed | PermanentError | NetworkError | NotConfigured
+  resolvedAt        DateTime?
+  resolvedById      String?  // staff who manually retried/resolved a dead-lettered row
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  @@index([personType, personId])
+  @@index([status])
+  @@index([personId])
+}
+
+// Inbound webhook deduplication (spec section 36) — HighLevel may deliver
+// the same webhook more than once; externalEventId is the real guard, not
+// a best-effort check.
+model GhlWebhookEvent {
+  id              String   @id @default(cuid())
+  externalEventId String   @unique
+  eventType       String?
+  signatureValid  Boolean
+  payloadJson     Json
+  processedAt     DateTime?
+  processingNote  String?
+  receivedAt      DateTime @default(now())
+}
+
+// M.A.I.A. EVENT/STATUS -> GHL TAG (spec section 12) — a real admin-edited
+// table, never a hard-coded switch statement in application code.
+model GhlTagMapping {
+  id         String   @id @default(cuid())
+  eventKey   String   @unique // e.g. "WEBINAR_REGISTERED", "STUDENT_FULLY_PAID"
+  ghlTagName String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// M.A.I.A. FIELD -> GHL CUSTOM FIELD (spec section 11) — the GHL custom
+// field ID lives here, never inlined into route code.
+model GhlCustomFieldMapping {
+  id         String   @id @default(cuid())
+  maiaField  String   @unique // e.g. "batch", "package", "paymentStatus"
+  ghlFieldId String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// M.A.I.A. EVENT -> GHL WORKFLOW (spec section 13).
+model GhlWorkflowMapping {
+  id            String   @id @default(cuid())
+  eventKey      String   @unique
+  ghlWorkflowId String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Singleton operational config row — NEVER holds secret material (spec
+// section 3). The real Private Integration Token / webhook signing key
+// live ONLY in this server process's own environment variables
+// (GHL_PRIVATE_INTEGRATION_TOKEN, GHL_WEBHOOK_SIGNATURE_PUBLIC_KEY),
+// never in this table, never in git, never sent to the frontend.
+model GhlIntegrationConfig {
+  id                         String   @id @default("singleton")
+  connectionMode             String   @default("PRIVATE_INTEGRATION") // PRIVATE_INTEGRATION | OAUTH
+  locationId                 String?
+  operatingMode              String   @default("TEST") // TEST | PRODUCTION — never auto-switches (spec section 58)
+  status                     String   @default("NOT_CONNECTED") // NOT_CONNECTED | CONNECTED | AUTHENTICATION_FAILED | INSUFFICIENT_PERMISSIONS | RATE_LIMITED | CONNECTION_ERROR
+  lastSuccessfulConnectionAt DateTime?
+  lastSyncAt                 DateTime?
+  webhookStatus              String   @default("NOT_CONFIGURED") // NOT_CONFIGURED | RECEIVING | NO_RECENT_DELIVERIES
+  testContactIdsJson         Json?    // allow-list of real GHL contact ids permitted to receive messages while in TEST mode
+  updatedById                String?
+  updatedAt                  DateTime @updatedAt
 }
 
 model AutomationRule {
-  id          String   @id @default(cuid())
-  name        String
-  triggerEvent String
-  conditionJson Json?
-  actionsJson  Json
-  isActive    Boolean  @default(true)
-  createdById String
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  name              String
+  triggerEvent      String
+  conditionJson     Json?
+  actionsJson       Json
+  stopConditionsJson Json?   // e.g. ["LEAD_CONVERTED","STUDENT_FULLY_PAID","LEAD_OPTED_OUT"] (spec section 51)
+  status            String   @default("Draft") // Draft | Active | Paused | Archived — Draft NEVER executes (spec section 50)
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   executions AutomationExecution[]
 }
 
-// Idempotency, for real, at the database level (spec section 17) — the
+// Idempotency, for real, at the database level (spec section 31) — the
 // unique constraint below is what actually prevents a duplicate execution,
 // not just an in-memory check.
 model AutomationExecution {

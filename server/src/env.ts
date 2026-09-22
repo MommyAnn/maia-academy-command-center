@@ -39,6 +39,21 @@ const schema = z.object({
   // combined with credentials would let ANY site read an authenticated
   // user's session data (spec section 35: no OWASP-class vulnerabilities).
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
+
+  // Phase 5 — GHL/HighLevel integration credentials. ALL optional: the
+  // server must boot and every non-GHL feature must keep working with none
+  // of these set (spec sections 72-74 — no live credentials are configured
+  // in this production phase). Never read anywhere outside this file and
+  // the GHL client module; never returned by any API response or persisted
+  // to the database (spec section 3).
+  GHL_PRIVATE_INTEGRATION_TOKEN: z.string().min(1).optional(),
+  GHL_LOCATION_ID: z.string().min(1).optional(),
+  // The Ed25519 public key HighLevel signs webhook deliveries with (spec
+  // section 34), PEM-encoded. Required only to verify inbound webhooks —
+  // outbound sync works without it.
+  GHL_WEBHOOK_SIGNATURE_PUBLIC_KEY: z.string().min(1).optional(),
+  GHL_API_BASE_URL: z.string().default("https://services.leadconnectorhq.com"),
+  GHL_API_VERSION: z.string().default("2021-07-28"),
 });
 
 const parsed = schema.safeParse(process.env);

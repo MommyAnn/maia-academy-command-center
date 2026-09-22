@@ -23,6 +23,22 @@ export async function resetDb() {
     db.requirementReview.deleteMany(),
     db.requirement.deleteMany(),
     db.studentNote.deleteMany(),
+    // Phase 5 (GHL / Communications) — IntegrationOutboxEvent has a real
+    // (RESTRICT) FK to DomainEvent, so it must be cleared first; the rest
+    // of these have no hard FK to Person/Student/DomainEvent but are reset
+    // every run anyway so their own unique constraints (eventKey,
+    // maiaField, the singleton config id) never collide across test files.
+    db.integrationOutboxEvent.deleteMany(),
+    db.ghlWebhookEvent.deleteMany(),
+    db.communicationLog.deleteMany(),
+    db.ghlContactMap.deleteMany(),
+    db.automationExecution.deleteMany(),
+    db.automationRule.deleteMany(),
+    db.messageTemplate.deleteMany(),
+    db.ghlTagMapping.deleteMany(),
+    db.ghlCustomFieldMapping.deleteMany(),
+    db.ghlWorkflowMapping.deleteMany(),
+    db.ghlIntegrationConfig.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),
     db.paymentTransaction.deleteMany(),
