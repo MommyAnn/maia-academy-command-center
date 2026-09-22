@@ -1,0 +1,1050 @@
+// M.A.I.A. Academy Command Center — Production Database Foundation (Phase 1)
+//
+// This schema is the production twin of the domain model already proven out
+// in the frontend across Steps 1-12 (src/types/*.ts) — field names and
+// status enums mirror those files deliberately, so this is a faithful
+// translation of working business logic into a real relational database,
+// not an invented one.
+//
+// Core identity model (spec section 4): Person is the one stable human
+// identity. Lead and Student both point back to the same Person row when
+// they are the same human being, so a person who registers for a webinar
+// and later enrolls is never duplicated — LeadStudentConversion preserves
+// the link explicitly, exactly like the existing leadId/convertedToStudentId
+// pattern in src/types/webinar.ts and src/types/student.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// IDENTITY
+// ---------------------------------------------------------------------------
+
+model Person {
+  id           String   @id @default(cuid())
+  fullName     String
+  facebookName String?
+  email        String?
+  contactNumber String?
+  city         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lead    Lead?
+  student Student?
+  staff   Staff?
+  user    User?
+
+  @@index([email])
+}
+
+// A real, authenticatable account. Every login-capable identity (Owner,
+// Staff, Student) has exactly one User row. A Person may exist without a
+// User (e.g. a Lead who never enrolls, or a Student before portal access
+// is provisioned).
+model User {
+  id            String    @id @default(cuid())
+  personId      String    @unique
+  person        Person    @relation(fields: [personId], references: [id])
+  email         String    @unique
+  passwordHash  String
+  roleId        String
+  role          Role      @relation(fields: [roleId], references: [id])
+  status        UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions        Session[]
+  passwordResets  PasswordResetToken[]
+  activityLogs    ActivityLog[]         @relation("ActorUser")
+
+  @@index([roleId])
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+// Server-side, revocable sessions (spec section 8: "Session Revocation").
+// Only a hash of the session token is stored — the raw token lives solely
+// in the httpOnly cookie, exactly like a password is never stored in
+// reversible form.
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash    String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  userAgent    String?
+  ipAddress    String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([userId])
+}
+
+// Roles are real, admin-manageable rows (spec section 12: "do not hard-code
+// business permissions unnecessarily") — not a hard-coded enum. Seeded with
+// the same 10 starting roles the frontend already ships (Owner,
+// Administrator, Finance Officer, Enrollment Officer, Student Success
+// Coordinator, Training Coordinator, Inventory Officer, Marketing Staff,
+// Support Staff, Custom Role) — see prisma/seed.ts.
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  isCustom    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  users       User[]
+  staff       Staff[]
+  permissions RolePermission[]
+}
+
+enum PermissionAction {
+  VIEW
+  CREATE
+  EDIT
+  VERIFY
+  EXPORT
+}
+
+// module is validated at the application layer against the same
+// PERMISSION_MODULES list as src/types/staff.ts (kept in server/src/rbac/modules.ts)
+// so the two never drift apart.
+model RolePermission {
+  id      String            @id @default(cuid())
+  roleId  String
+  role    Role              @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module  String
+  action  PermissionAction
+  allowed Boolean           @default(false)
+
+  @@unique([roleId, module, action])
+  @@index([roleId])
+}
+
+// ---------------------------------------------------------------------------
+// LEADS (spec section 4: a Person may begin as a Lead and later become a Student)
+// ---------------------------------------------------------------------------
+
+model Lead {
+  id             String    @id @default(cuid())
+  leadDisplayId  String    @unique // e.g. LEAD-2026-000001
+  personId       String    @unique
+  person         Person    @relation(fields: [personId], references: [id])
+  source         String?
+  campaign       String?
+  pipelineStage  LeadStage @default(NOT_CONTACTED)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  activity          LeadActivity[]
+  webinarRegistrations WebinarRegistration[]
+  followUps         FollowUp[]
+  conversion        LeadStudentConversion?
+  feedbackSubmissions FeedbackSubmission[]
+
+  @@index([pipelineStage])
+}
+
+enum LeadStage {
+  NOT_CONTACTED
+  FOLLOW_UP_NEEDED
+  INTERESTED
+  CONSIDERING
+  RESERVATION_PAID
+  ENROLLED
+  NOT_INTERESTED
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  action    String
+  userLabel String
+  occurredAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// Preserves the Lead <-> Student link permanently (spec section 25) —
+// converting a Lead never deletes or merges the Lead row, it links it.
+model LeadStudentConversion {
+  id          String   @id @default(cuid())
+  leadId      String   @unique
+  lead        Lead     @relation(fields: [leadId], references: [id])
+  studentId   String   @unique
+  student     Student  @relation(fields: [studentId], references: [id])
+  convertedAt DateTime @default(now())
+  convertedBy String
+}
+
+// ---------------------------------------------------------------------------
+// STUDENTS, BATCHES, PACKAGES, ENROLLMENTS
+// ---------------------------------------------------------------------------
+
+model Batch {
+  id        String   @id @default(cuid())
+  code      String   @unique // e.g. "14"
+  label     String            // e.g. "Batch 14"
+  startDate DateTime?
+  isActive  Boolean  @default(true)
+
+  students    Student[]
+  enrollments Enrollment[]
+  payments    PaymentTransaction[]
+}
+
+model Package {
+  id           String   @id @default(cuid())
+  name         String   @unique // e.g. "Premium", "VIP", "Dual VIP"
+  defaultPrice Decimal? @db.Decimal(12, 2)
+  isActive     Boolean  @default(true)
+
+  students    Student[]
+  enrollments Enrollment[]
+  payments    PaymentTransaction[]
+  aiAccess    AiPackageAccess[]
+}
+
+model Student {
+  id               String   @id @default(cuid())
+  studentDisplayId String   @unique // e.g. MAIA-B14-0001
+  personId         String   @unique
+  person           Person   @relation(fields: [personId], references: [id])
+  batchId          String
+  batch            Batch    @relation(fields: [batchId], references: [id])
+  packageId        String
+  package          Package  @relation(fields: [packageId], references: [id])
+  enrollmentStatus String   // mirrors StudentRecord.enrollmentStatus's existing string values
+  attendanceMode   String?  // "Face-to-Face" | "Zoom"
+  masterBrainStatus MasterBrainStatus @default(NOT_STARTED)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  leadConversion   LeadStudentConversion?
+  enrollments      Enrollment[]
+  businesses       Business[]
+  payments         PaymentTransaction[]
+  documents        Document[]
+  taobaoRecord     TaobaoRecord?
+  masterBrainSubmission MasterBrainSubmission?
+  courseAccess     CourseAccessGrant[]
+  lessonProgress   LessonProgress[]
+  trainingAttendance TrainingAttendance[]
+  certificates     Certificate[]
+  feedbackSubmissions FeedbackSubmission[]
+  incentiveRedemptions IncentiveRedemption[]
+  aiManualGrants   AiManualGrant[]
+  supportRequests  SupportRequest[]
+  activityLogs     ActivityLog[] @relation("ActorStudent")
+
+  @@index([batchId])
+  @@index([packageId])
+}
+
+enum MasterBrainStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_REVISION
+  APPROVED_FOR_GENERATION
+  GENERATING
+  DRAFT_READY
+  FINAL_REVIEW
+  COMPLETED
+  PUBLISHED
+}
+
+// A student may have more than one enrollment over time (spec section 5) —
+// never a field on Student itself.
+model Enrollment {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  batchId    String
+  batch      Batch    @relation(fields: [batchId], references: [id])
+  packageId  String
+  package    Package  @relation(fields: [packageId], references: [id])
+  status     String
+  enrolledAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([studentId])
+}
+
+// One student may run more than one business (spec sections 4-5, 15) — kept
+// isolated from every other business via businessId scoping on Master
+// Brain, AI Projects, and AI Generations below.
+model Business {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+
+  masterBrainSubmissions MasterBrainSubmission[]
+  aiProjects             AiProject[]
+  aiGenerations          AiGeneration[]
+  documents              Document[]
+
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// FINANCE — transaction ledger only; balance/status are always derived,
+// never stored (spec sections 23-24). See server/src/modules/finance/calc.ts.
+// ---------------------------------------------------------------------------
+
+model PaymentTransaction {
+  id               String   @id @default(cuid())
+  paymentDisplayId String   @unique // e.g. PAY-B14-000001
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id])
+  enrollmentId     String?
+  batchId          String
+  batch            Batch    @relation(fields: [batchId], references: [id])
+  packageId        String
+  package          Package  @relation(fields: [packageId], references: [id])
+  paymentDate      DateTime
+  type             String
+  amount           Decimal  @db.Decimal(12, 2)
+  method            String
+  referenceNumber   String?
+  status            PaymentTransactionStatus @default(PENDING_VERIFICATION)
+  proofDocumentId   String?
+  proofDocument     Document? @relation(fields: [proofDocumentId], references: [id])
+  notes             String?
+  recordedById      String
+  verifiedById      String?
+  verifiedAt        DateTime?
+  rejectedReason    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+}
+
+enum PaymentTransactionStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  CANCELLED
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  category  String
+  amount    Decimal  @db.Decimal(12, 2)
+  date      DateTime
+  status    ExpenseStatus @default(ACTIVE)
+  voidReason String?
+  receiptDocumentId String?
+  receiptDocument   Document? @relation(fields: [receiptDocumentId], references: [id])
+  recordedById String
+  createdAt DateTime @default(now())
+}
+
+enum ExpenseStatus {
+  ACTIVE
+  VOID
+}
+
+// ---------------------------------------------------------------------------
+// DOCUMENTS / FILES — metadata + access classification (spec sections 18-22).
+// The actual bytes live in whatever StorageDriver is configured
+// (server/src/storage) — this table never stores file content itself.
+// ---------------------------------------------------------------------------
+
+model Document {
+  id               String   @id @default(cuid())
+  ownerStudentId   String?
+  ownerStudent     Student? @relation(fields: [ownerStudentId], references: [id])
+  ownerBusinessId  String?
+  ownerBusiness    Business? @relation(fields: [ownerBusinessId], references: [id])
+  documentType     String   // "ValidId" | "PaymentProof" | "CourseResource" | "FeedbackVideo" | "AiAsset" | ...
+  originalFilename String
+  storageKey       String   @unique // path/key inside the storage driver, never guessable
+  mimeType         String
+  sizeBytes        Int
+  status           DocumentStatus @default(PENDING)
+  accessClassification DocumentAccessClass
+  uploadedById     String
+  uploadedAt       DateTime @default(now())
+
+  paymentProofOf PaymentTransaction[]
+  expenseReceiptOf Expense[]
+
+  @@index([ownerStudentId])
+  @@index([ownerBusinessId])
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DocumentAccessClass {
+  PRIVATE_STUDENT
+  PRIVATE_STAFF
+  FINANCE_SENSITIVE
+  ACADEMY_INTERNAL
+  COURSE_RESTRICTED
+  MARKETING_APPROVED
+  PUBLIC
+}
+
+model TaobaoRecord {
+  id        String   @id @default(cuid())
+  studentId String   @unique
+  student   Student  @relation(fields: [studentId], references: [id])
+  status    String
+  notes     String?
+  updatedAt DateTime @updatedAt
+  // Deliberately no password field — matches the existing frontend's
+  // explicit "the Taobao password is never requested, stored, or displayed" rule.
+}
+
+// ---------------------------------------------------------------------------
+// MASTER BRAIN — submission (raw answers) and document (generated, versioned)
+// are two permanently separate records (spec section 16), exactly like the
+// existing MasterBrainSubmission / MasterBrainDocument split.
+// ---------------------------------------------------------------------------
+
+model MasterBrainSubmission {
+  id               String   @id @default(cuid())
+  studentId        String   @unique
+  student          Student  @relation(fields: [studentId], references: [id])
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  status           MasterBrainStatus @default(NOT_STARTED)
+  currentStep      Int      @default(1)
+  progressPercent  Int      @default(0)
+  answersJson      Json     // the full 12-step questionnaire payload
+  submissionVersion Int     @default(1)
+  startedAt        DateTime?
+  lastSavedAt      DateTime?
+  submittedAt      DateTime?
+  reviewedById     String?
+  reviewedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  documents        MasterBrainDocument[]
+  revisionRequests MasterBrainRevisionRequest[]
+
+  @@index([businessId])
+}
+
+model MasterBrainRevisionRequest {
+  id           String   @id @default(cuid())
+  submissionId String
+  submission   MasterBrainSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  section      String
+  question     String?
+  reason       String
+  resolved     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+model MasterBrainDocument {
+  id                          String   @id @default(cuid())
+  submissionId                String
+  submission                  MasterBrainSubmission @relation(fields: [submissionId], references: [id])
+  businessId                  String
+  documentVersion             Int
+  generatedFromSubmissionVersion Int
+  sectionsJson                Json
+  isCurrentPublished          Boolean  @default(false)
+  generatedAt                 DateTime @default(now())
+  publishedAt                 DateTime?
+  publishedById                String?
+
+  aiGenerations AiGeneration[]
+
+  @@unique([submissionId, documentVersion])
+  @@index([businessId, isCurrentPublished])
+}
+
+// ---------------------------------------------------------------------------
+// LMS — course access resolution + progress are always live-computed by the
+// service layer (server/src/modules/lms/access.ts), never stored as a
+// percent (spec section 14).
+// ---------------------------------------------------------------------------
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  category    String
+  accessType  CourseAccessType @default(PACKAGE)
+  certificateEligible Boolean @default(false)
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  modules      CourseModule[]
+  accessGrants CourseAccessGrant[]
+}
+
+enum CourseAccessType {
+  PACKAGE
+  MANUAL
+  OPEN
+}
+
+model CourseModule {
+  id       String   @id @default(cuid())
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title    String
+  order    Int
+
+  lessons Lesson[]
+
+  @@index([courseId])
+}
+
+model Lesson {
+  id             String   @id @default(cuid())
+  moduleId       String
+  module         CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title          String
+  type           String   // Video | Text | Downloadable Resource | External Resource | Assignment | Quiz Placeholder | Live Session-Replay
+  order          Int
+  videoEmbedRef  String?  // embed reference only, never a raw playback URL
+
+  progress LessonProgress[]
+
+  @@index([moduleId])
+}
+
+model CourseAccessGrant {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id])
+  source    CourseAccessType
+  grantedById String?
+  grantedAt DateTime @default(now())
+  expiresAt DateTime?
+  revokedAt DateTime?
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+}
+
+model LessonProgress {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  lessonId    String
+  lesson      Lesson   @relation(fields: [lessonId], references: [id])
+  completedAt DateTime?
+
+  @@unique([studentId, lessonId])
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// TRAINING / ATTENDANCE / CERTIFICATES
+// ---------------------------------------------------------------------------
+
+model TrainingSession {
+  id        String   @id @default(cuid())
+  sessionDisplayId String @unique // e.g. TRN-B14-0001
+  title     String
+  mode      String   // "Face-to-Face" | "Zoom"
+  scheduledAt DateTime
+  status    String
+  createdById String
+  createdAt DateTime @default(now())
+
+  attendance TrainingAttendance[]
+}
+
+model TrainingAttendance {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   TrainingSession @relation(fields: [sessionId], references: [id])
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  status    String   // Present | Late | Absent | Attended Online
+  recordedById String?
+  recordedAt DateTime?
+
+  @@unique([sessionId, studentId])
+  @@index([studentId])
+}
+
+model Certificate {
+  id                String   @id @default(cuid())
+  certificateDisplayId String @unique // e.g. CERT-B14-000001
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id])
+  status            String   // Not Eligible | Eligible | For Preparation | Ready | Issued | Reissued
+  issuedAt          DateTime?
+  issuedById        String?
+  fileDocumentId    String?  // null until real PDF generation exists (Phase 1 leaves this unset)
+  createdAt         DateTime @default(now())
+
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// STAFF / TASKS / INVENTORY
+// ---------------------------------------------------------------------------
+
+model Staff {
+  id         String   @id @default(cuid())
+  personId   String   @unique
+  person     Person   @relation(fields: [personId], references: [id])
+  roleId     String
+  role       Role     @relation(fields: [roleId], references: [id])
+  status     UserStatus @default(ACTIVE)
+  createdAt  DateTime @default(now())
+
+  tasksCreated Task[] @relation("TaskCreatedBy")
+  tasksAssigned Task[] @relation("TaskAssignedTo")
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  taskDisplayId String @unique // e.g. TASK-2026-000001
+  title       String
+  status      String
+  priority    String
+  createdById String
+  createdBy   Staff    @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  assignedToId String?
+  assignedTo  Staff?   @relation("TaskAssignedTo", fields: [assignedToId], references: [id])
+  autoTriggerKey String? @unique // dedup key for automatically-created tasks
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+}
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  category    String
+  unit        String
+  reorderLevel Int
+  unitCost    Decimal  @db.Decimal(12, 2)
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+
+  transactions InventoryTransaction[]
+}
+
+model Supplier {
+  id    String @id @default(cuid())
+  name  String
+  items InventoryItem[]
+}
+
+model InventoryTransaction {
+  id         String   @id @default(cuid())
+  itemId     String
+  item       InventoryItem @relation(fields: [itemId], references: [id])
+  type       String   // Stock In | Stock Out | Adjustment
+  quantity   Int
+  reason     String?
+  recordedById String
+  createdAt  DateTime @default(now())
+
+  @@index([itemId])
+}
+
+// ---------------------------------------------------------------------------
+// WEBINAR / LEADS / FOLLOW-UPS
+// ---------------------------------------------------------------------------
+
+model WebinarSession {
+  id        String   @id @default(cuid())
+  title     String
+  type      String
+  scheduledAt DateTime
+  platform  String
+  status    String
+  createdById String
+  createdAt DateTime @default(now())
+
+  registrations WebinarRegistration[]
+}
+
+model WebinarRegistration {
+  id         String   @id @default(cuid())
+  sessionId  String
+  session    WebinarSession @relation(fields: [sessionId], references: [id])
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id])
+  registeredAt DateTime @default(now())
+  attendanceStatus String? // Attended | Completed | Left Early | No Show
+  marketingConsent Boolean @default(false)
+
+  @@index([sessionId])
+  @@index([leadId])
+}
+
+model FollowUp {
+  id           String   @id @default(cuid())
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id])
+  scheduledFor DateTime
+  channel      String
+  assignedStaffId String?
+  outcome      String?
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// ---------------------------------------------------------------------------
+// FEEDBACK / TESTIMONIALS / INCENTIVES — private feedback and marketing
+// consent are independently tracked, never implied by each other (spec
+// section 16's "must not be broken" list).
+// ---------------------------------------------------------------------------
+
+model FeedbackRequest {
+  id        String   @id @default(cuid())
+  source    String
+  questionsJson Json
+  openDate  DateTime @default(now())
+  closeDate DateTime?
+
+  submissions FeedbackSubmission[]
+}
+
+model FeedbackSubmission {
+  id           String   @id @default(cuid())
+  requestId    String?
+  request      FeedbackRequest? @relation(fields: [requestId], references: [id])
+  studentId    String?
+  student      Student? @relation(fields: [studentId], references: [id])
+  leadId       String?
+  lead         Lead?    @relation(fields: [leadId], references: [id])
+  rating       Int?
+  writtenText  String?
+  videoDocumentId String?
+  status       String   @default("Submitted")
+  internalNotes String?
+  createdAt    DateTime @default(now())
+
+  marketingConsent MarketingConsent?
+  incentiveRedemptions IncentiveRedemption[]
+
+  // Exactly one of studentId / leadId is ever set — enforced at the service
+  // layer (server/src/modules/feedback/service.ts), matching the existing
+  // frontend rule.
+  @@index([studentId])
+  @@index([leadId])
+}
+
+// Append-only consent history (spec section 16) — status is derived from
+// the latest ConsentEvent, never overwritten in place.
+model MarketingConsent {
+  id            String   @id @default(cuid())
+  feedbackSubmissionId String @unique
+  feedbackSubmission FeedbackSubmission @relation(fields: [feedbackSubmissionId], references: [id])
+  permittedAssetsJson Json
+  events        ConsentEvent[]
+}
+
+model ConsentEvent {
+  id           String   @id @default(cuid())
+  consentId    String
+  consent      MarketingConsent @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  status       String   // Granted | Withdrawn
+  occurredAt   DateTime @default(now())
+  source       String
+}
+
+model Incentive {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // course bonus | resource | other
+  courseId    String?
+  isActive    Boolean  @default(true)
+
+  redemptions IncentiveRedemption[]
+}
+
+model IncentiveRedemption {
+  id           String   @id @default(cuid())
+  incentiveId  String
+  incentive    Incentive @relation(fields: [incentiveId], references: [id])
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id])
+  feedbackSubmissionId String
+  feedbackSubmission FeedbackSubmission @relation(fields: [feedbackSubmissionId], references: [id])
+  status       String   @default("Unlocked") // Unlocked | Delivered
+  deliveredAt  DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// COMMUNICATIONS / GHL — every send/sync status is honest (Sent/Skipped/
+// Failed only — no fabricated "Delivered" without a real provider webhook),
+// exactly matching the existing simulated architecture's intent.
+// ---------------------------------------------------------------------------
+
+model MessageTemplate {
+  id       String @id @default(cuid())
+  name     String
+  category String
+  channel  String
+  body     String
+  isActive Boolean @default(true)
+}
+
+model CommunicationLog {
+  id           String   @id @default(cuid())
+  personType   String   // "Student" | "Lead"
+  personId     String
+  channel      String
+  templateId   String?
+  status       String   // Sent | Skipped | Failed
+  reason       String?
+  occurredAt   DateTime @default(now())
+  sentById     String?
+
+  @@index([personType, personId])
+}
+
+model GhlContactMap {
+  id           String   @id @default(cuid())
+  personType   String
+  personId     String   @unique
+  ghlContactId String?
+  possibleDuplicate Boolean @default(false)
+  updatedAt    DateTime @updatedAt
+}
+
+model SyncLog {
+  id           String   @id @default(cuid())
+  personType   String
+  personId     String
+  event        String
+  status       String   // Success | Failed | Needs Review
+  retryCount   Int      @default(0)
+  occurredAt   DateTime @default(now())
+  resolvedAt   DateTime?
+
+  @@index([personType, personId])
+}
+
+model AutomationRule {
+  id          String   @id @default(cuid())
+  name        String
+  triggerEvent String
+  conditionJson Json?
+  actionsJson  Json
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  executions AutomationExecution[]
+}
+
+// Idempotency, for real, at the database level (spec section 17) — the
+// unique constraint below is what actually prevents a duplicate execution,
+// not just an in-memory check.
+model AutomationExecution {
+  id             String   @id @default(cuid())
+  ruleId         String
+  rule           AutomationRule @relation(fields: [ruleId], references: [id])
+  eventType      String
+  personType     String
+  personId       String
+  occurredAtKey  String   // the event's own occurredAt, part of the idempotency key
+  executedAt     DateTime @default(now())
+
+  @@unique([ruleId, eventType, personType, personId, occurredAtKey])
+}
+
+// ---------------------------------------------------------------------------
+// AI BUSINESS TOOLS — AiGeneration pins the exact MasterBrainDocument
+// version it was generated from and is never re-pointed (spec section 16).
+// ---------------------------------------------------------------------------
+
+model AiTool {
+  id          String   @id @default(cuid())
+  toolKey     String   @unique // "business-strategist", ...
+  name        String
+  category    String
+  status      AiToolStatus @default(ACTIVE)
+  displayOrder Int
+
+  promptVersions PromptVersion[]
+  manualGrants   AiManualGrant[]
+  generations    AiGeneration[]
+}
+
+enum AiToolStatus {
+  ACTIVE
+  INACTIVE
+  COMING_SOON
+}
+
+model PromptVersion {
+  id          String   @id @default(cuid())
+  toolId      String
+  tool        AiTool   @relation(fields: [toolId], references: [id])
+  version     Int
+  systemInstruction String
+  status      PromptVersionStatus @default(DRAFT)
+  changeNotes String?
+  updatedById String
+  createdAt   DateTime @default(now())
+
+  @@unique([toolId, version])
+}
+
+enum PromptVersionStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+model AiProject {
+  id          String   @id @default(cuid())
+  projectDisplayId String @unique // e.g. PROJ-2026-000001
+  studentId   String
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  name        String
+  type        String
+  masterBrainVersionAtCreation Int?
+  createdAt   DateTime @default(now())
+
+  generations AiGeneration[]
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model AiGeneration {
+  id           String   @id @default(cuid())
+  generationDisplayId String @unique // e.g. GEN-2026-000001
+  studentId    String
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id])
+  projectId    String?
+  project      AiProject? @relation(fields: [projectId], references: [id])
+  toolId       String
+  tool         AiTool   @relation(fields: [toolId], references: [id])
+  masterBrainDocumentId String?
+  masterBrainDocument   MasterBrainDocument? @relation(fields: [masterBrainDocumentId], references: [id])
+  masterBrainVersion    Int?
+  userInputJson Json
+  outputJson    Json
+  status        String  // Completed | Failed
+  failureReason String?
+  favorited     Boolean @default(false)
+  archived      Boolean @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([studentId])
+  @@index([businessId])
+  @@index([projectId])
+}
+
+model AiPackageAccess {
+  id        String  @id @default(cuid())
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id])
+  toolKey   String
+
+  @@unique([packageId, toolKey])
+}
+
+model AiManualGrant {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  toolId    String
+  tool      AiTool   @relation(fields: [toolId], references: [id])
+  reason    String?
+  grantedById String
+  grantedAt DateTime @default(now())
+
+  @@unique([studentId, toolId])
+}
+
+// ---------------------------------------------------------------------------
+// CROSS-CUTTING: ACTIVITY LOG / SUPPORT / ANNOUNCEMENTS
+// ---------------------------------------------------------------------------
+
+// Polymorphic actor: either a User (staff/owner) or a Student acted.
+// Never stores passwords/secrets — enforced by convention in
+// server/src/audit/log.ts, which whitelists loggable fields per action.
+model ActivityLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  actorUser    User?    @relation("ActorUser", fields: [actorUserId], references: [id])
+  actorStudentId String?
+  actorStudent Student? @relation("ActorStudent", fields: [actorStudentId], references: [id])
+  action       String
+  entityType   String?
+  entityId     String?
+  summary      String
+  occurredAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([actorStudentId])
+  @@index([action])
+  @@index([occurredAt])
+}
+
+model SupportRequest {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  category  String
+  message   String
+  status    String   @default("Open")
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  targeting Json
+  isPinned  Boolean  @default(false)
+  isImportant Boolean @default(false)
+  publishedById String
+  createdAt DateTime @default(now())
+}

@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Server (Phase 1 production backend) — never commit real secrets or
+# environment files, only server/.env.example is tracked.
+server/node_modules
+server/dist
+server/.env
+server/.env.*
+!server/.env.example
+server/uploads-dev
+server/uploads-test
+server/generated
