@@ -609,8 +609,12 @@ export function WebinarStoreProvider({ children }: { children: ReactNode }) {
         ),
       }));
       appendLeadActivity(leadId, "Reservation verified");
+      const lead = state.leads.find((l) => l.id === leadId);
+      if (lead) {
+        dispatchGhlEvent({ type: "lead.reservation_verified", occurredAt: iso, leadId: lead.leadId, summary: `${lead.fullName}'s reservation payment verified` });
+      }
     },
-    [updateState, appendLeadActivity],
+    [updateState, appendLeadActivity, state.leads],
   );
 
   const rejectReservation = useCallback(

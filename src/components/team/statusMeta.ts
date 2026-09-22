@@ -33,6 +33,7 @@ export const TASK_CATEGORY_TONE: Record<TaskCategory, Tone> = {
   Courses: "gold",
   Feedback: "info",
   "Free Webinar": "gold",
+  Communications: "info",
   General: "neutral",
 };
 

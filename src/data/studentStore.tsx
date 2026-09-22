@@ -216,19 +216,25 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
       return next;
     });
 
+    dispatchGhlEvent({ type: "student.enrolled", occurredAt: iso, studentId: created.id, studentDisplayId: created.studentId, summary: `${created.fullName} enrolled as ${created.studentId}` });
+
     return created;
   }, []);
 
   const updateEnrollmentStatus = useCallback(
     (id: string, status: EnrollmentStatus) => {
-      const { date, time } = nowParts();
+      const { iso, date, time } = nowParts();
       updateStudent(id, (s) => ({
         ...s,
         enrollmentStatus: status,
         activity: [...s.activity, { id: crypto.randomUUID(), action: `Enrollment status changed to ${status}`, date, time, user: CURRENT_DEMO_USER }],
       }));
+      if (status === "Confirmed Student") {
+        const student = students.find((s) => s.id === id);
+        dispatchGhlEvent({ type: "student.enrolled", occurredAt: iso, studentId: id, studentDisplayId: student?.studentId, summary: `${student?.fullName ?? "Student"} enrollment confirmed` });
+      }
     },
-    [updateStudent],
+    [updateStudent, students],
   );
 
   const updateDocumentStatus = useCallback(
@@ -256,9 +262,15 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
           studentId: id,
           summary: `${label} needs resubmission${note ? `: ${note}` : ""}`,
         });
+      } else if (status === "Verified") {
+        const current = students.find((s) => s.id === id);
+        const otherStatus = current ? (doc === "validId" ? current.proofOfPayment.status : current.validId.status) : null;
+        if (otherStatus === "Verified") {
+          dispatchGhlEvent({ type: "requirements.completed", occurredAt: iso, studentId: id, summary: "All requirements verified" });
+        }
       }
     },
-    [updateStudent],
+    [updateStudent, students],
   );
 
   const updateTaobao = useCallback(

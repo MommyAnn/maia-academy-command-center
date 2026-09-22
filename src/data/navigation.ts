@@ -79,6 +79,20 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Communications",
+    items: [
+      { label: "Communication Center", path: "/communications/center" },
+      { label: "Automation Center", path: "/communications/automation" },
+      { label: "GHL Integration", path: "/communications/ghl-integration" },
+      { label: "Contact Sync", path: "/communications/contact-sync" },
+      { label: "Message Templates", path: "/communications/templates" },
+      { label: "Automation Rules", path: "/communications/automation-rules" },
+      { label: "Communication Logs", path: "/communications/logs" },
+      { label: "Sync Logs", path: "/communications/sync-logs" },
+      { label: "Integration Settings", path: "/communications/settings" },
+    ],
+  },
+  {
     label: "Inventory",
     items: [
       { label: "All Items", path: "/inventory/all-items" },

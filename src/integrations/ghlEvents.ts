@@ -55,7 +55,49 @@ export type GhlEventType =
   | "lead.considering"
   | "lead.reservation_paid"
   | "lead.enrolled"
-  | "lead.converted_to_student";
+  | "lead.converted_to_student"
+  // Step 11 additions — a small number of genuinely new triggers the
+  // Communications & Automation module needs that weren't already covered
+  // by an existing event above. Every event already declared before Step 11
+  // keeps its exact name and call sites; nothing was renamed.
+  | "lead.reservation_verified"
+  | "requirements.completed"
+  | "masterbrain.published";
+
+/** Every event type this app can dispatch — kept in sync with the GhlEventType union by hand, used to populate trigger-event selects (e.g. the Automation Rule builder). */
+export const GHL_EVENT_TYPES: GhlEventType[] = [
+  "lead.created",
+  "lead.webinar_registered",
+  "lead.webinar_attended",
+  "lead.webinar_no_show",
+  "lead.follow_up_needed",
+  "lead.interested",
+  "lead.considering",
+  "lead.reservation_paid",
+  "lead.reservation_verified",
+  "lead.enrolled",
+  "lead.converted_to_student",
+  "student.enrolled",
+  "student.payment_verified",
+  "student.fully_paid",
+  "student.requirement_missing",
+  "requirements.completed",
+  "student.taobao_otp_needed",
+  "student.master_brain_submitted",
+  "student.master_brain_approved",
+  "masterbrain.published",
+  "training.scheduled",
+  "student.training_completed",
+  "student.course_access_granted",
+  "student.course_completed",
+  "student.feedback_submitted",
+  "student.marketing_consent_granted",
+  "student.incentive_unlocked",
+  "certificate.ready",
+  "portal.activated",
+  "task.created",
+  "task.completed",
+];
 
 export interface GhlEventPayload {
   type: GhlEventType;
@@ -74,10 +116,36 @@ export interface GhlEventPayload {
  * credentials and an integration plan exist. Every call site in this app
  * already goes through this function, so that will be the only file that
  * needs to change.
+ *
+ * Step 11: this is also the single wiring point the Communications module's
+ * simulated automation engine listens on (see subscribeToGhlEvents below),
+ * so every existing dispatchGhlEvent() call across Steps 5-10 now also
+ * reaches the new module — without any of those call sites changing.
  */
 export function dispatchGhlEvent(payload: GhlEventPayload): void {
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
     console.info("[GHL integration stub] would dispatch:", payload);
   }
+  for (const listener of listeners) {
+    listener(payload);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Step 11: lightweight pub/sub so communicationsStore.tsx can react to every
+// dispatchGhlEvent() call anywhere in the app without those callers needing
+// to know the Communications module exists (and without a circular hook
+// dependency, since dispatchGhlEvent is a plain function called from inside
+// other stores' callbacks, not a React hook itself).
+// ---------------------------------------------------------------------------
+
+type GhlEventListener = (payload: GhlEventPayload) => void;
+
+const listeners = new Set<GhlEventListener>();
+
+/** Returns an unsubscribe function — call it in a useEffect cleanup. */
+export function subscribeToGhlEvents(listener: GhlEventListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }

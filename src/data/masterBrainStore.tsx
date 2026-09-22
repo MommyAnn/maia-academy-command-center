@@ -457,6 +457,7 @@ export function MasterBrainStoreProvider({ children }: { children: ReactNode }) 
       updateSubmissionInternal(submissionId, (s) => ({ ...s, status: "Published" }));
       syncStatus(submission.studentId, "Published");
       appendActivity(submission.studentId, "Brand Master Brain published — now visible in the Student Portal");
+      dispatchGhlEvent({ type: "masterbrain.published", occurredAt: iso, studentId: submission.studentId, summary: "Brand Master Brain published" });
     },
     [state.submissions, updateState, updateSubmissionInternal, syncStatus, appendActivity],
   );

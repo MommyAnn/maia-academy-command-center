@@ -24,6 +24,7 @@ export type TaskCategory =
   | "Courses"
   | "Feedback"
   | "Free Webinar"
+  | "Communications"
   | "General";
 
 export const TASK_CATEGORIES: TaskCategory[] = [
@@ -40,6 +41,7 @@ export const TASK_CATEGORIES: TaskCategory[] = [
   "Courses",
   "Feedback",
   "Free Webinar",
+  "Communications",
   "General",
 ];
 

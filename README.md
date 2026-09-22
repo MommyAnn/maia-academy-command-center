@@ -3,17 +3,18 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 10 of the build:** the Free Group Webinar Lead, Registration,
-> Attendance, Follow-up & Conversion System, on top of Step 1 (Login + App
-> Shell), Step 2 (Enrollment Form + Student Records + Student Profile), Step
-> 3 (Finance & Payment Management), Step 4 (Owner Executive Dashboard &
-> Business Analytics), Step 5 (Staff, Task Management & Operations System),
-> Step 6 (Inventory, Training, Attendance & Certificate Operations), Step 7
-> (the complete Student Portal), Step 8 (the M.A.I.A. Brand Master Brain
-> Builder), and Step 9 (Course Access + LMS + Global Feedback & Testimonial
-> System). All data is DEMO/LOCAL DATA and is not connected to a real
-> database, authentication system, AI API, video hosting, file storage, GHL,
-> or SMS/email backend yet.
+> **Step 11 of the build:** M.A.I.A. Communications, Follow-Up Automation &
+> GoHighLevel Integration, on top of Step 1 (Login + App Shell), Step 2
+> (Enrollment Form + Student Records + Student Profile), Step 3 (Finance &
+> Payment Management), Step 4 (Owner Executive Dashboard & Business
+> Analytics), Step 5 (Staff, Task Management & Operations System), Step 6
+> (Inventory, Training, Attendance & Certificate Operations), Step 7 (the
+> complete Student Portal), Step 8 (the M.A.I.A. Brand Master Brain
+> Builder), Step 9 (Course Access + LMS + Global Feedback & Testimonial
+> System), and Step 10 (the Free Group Webinar Lead, Registration,
+> Attendance, Follow-up & Conversion System). All data is DEMO/LOCAL DATA
+> and is not connected to a real database, authentication system, AI API,
+> video hosting, file storage, or a real GoHighLevel/SMS/email backend yet.
 
 ## Tech Stack
 
@@ -157,6 +158,129 @@ Total paid, remaining balance, and payment status (Unpaid / Partial
 Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
+
+## What's Included in Step 11
+
+**M.A.I.A. Communications, Follow-Up Automation & GoHighLevel Integration.**
+See `src/types/communications.ts` / `src/data/communicationsStore.tsx` for
+the domain model and automation engine. **Core architecture, enforced in
+code, not just described:** M.A.I.A. remains the operational source of
+truth (students, payments, course progress, attendance, Master Brain,
+private documents/feedback, inventory, certificates) — GHL is only ever the
+communication/follow-up/marketing engine. **No real GoHighLevel connection
+exists anywhere in this build** — every "sync" and "send" below is
+SIMULATED and honestly labeled (`provider: "GHL (Simulated)"`), never
+claimed as a real delivery.
+
+- **New Communications sidebar section** (9 pages): Communication Center,
+  Automation Center, Automation Rules, GHL Integration, Contact Sync,
+  Message Templates, Communication Logs, Sync Logs, Integration Settings.
+- **The automation engine is real, not decorative.** `dispatchGhlEvent()`
+  (the "prepared hook" every Step 5–10 store already calls — 17+ call
+  sites, unchanged) now feeds a lightweight pub/sub
+  (`subscribeToGhlEvents` in `src/integrations/ghlEvents.ts`) that
+  `communicationsStore` subscribes to on mount. When an event matches an
+  Active `AutomationRule`'s trigger, its actions (Sync to GHL / Apply Tag /
+  Remove Tag / Start GHL Workflow / Send Communication) actually execute
+  and get logged — verified end-to-end via Playwright (moving a Lead to
+  "Interested" produces a real new Sync Log + Communication Log entry
+  through the seeded "Interested Lead Follow-Up" rule).
+- **Idempotency, for real.** Every rule execution is keyed by
+  `ruleId + eventType + person + occurredAt` (`buildAutomationIdempotencyKey`
+  in `src/utils/communications.ts`) so the exact same event can never fire
+  the same rule's actions twice — verified by re-triggering the identical
+  transition and confirming no duplicate log entries, while a genuinely new
+  occurrence still fires normally.
+- **New, previously-missing event wiring** (spec sections 23-24's "never
+  trigger Fully Paid merely because proof was uploaded"): `financeStore.
+  verifyPayment()` now dispatches `student.payment_verified`, then
+  `student.fully_paid` **only** if the derived payment status (never a
+  manually-set field) actually becomes Fully Paid. `studentStore.
+  updateEnrollmentStatus`/`createStudentFromLead` dispatch `student.
+  enrolled`. `webinarStore.verifyReservation()` dispatches the new
+  `lead.reservation_verified` (distinct from the existing `lead.
+  reservation_paid`, which fires at record time for tagging) so "Complete
+  Your Enrollment" only starts after real verification. `masterBrainStore.
+  publish()` dispatches `masterbrain.published`. `studentStore.
+  updateDocumentStatus()` dispatches the new `requirements.completed` once
+  both Valid ID and Proof of Payment are Verified.
+- **GHL Contact Sync** (`/communications/contact-sync`) — one record per
+  Lead/Student, matched by internal ID (never name alone). Converting a
+  Lead to a Student **reuses the same simulated GHL Contact ID** rather
+  than creating a second one (`performSync` in `communicationsStore.tsx`
+  checks the source Lead's sync record via `StudentRecord.leadId`).
+  Duplicate contacts are never silently merged — an admin can flag/unflag
+  "Possible Duplicate" explicitly.
+- **Communication Preferences / Consent / DND** — tracked per person
+  (Email/SMS/WhatsApp/Marketing/Operational allowed, independently — one
+  channel's consent is never treated as blanket permission), with an
+  opt-out date and consent source/date. `checkChannelEligibility()` gates
+  every Send Communication action, automatic or manual; an opted-out
+  contact is recorded as **Skipped**, never silently dropped or faked as
+  sent.
+- **Tag / Field / Workflow Mapping** (`/communications/settings`) — fully
+  admin-editable tables (extends the Step 10 static `ghlTagMapping.ts`
+  placeholder into real, configurable state), plus a fixed, non-editable
+  **Sync Authority** reference table (Finance/Course Progress/Attendance/
+  Master Brain Status always M.A.I.A.-wins; GHL DND may update M.A.I.A.'s
+  communication preference; contact phone/email direction is configurable)
+  — GHL can never overwrite a verified Academy record.
+- **Automation Center + Automation Rules** — a categorized dashboard over
+  the same `AutomationRule` records the Rules page manages (never a
+  duplicate list), plus a WHEN/IF/DO/STOP-WHEN rule builder — 14 seeded
+  rules span Webinar, Leads, Enrollment, Payment, Requirements, Courses,
+  Master Brain, Feedback and Certificates. Deliberately **not** a GHL
+  Workflow Builder clone — M.A.I.A.-specific business rules only, and
+  "Create Task" is intentionally never an available action (Step 10's
+  `taskStore.tsx` already owns webinar/lead staff-task automation; adding
+  it here would double-create tasks for the same event).
+- **Message Templates** (`/communications/templates`) — CRUD across 12
+  categories/4 channels, only approved `{{variable}}` tokens (never a
+  sensitive field like a password), and a live **Preview** against a real
+  sample Lead/Student that resolves every variable and flags any
+  **MISSING VARIABLE** before activation.
+- **Communication Log & Sync Log** — every automatic and manual
+  send/sync is recorded honestly: `Sent`/`Success` only for what actually
+  "went through" in this simulated build, `Skipped` for a consent/DND
+  block, `Failed` for a Disconnected-mode attempt — never a fabricated
+  `Delivered`/`Read` status. Sync Logs support **Retry** (bounded by a
+  configurable retry limit, after which a repeatedly-failing sync becomes
+  **Needs Review** rather than looping forever) and **Resolve**.
+- **Lead Profile & Student Profile → Communications tab** — one shared
+  `CommunicationsPanel` component reads the exact same Communication Log
+  records for both, plus a **Send Message** action (channel/template
+  picker, consent/DND eligibility shown before sending).
+- **Inbound webhook simulator** (`/communications/ghl-integration`) — no
+  real webhook endpoint exists, but the simulator demonstrates the
+  idempotent-processing architecture a real one would need: a re-delivered
+  event with the same simulated webhook ID is detected and marked
+  **Duplicate — Skipped**, never double-processed.
+- **Integration Mode** (Disconnected / Test-Sandbox / Production) — starts
+  Disconnected and clearly banners "GHL NOT CONNECTED" rather than faking
+  success; no field for a real API token/secret exists anywhere in this
+  frontend (spec section 49) — a production build must store credentials
+  server-side only.
+- **Owner Dashboard & Action Center** — a compact "Communications &
+  Automation" card (Follow-ups Due / Automations Active / Communication
+  Failures / GHL Sync Errors) plus two new Action Center tiles; new
+  Notifications for GHL sync failures, sync records needing review, failed
+  automation rules, a high communication-failure count, and unverified
+  webhook deliveries.
+- **New staff task automations** (`src/data/taskStore.tsx`, spec section
+  64) — a failed communication creates a review task; a failed **Payment**-
+  category automated communication specifically creates a Finance
+  follow-up task for manual contact; a Sync Log stuck at "Needs Review"
+  creates a review task for an Administrator. All deduped by
+  `autoTriggerKey`, exactly like every other Step 5/10 automatic task.
+- **Role permissions** — new `"Communications"` / `"Communications -
+  Templates"` / `"Communications - Automation"` / `"Communications - GHL
+  Integration"` modules, with defaults for Enrollment Officer, Finance
+  Officer, Training Coordinator and Marketing Staff mirroring the
+  Step 9/10 private-vs-marketing split pattern; Students have no access to
+  any of it (the entire staff permission system never applies to the
+  Student role).
+- **Activity Log** gained a "Communications" category sourced from the
+  real Communication Log / Sync Log / Automation Rule records.
 
 ## What's Included in Step 10
 
@@ -772,9 +896,7 @@ provider/embed-reference field — see "What's Included in Step 9" above; no
 Vimeo/DRM integration exists, and hiding a download button is never treated
 as real protection anywhere in this build), real secure video/file upload
 storage for testimonials or lesson resources (every "uploaded" asset in
-Step 9 is filename/size/type metadata only), a working GoHighLevel
-connection (only typed hook points exist today, now including the Step 9
-course/feedback events), a real AI provider connection for Master Brain
+Step 9 is filename/size/type metadata only), a real AI provider connection for Master Brain
 generation (Step 8's generator is a deterministic template transform,
 explicitly not a real AI call — see "What's Included in Step 8" above),
 real production multi-account authentication (this demo's login resolves a
@@ -810,3 +932,28 @@ check-in for webinar attendance (an unverified public check-in endpoint
 would let anyone mark attendance for anyone else, so it's intentionally
 not built), and secure storage for reservation payment proof (metadata
 only, same as every other "uploaded file" in this build).
+
+**Step 11 specifically leaves unbuilt** (see "What's Included in Step 11"
+above for the full simulated architecture that IS built): a real
+GoHighLevel API connection of any kind (no API token field, no HTTP call,
+no real contact/tag/workflow ever created in an actual GHL account —
+Integration Mode can be switched to "Test / Sandbox" or "Production" for
+UI completeness, but neither one talks to a real server; only
+"Disconnected" is honest about what's actually happening), real email/SMS/
+WhatsApp delivery of any kind (every "Sent" status in the Communication Log
+is simulated — no provider, no delivery receipt, no real message ever
+leaves this browser), a real inbound webhook endpoint (the "Simulate
+Inbound Webhook" panel demonstrates the idempotent-processing pattern with
+fabricated payloads — no server exists to receive a real GHL webhook, and
+there is no webhook signature to verify), server-side enforcement of the
+new Communications permission modules or the consent/DND eligibility check
+(both are UI-layer only, exactly like every other permission check in this
+build — a real backend must enforce them independently), a "Lead Reply
+Requires Staff" notification (there is no inbound reply channel of any
+kind in this build, so this spec example is intentionally not built),
+Taobao OTP-required automation (the Taobao data model has no OTP concept
+yet — `student.taobao_otp_needed` remains a prepared-but-unproduced event,
+same as it was in Step 7), and a dedicated "Technical/Integration Admin"
+staff role (Administrator's existing full-access role covers GHL mappings/
+sync logs/integration health instead — adding a new StaffRoleName was
+judged too large a structural change for this step).

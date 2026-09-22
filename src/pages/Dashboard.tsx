@@ -18,6 +18,7 @@ import { usePortalStore } from "@/data/portalStore";
 import { useLmsStore } from "@/data/lmsStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
 import { useWebinarStore } from "@/data/webinarStore";
+import { useCommunicationsStore } from "@/data/communicationsStore";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceDateFilter, DEFAULT_DATE_FILTER } from "@/components/finance/FinanceDateFilter";
 import { ActionCenterCard, ACTION_CENTER_ICONS, type ActionCenterItem } from "@/components/dashboard/ActionCenterCard";
@@ -36,6 +37,7 @@ import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StudentPortalSnapshotCard } from "@/components/dashboard/StudentPortalSnapshotCard";
 import { LmsFeedbackSnapshotCard } from "@/components/dashboard/LmsFeedbackSnapshotCard";
 import { WebinarFunnelSnapshotCard } from "@/components/dashboard/WebinarFunnelSnapshotCard";
+import { CommunicationsSnapshotCard } from "@/components/dashboard/CommunicationsSnapshotCard";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -106,6 +108,7 @@ export function Dashboard() {
   const { courses: lmsCourses, lessons: lmsLessons, lessonProgress } = useLmsStore();
   const { submissions: feedbackSubmissions } = useFeedbackStore();
   const { sessions: webinarSessions, leads: webinarLeads, registrations: webinarRegistrations, followUps: webinarFollowUps } = useWebinarStore();
+  const { automationRules, communicationLogs, syncLogs } = useCommunicationsStore();
 
   const [dateFilter, setDateFilter] = useState(DEFAULT_DATE_FILTER);
   const [batch, setBatch] = useState("all");
@@ -243,6 +246,10 @@ export function Dashboard() {
     const lead = webinarLeads.find((l) => l.id === r.leadId);
     return lead && (lead.status === "Follow-up Needed" || lead.status === "Not Contacted");
   }).length;
+
+  const automationsActive = automationRules.filter((r) => r.status === "Active").length;
+  const communicationFailures = communicationLogs.filter((c) => c.status === "Failed").length;
+  const ghlSyncErrors = syncLogs.filter((s) => s.status === "Failed" || s.status === "Needs Review").length;
 
   const attentionItems = [
     {
@@ -408,6 +415,20 @@ export function Dashboard() {
       count: webinarNoShowFollowUp,
       icon: ACTION_CENTER_ICONS.noShowFollowUp,
       onClick: () => navigate(`/webinar/registrations?attendance=${encodeURIComponent("No Show")}`),
+    },
+    {
+      key: "communication-failures",
+      label: "Communication Failures",
+      count: communicationFailures,
+      icon: ACTION_CENTER_ICONS.communicationFailures,
+      onClick: () => navigate("/communications/logs"),
+    },
+    {
+      key: "ghl-sync-errors",
+      label: "GHL Sync Errors",
+      count: ghlSyncErrors,
+      icon: ACTION_CENTER_ICONS.ghlSyncErrors,
+      onClick: () => navigate("/communications/sync-logs"),
     },
   ];
 
@@ -580,6 +601,13 @@ export function Dashboard() {
         reservationsPaid={webinarReservationsPaid}
         enrolled={webinarEnrolled}
         followUpsDue={webinarFollowUpsDueTotal}
+      />
+
+      <CommunicationsSnapshotCard
+        followUpsDue={webinarFollowUpsDueTotal}
+        automationsActive={automationsActive}
+        communicationFailures={communicationFailures}
+        ghlSyncErrors={ghlSyncErrors}
       />
 
       <InventorySnapshotCard snapshot={inventorySnapshot} lowStockItems={lowStockAlerts} />

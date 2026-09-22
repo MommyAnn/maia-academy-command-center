@@ -11,6 +11,7 @@ import { MasterBrainStoreProvider } from "@/data/masterBrainStore";
 import { LmsStoreProvider } from "@/data/lmsStore";
 import { FeedbackStoreProvider } from "@/data/feedbackStore";
 import { WebinarStoreProvider } from "@/data/webinarStore";
+import { CommunicationsStoreProvider } from "@/data/communicationsStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
 function App() {
@@ -23,17 +24,19 @@ function App() {
               <MasterBrainStoreProvider>
                 <LmsStoreProvider>
                   <WebinarStoreProvider>
-                    <FeedbackStoreProvider>
-                      <StaffStoreProvider>
-                        <InventoryStoreProvider>
-                          <TrainingStoreProvider>
-                            <TaskStoreProvider>
-                              <AppRoutes />
-                            </TaskStoreProvider>
-                          </TrainingStoreProvider>
-                        </InventoryStoreProvider>
-                      </StaffStoreProvider>
-                    </FeedbackStoreProvider>
+                    <CommunicationsStoreProvider>
+                      <FeedbackStoreProvider>
+                        <StaffStoreProvider>
+                          <InventoryStoreProvider>
+                            <TrainingStoreProvider>
+                              <TaskStoreProvider>
+                                <AppRoutes />
+                              </TaskStoreProvider>
+                            </TrainingStoreProvider>
+                          </InventoryStoreProvider>
+                        </StaffStoreProvider>
+                      </FeedbackStoreProvider>
+                    </CommunicationsStoreProvider>
                   </WebinarStoreProvider>
                 </LmsStoreProvider>
               </MasterBrainStoreProvider>

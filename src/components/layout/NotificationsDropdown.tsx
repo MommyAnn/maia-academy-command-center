@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Award, Bell, CalendarClock, ClipboardCheck, MessageSquareHeart, PackageX, Video } from "lucide-react";
+import { AlertTriangle, Award, Bell, CalendarClock, ClipboardCheck, MessageSquareHeart, MessageSquareWarning, PackageX, PlugZap, Video, Webhook } from "lucide-react";
 import { useTaskStore } from "@/data/taskStore";
 import { useFinanceStore } from "@/data/financeStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
 import { useWebinarStore } from "@/data/webinarStore";
+import { useCommunicationsStore } from "@/data/communicationsStore";
 import { isTaskDueToday, isTaskOverdue } from "@/utils/staffTasks";
 import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
 import { isFollowUpOverdue, isHighIntentLead } from "@/utils/webinar";
@@ -36,6 +37,7 @@ export function NotificationsDropdown() {
   const { sessions, enrollments, certificates } = useTrainingStore();
   const { submissions: feedbackSubmissions, consents } = useFeedbackStore();
   const { leads: webinarLeads, followUps: webinarFollowUps } = useWebinarStore();
+  const { syncLogs, communicationLogs, webhookLog, automationRules } = useCommunicationsStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -206,8 +208,75 @@ export function NotificationsDropdown() {
       });
     }
 
+    const ghlSyncFailures = syncLogs.filter((s) => s.status === "Failed" || s.status === "Retry Pending");
+    if (ghlSyncFailures.length > 0) {
+      list.push({
+        id: "ghl-sync-failures",
+        message: `${ghlSyncFailures.length} GHL sync failure(s)`,
+        icon: <PlugZap size={15} className="text-maia-danger" />,
+        onClick: () => navigate("/communications/sync-logs"),
+      });
+    }
+
+    const syncNeedsReview = syncLogs.filter((s) => s.status === "Needs Review");
+    if (syncNeedsReview.length > 0) {
+      list.push({
+        id: "ghl-sync-needs-review",
+        message: `${syncNeedsReview.length} GHL sync record(s) need manual review`,
+        icon: <AlertTriangle size={15} className="text-maia-danger" />,
+        onClick: () => navigate("/communications/sync-logs"),
+      });
+    }
+
+    const failedAutomationRules = automationRules.filter((r) => r.status === "Active" && r.failed > 0);
+    if (failedAutomationRules.length > 0) {
+      list.push({
+        id: "automation-failures",
+        message: `${failedAutomationRules.length} automation rule(s) had a failed action`,
+        icon: <MessageSquareWarning size={15} className="text-maia-danger" />,
+        onClick: () => navigate("/communications/automation-rules"),
+      });
+    }
+
+    const communicationFailures = communicationLogs.filter((c) => c.status === "Failed");
+    if (communicationFailures.length >= 3) {
+      list.push({
+        id: "communication-failures-high",
+        message: `${communicationFailures.length} communication failures recorded`,
+        icon: <MessageSquareWarning size={15} className="text-maia-danger" />,
+        onClick: () => navigate("/communications/logs"),
+      });
+    }
+
+    const unverifiedWebhooks = webhookLog.filter((w) => !w.signatureVerified);
+    if (unverifiedWebhooks.length > 0) {
+      list.push({
+        id: "webhook-unverified",
+        message: `${unverifiedWebhooks.length} webhook delivery(ies) failed signature verification`,
+        icon: <Webhook size={15} className="text-maia-danger" />,
+        onClick: () => navigate("/communications/ghl-integration"),
+      });
+    }
+
     return list.slice(0, 10);
-  }, [tasks, transactions, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions, consents, webinarLeads, webinarFollowUps, navigate]);
+  }, [
+    tasks,
+    transactions,
+    inventoryItems,
+    inventoryTransactions,
+    sessions,
+    enrollments,
+    certificates,
+    feedbackSubmissions,
+    consents,
+    webinarLeads,
+    webinarFollowUps,
+    syncLogs,
+    communicationLogs,
+    webhookLog,
+    automationRules,
+    navigate,
+  ]);
 
   return (
     <div className="relative" ref={containerRef}>

@@ -13,6 +13,7 @@ import { useWebinarStore } from "@/data/webinarStore";
 import { useStudentStore } from "@/data/studentStore";
 import { useStaffStore } from "@/data/staffStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
+import { CommunicationsPanel } from "@/components/communications/CommunicationsPanel";
 import { BATCH_OPTIONS, PACKAGE_OPTIONS, ATTENDANCE_OPTIONS } from "@/data/enrollmentConfig";
 import { FOLLOW_UP_CHANNELS } from "@/types/webinar";
 import { pipelineStageTone } from "@/utils/webinar";
@@ -23,6 +24,7 @@ const TABS = [
   { value: "overview", label: "Overview" },
   { value: "history", label: "Webinar History" },
   { value: "followups", label: "Follow-ups" },
+  { value: "communications", label: "Communications" },
   { value: "notes", label: "Notes" },
   { value: "feedback", label: "Feedback" },
   { value: "conversion", label: "Conversion" },
@@ -218,6 +220,8 @@ export function LeadProfile() {
           {leadFollowUps.length === 0 && <p className="rounded-xl bg-maia-bg px-4 py-6 text-center text-sm text-maia-ink-soft">No follow-ups yet.</p>}
         </div>
       )}
+
+      {tab === "communications" && <CommunicationsPanel personType="Lead" personId={lead.id} />}
 
       {tab === "notes" && (
         <Card>

@@ -10,8 +10,9 @@ import { useTaskStore } from "@/data/taskStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { useWebinarStore } from "@/data/webinarStore";
+import { useCommunicationsStore } from "@/data/communicationsStore";
 
-type LogCategory = "Student" | "Staff" | "Task" | "Inventory" | "Training" | "Free Webinar";
+type LogCategory = "Student" | "Staff" | "Task" | "Inventory" | "Training" | "Free Webinar" | "Communications";
 
 interface LogEntry {
   id: string;
@@ -29,6 +30,7 @@ const CATEGORY_TONE: Record<LogCategory, "gold" | "info" | "success" | "warning"
   Inventory: "warning",
   Training: "neutral",
   "Free Webinar": "gold",
+  Communications: "info",
 };
 
 function tryParseDateTime(date: string, time: string): number {
@@ -43,6 +45,7 @@ export function ActivityLog() {
   const { items, transactions: inventoryTransactions } = useInventoryStore();
   const { sessions, enrollments, certificates } = useTrainingStore();
   const { sessions: webinarSessions, leads: webinarLeads } = useWebinarStore();
+  const { communicationLogs, syncLogs, automationRules } = useCommunicationsStore();
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | LogCategory>("all");
@@ -215,8 +218,44 @@ export function ActivityLog() {
       }
     }
 
+    for (const c of communicationLogs) {
+      const occurred = new Date(c.occurredAt);
+      list.push({
+        id: c.id,
+        message: `${c.status}: ${c.channel} to ${c.personName}${c.subject ? ` — ${c.subject}` : ""}`,
+        user: c.sentBy,
+        category: "Communications",
+        sortKey: occurred.getTime(),
+        timestampLabel: occurred.toLocaleString("en-PH"),
+      });
+    }
+
+    for (const s of syncLogs) {
+      const occurred = new Date(s.occurredAt);
+      list.push({
+        id: s.id,
+        message: `Sync ${s.status}: ${s.personName} (${s.event})`,
+        user: "System (Automatic)",
+        category: "Communications",
+        sortKey: occurred.getTime(),
+        timestampLabel: occurred.toLocaleString("en-PH"),
+      });
+    }
+
+    for (const r of automationRules) {
+      const created = new Date(r.createdAt);
+      list.push({
+        id: `${r.id}-created`,
+        message: `Automation rule created: ${r.name} (${r.ruleId})`,
+        user: r.createdBy,
+        category: "Communications",
+        sortKey: created.getTime(),
+        timestampLabel: created.toLocaleString("en-PH"),
+      });
+    }
+
     return list.sort((a, b) => b.sortKey - a.sortKey);
-  }, [students, staff, tasks, items, inventoryTransactions, sessions, enrollments, certificates, webinarSessions, webinarLeads]);
+  }, [students, staff, tasks, items, inventoryTransactions, sessions, enrollments, certificates, webinarSessions, webinarLeads, communicationLogs, syncLogs, automationRules]);
 
   const filtered = useMemo(
     () =>
@@ -250,6 +289,7 @@ export function ActivityLog() {
             { value: "Inventory", label: "Inventory" },
             { value: "Training", label: "Training" },
             { value: "Free Webinar", label: "Free Webinar" },
+            { value: "Communications", label: "Communications" },
           ]}
         />
       </div>

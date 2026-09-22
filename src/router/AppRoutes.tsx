@@ -64,6 +64,15 @@ import { Conversion as WebinarConversion } from "@/pages/webinar/Conversion";
 import { Feedback as WebinarFeedback } from "@/pages/webinar/Feedback";
 import { Reports as WebinarReports } from "@/pages/webinar/Reports";
 import { WebinarFeedbackSubmit } from "@/pages/WebinarFeedbackSubmit";
+import { Center as CommunicationCenter } from "@/pages/communications/Center";
+import { AutomationCenter } from "@/pages/communications/AutomationCenter";
+import { AutomationRules } from "@/pages/communications/AutomationRules";
+import { GhlIntegration } from "@/pages/communications/GhlIntegration";
+import { ContactSync } from "@/pages/communications/ContactSync";
+import { Templates as CommunicationTemplates } from "@/pages/communications/Templates";
+import { Logs as CommunicationLogs } from "@/pages/communications/Logs";
+import { SyncLogs } from "@/pages/communications/SyncLogs";
+import { Settings as CommunicationSettings } from "@/pages/communications/Settings";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { StudentProtectedRoute } from "./StudentProtectedRoute";
@@ -136,6 +145,15 @@ const BUILT_PATHS = new Set([
   "/webinar/conversion",
   "/webinar/feedback",
   "/webinar/reports",
+  "/communications/center",
+  "/communications/automation",
+  "/communications/automation-rules",
+  "/communications/ghl-integration",
+  "/communications/contact-sync",
+  "/communications/templates",
+  "/communications/logs",
+  "/communications/sync-logs",
+  "/communications/settings",
 ]);
 
 export function AppRoutes() {
@@ -249,6 +267,16 @@ export function AppRoutes() {
         <Route path="/webinar/conversion" element={<WebinarConversion />} />
         <Route path="/webinar/feedback" element={<WebinarFeedback />} />
         <Route path="/webinar/reports" element={<WebinarReports />} />
+
+        <Route path="/communications/center" element={<CommunicationCenter />} />
+        <Route path="/communications/automation" element={<AutomationCenter />} />
+        <Route path="/communications/automation-rules" element={<AutomationRules />} />
+        <Route path="/communications/ghl-integration" element={<GhlIntegration />} />
+        <Route path="/communications/contact-sync" element={<ContactSync />} />
+        <Route path="/communications/templates" element={<CommunicationTemplates />} />
+        <Route path="/communications/logs" element={<CommunicationLogs />} />
+        <Route path="/communications/sync-logs" element={<SyncLogs />} />
+        <Route path="/communications/settings" element={<CommunicationSettings />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

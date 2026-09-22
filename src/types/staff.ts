@@ -62,6 +62,10 @@ export const PERMISSION_MODULES = [
   "Free Webinar",
   "Free Webinar - Finance",
   "Free Webinar - Marketing",
+  "Communications",
+  "Communications - Templates",
+  "Communications - Automation",
+  "Communications - GHL Integration",
   "System Settings",
 ] as const;
 

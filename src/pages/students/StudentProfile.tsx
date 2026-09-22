@@ -15,6 +15,7 @@ import { NotesTab } from "@/components/students/profile/NotesTab";
 import { ActivityTab } from "@/components/students/profile/ActivityTab";
 import { PortalTab } from "@/components/students/profile/PortalTab";
 import { useStudentStore } from "@/data/studentStore";
+import { CommunicationsPanel } from "@/components/communications/CommunicationsPanel";
 
 const TABS = [
   { value: "overview", label: "Overview" },
@@ -27,6 +28,7 @@ const TABS = [
   { value: "certificates", label: "Certificates" },
   { value: "learning", label: "Learning" },
   { value: "portal", label: "Student Portal" },
+  { value: "communications", label: "Communications" },
   { value: "notes", label: "Admin Notes" },
   { value: "activity", label: "Activity History" },
 ];
@@ -58,6 +60,7 @@ export function StudentProfile() {
       {tab === "certificates" && <CertificatesTab student={student} />}
       {tab === "learning" && <LearningTab student={student} />}
       {tab === "portal" && <PortalTab student={student} />}
+      {tab === "communications" && <CommunicationsPanel personType="Student" personId={student.id} />}
       {tab === "notes" && <NotesTab student={student} />}
       {tab === "activity" && <ActivityTab student={student} />}
     </div>

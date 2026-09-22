@@ -12,9 +12,10 @@ import type {
 import type { Batch, StudentRecord, UploadedFileMeta } from "@/types/student";
 import { DEMO_EXPENSES, DEMO_PACKAGE_ADJUSTMENTS, DEMO_PAYMENT_TRANSACTIONS } from "@/data/demoFinance";
 import { CURRENT_DEMO_USER } from "@/data/financeConfig";
-import { generateExpenseId, generatePaymentId, getFinalPackageAmount } from "@/utils/finance";
+import { generateExpenseId, generatePaymentId, getFinalPackageAmount, getStudentFinanceSummary } from "@/utils/finance";
 import { useStudentStore } from "@/data/studentStore";
 import { formatPeso } from "@/utils/format";
+import { dispatchGhlEvent } from "@/integrations/ghlEvents";
 
 // ---------------------------------------------------------------------------
 // DEMO / LOCAL PERSISTENCE ONLY
@@ -132,7 +133,7 @@ const FinanceStoreContext = createContext<FinanceStoreValue | undefined>(undefin
 
 export function FinanceStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FinanceState>(() => loadInitialState());
-  const { appendActivity } = useStudentStore();
+  const { appendActivity, students } = useStudentStore();
 
   const updateState = useCallback((updater: (prev: FinanceState) => FinanceState) => {
     setState((prev) => {
@@ -188,23 +189,50 @@ export function FinanceStoreProvider({ children }: { children: ReactNode }) {
     (transactionId: string) => {
       const { iso } = nowParts();
       let studentId: string | null = null;
+      let studentDisplayId: string | null = null;
       let amountLabel = "";
+      let nextTransactions: PaymentTransaction[] = state.transactions;
 
-      updateState((prev) => ({
-        ...prev,
-        transactions: prev.transactions.map((t) => {
+      updateState((prev) => {
+        nextTransactions = prev.transactions.map((t) => {
           if (t.id !== transactionId) return t;
           studentId = t.studentId;
+          studentDisplayId = t.studentDisplayId;
           amountLabel = formatPeso(t.amount);
           return { ...t, status: "Verified" as PaymentTransactionStatus, verifiedBy: CURRENT_DEMO_USER, verifiedAt: iso };
-        }),
-      }));
+        });
+        return { ...prev, transactions: nextTransactions };
+      });
 
       if (studentId) {
         appendActivity(studentId, `Payment verified: ${amountLabel} (${transactionId}) by ${CURRENT_DEMO_USER}`);
+        dispatchGhlEvent({
+          type: "student.payment_verified",
+          occurredAt: iso,
+          studentId,
+          studentDisplayId: studentDisplayId ?? undefined,
+          summary: `Payment verified: ${amountLabel}`,
+        });
+
+        // Never trigger a "Fully Paid" automation merely because proof was
+        // uploaded — only after verification actually moves the DERIVED
+        // status to Fully Paid (spec section 23-24, Step 11).
+        const student = students.find((s) => s.id === studentId);
+        if (student) {
+          const summary = getStudentFinanceSummary(student, nextTransactions, state.adjustments);
+          if (summary.status === "Fully Paid") {
+            dispatchGhlEvent({
+              type: "student.fully_paid",
+              occurredAt: iso,
+              studentId,
+              studentDisplayId: studentDisplayId ?? undefined,
+              summary: `${student.fullName} is now Fully Paid`,
+            });
+          }
+        }
       }
     },
-    [updateState, appendActivity],
+    [updateState, appendActivity, students, state.transactions, state.adjustments],
   );
 
   const rejectPayment = useCallback(

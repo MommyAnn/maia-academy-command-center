@@ -19,6 +19,7 @@ import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
 import { useWebinarStore } from "@/data/webinarStore";
+import { useCommunicationsStore } from "@/data/communicationsStore";
 import { getRequirementsBucket } from "@/utils/dashboard";
 import { getStudentFinanceSummary } from "@/utils/finance";
 import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
@@ -140,6 +141,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const { sessions, enrollments, certificates } = useTrainingStore();
   const { submissions: feedbackSubmissions } = useFeedbackStore();
   const { leads: webinarLeads, registrations: webinarRegistrations } = useWebinarStore();
+  const { communicationLogs, syncLogs, automationRules } = useCommunicationsStore();
 
   const updateTasksState = useCallback((updater: (prev: TaskRecord[]) => TaskRecord[]) => {
     setTasks((prev) => {
@@ -621,6 +623,62 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // ---------------------------------------------------------------
+      // Step 11 triggers: Communications & GHL Integration (spec section
+      // 64). Never duplicates Step 10's webinar/lead tasks above — these
+      // watch communicationsStore's own failure/review signals only.
+      // ---------------------------------------------------------------
+      for (const c of communicationLogs) {
+        if (c.status !== "Failed") continue;
+        addAuto({
+          key: `comm-failed-review-${c.id}`,
+          title: `Review failed communication to ${c.personName}`,
+          description: `${c.channel} to ${c.personName} (${c.communicationId}) failed: ${c.failureReason ?? "Unknown reason"}.`,
+          category: "Communications",
+          priority: "Medium",
+          role: "Marketing Staff",
+          dueOffsetDays: 1,
+          relatedLeadId: c.personType === "Lead" ? c.personId : undefined,
+          relatedLeadName: c.personType === "Lead" ? c.personName : undefined,
+          relatedStudentId: c.personType === "Student" ? c.personId : undefined,
+          relatedStudentName: c.personType === "Student" ? c.personName : undefined,
+        });
+
+        const automation = c.automationId ? automationRules.find((r) => r.id === c.automationId) : undefined;
+        if (automation?.category === "Payment") {
+          addAuto({
+            key: `payment-comm-manual-contact-${c.id}`,
+            title: `Manually contact for payment follow-up: ${c.personName}`,
+            description: `Automated payment communication to ${c.personName} (${c.communicationId}) could not be sent — reach out manually.`,
+            category: "Communications",
+            priority: "High",
+            role: "Finance Officer",
+            dueOffsetDays: 1,
+            relatedLeadId: c.personType === "Lead" ? c.personId : undefined,
+            relatedLeadName: c.personType === "Lead" ? c.personName : undefined,
+            relatedStudentId: c.personType === "Student" ? c.personId : undefined,
+            relatedStudentName: c.personType === "Student" ? c.personName : undefined,
+          });
+        }
+      }
+
+      for (const s of syncLogs) {
+        if (s.status !== "Needs Review") continue;
+        addAuto({
+          key: `sync-needs-review-${s.id}`,
+          title: `Review GHL sync issue: ${s.personName}`,
+          description: `Sync for ${s.personName} (${s.syncId}) failed after repeated retries — needs manual review.`,
+          category: "Communications",
+          priority: "Medium",
+          role: "Administrator",
+          dueOffsetDays: 1,
+          relatedLeadId: s.personType === "Lead" ? s.personId : undefined,
+          relatedLeadName: s.personType === "Lead" ? s.personName : undefined,
+          relatedStudentId: s.personType === "Student" ? s.personId : undefined,
+          relatedStudentName: s.personType === "Student" ? s.personName : undefined,
+        });
+      }
+
       // Auto-complete: resolve automatic tasks whose trigger condition no longer holds.
       for (let i = 0; i < next.length; i++) {
         const t = next[i];
@@ -706,6 +764,10 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           const leadId = t.autoTriggerKey.replace("webinar-lead-reservation-", "");
           const lead = webinarLeads.find((l) => l.id === leadId);
           resolved = !lead || lead.status !== "Reservation Paid";
+        } else if (t.autoTriggerKey.startsWith("sync-needs-review-")) {
+          const syncLogId = t.autoTriggerKey.replace("sync-needs-review-", "");
+          const log = syncLogs.find((s) => s.id === syncLogId);
+          resolved = !log || log.status !== "Needs Review";
         }
 
         if (resolved) {
@@ -730,7 +792,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, transactions, adjustments, staff, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions, webinarLeads, webinarRegistrations]);
+  }, [students, transactions, adjustments, staff, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions, webinarLeads, webinarRegistrations, communicationLogs, syncLogs, automationRules]);
 
   const logStudentActivity = useCallback(
     (task: TaskRecord, message: string) => {
