@@ -108,3 +108,19 @@ export async function assertBusinessOwnedByStudent(businessId: string, studentId
   const business = await db.business.findUnique({ where: { id: businessId }, select: { studentId: true } });
   return business?.studentId === studentId;
 }
+
+/**
+ * Allows either the owning student, or staff holding the given permission —
+ * the common shape for every read endpoint scoped by :studentId across
+ * finance, requirements, activity, and (Phase 3) training/courses/
+ * certificates/feedback. Previously duplicated verbatim in several route
+ * files; centralized here so it can't drift.
+ */
+export function requireStudentSelfOrPermission(module: PermissionModule, action: PermissionAction) {
+  const selfCheck = requireStudentSelf("studentId");
+  const permCheck = requirePermission(module, action);
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.authContext?.kind === "student") return selfCheck(request, reply);
+    return permCheck(request, reply);
+  };
+}

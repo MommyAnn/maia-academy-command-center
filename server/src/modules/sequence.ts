@@ -34,3 +34,35 @@ export async function generateLeadDisplayId(): Promise<string> {
   const n = await nextSequence(`lead:${year}`);
   return `LEAD-${year}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateTrainingSessionDisplayId(batchCode: string): Promise<string> {
+  const n = await nextSequence(`training:${batchCode}`);
+  return `TRN-B${batchCode}-${String(n).padStart(4, "0")}`;
+}
+
+export async function generateCourseDisplayId(): Promise<string> {
+  const n = await nextSequence("course");
+  return `CRS-${String(n).padStart(4, "0")}`;
+}
+
+export async function generateLessonDisplayId(): Promise<string> {
+  const n = await nextSequence("lesson");
+  return `LSN-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateCertificateDisplayId(batchCode: string): Promise<string> {
+  const n = await nextSequence(`certificate:${batchCode}`);
+  return `CERT-B${batchCode}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateFeedbackRequestDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`feedback-request:${year}`);
+  return `FREQ-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateFeedbackSubmissionDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`feedback-submission:${year}`);
+  return `FDBK-${year}-${String(n).padStart(6, "0")}`;
+}

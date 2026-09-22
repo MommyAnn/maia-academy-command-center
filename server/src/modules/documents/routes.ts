@@ -5,6 +5,7 @@ import { requireAuth, requireStudentSelf } from "../../rbac/middleware.js";
 import { validateUpload } from "../../storage/index.js";
 import { localDriver, buildStorageKey } from "../../storage/localDriver.js";
 import { signDownloadToken, verifyDownloadToken } from "../../storage/signedUrl.js";
+import { resolveCourseAccess } from "../courses/access.js";
 
 const uploadSchema = z.object({
   documentType: z.enum(["ValidId", "PaymentProof", "FeedbackVideo", "CourseResource", "AiAsset"]),
@@ -73,7 +74,21 @@ export async function documentRoutes(app: FastifyInstance) {
       if (!document) return reply.code(404).send({ error: "Document not found." });
 
       const ctx = request.authContext!;
-      const authorized = ctx.kind === "staff" || (ctx.kind === "student" && ctx.studentId === document.ownerStudentId);
+      let authorized = ctx.kind === "staff" || (ctx.kind === "student" && ctx.studentId === document.ownerStudentId);
+
+      // A course resource has no student owner (it belongs to the course,
+      // not any one student) — a Student is authorized only if they
+      // currently have real, server-resolved access to the course that
+      // resource's lesson belongs to (spec section 22). Never authorized by
+      // classification alone.
+      if (!authorized && ctx.kind === "student" && document.accessClassification === "COURSE_RESTRICTED") {
+        const resource = await db.lessonResource.findFirst({ where: { documentId: document.id }, include: { lesson: { include: { module: true } } } });
+        if (resource) {
+          const access = await resolveCourseAccess(ctx.studentId!, resource.lesson.module.courseId);
+          authorized = access.status !== "Locked" && access.status !== "Revoked" && access.status !== "Expired";
+        }
+      }
+
       if (!authorized) return reply.code(403).send({ error: "Forbidden: you do not have access to this document." });
 
       const token = signDownloadToken(documentId);

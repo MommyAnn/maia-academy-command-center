@@ -34,6 +34,25 @@ export async function resetDb() {
     db.session.deleteMany(),
     db.passwordResetToken.deleteMany(),
     db.user.deleteMany(),
+    // Phase 3 (Training/LMS/Certificates/Feedback) — deleted in dependency
+    // order: IncentiveRedemption/MarketingConsent before the
+    // FeedbackSubmission they reference; LessonProgress/CourseAccessGrant/
+    // PackageCourseAccess before Course (whose own delete cascades
+    // CourseModule -> Lesson -> LessonResource); TrainingAttendance before
+    // TrainingSession. All of this must run before the Student cleanup
+    // below, since none of these FKs are ON DELETE CASCADE from Student.
+    db.incentiveRedemption.deleteMany(),
+    db.marketingConsent.deleteMany(),
+    db.feedbackSubmission.deleteMany(),
+    db.feedbackRequest.deleteMany(),
+    db.incentive.deleteMany(),
+    db.lessonProgress.deleteMany(),
+    db.courseAccessGrant.deleteMany(),
+    db.packageCourseAccess.deleteMany(),
+    db.course.deleteMany(),
+    db.trainingAttendance.deleteMany(),
+    db.trainingSession.deleteMany(),
+    db.certificate.deleteMany(),
     db.student.deleteMany({ where: { studentDisplayId: { notIn: FIXED_STUDENT_DISPLAY_IDS } } }),
     db.person.deleteMany({ where: { id: { notIn: FIXED_PERSON_IDS } } }),
     // Also cleans up Batches/Packages a Phase 2 test file created (e.g. a

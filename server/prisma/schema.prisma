@@ -232,6 +232,9 @@ model Batch {
   students    Student[]
   enrollments Enrollment[]
   payments    PaymentTransaction[]
+  trainingSessions TrainingSession[]
+  certificates Certificate[]
+  feedbackRequests FeedbackRequest[]
 }
 
 enum BatchStatus {
@@ -255,6 +258,7 @@ model Package {
   enrollments Enrollment[]
   payments    PaymentTransaction[]
   aiAccess    AiPackageAccess[]
+  courseAccess PackageCourseAccess[]
 }
 
 model Student {
@@ -450,6 +454,9 @@ model Document {
 
   paymentProofOf PaymentTransaction[]
   currentForRequirements Requirement[]
+  lessonResources  LessonResource[]
+  feedbackVideoOf  FeedbackSubmission[]
+  incentiveResourceOf Incentive[]
   expenseReceiptOf Expense[]
 
   @@index([ownerStudentId])
@@ -649,17 +656,39 @@ model MasterBrainDocument {
 
 model Course {
   id          String   @id @default(cuid())
+  courseDisplayId String @unique // e.g. CRS-000001
   title       String
+  slug        String?  @unique
+  description String?
   category    String
+  instructor  String?
+  // No real image upload pipeline exists (matches the frontend's honest
+  // `thumbnailLabel` stand-in) — a short label/emoji, never a real file.
+  thumbnailLabel String?
+  estimatedDuration String?
+  displayOrder Int      @default(0)
   accessType  CourseAccessType @default(PACKAGE)
   certificateEligible Boolean @default(false)
-  isPublished Boolean  @default(false)
+  // DRAFT | PUBLISHED | UNPUBLISHED | ARCHIVED — plain string, configurable,
+  // matches the frontend's CourseStatus set exactly (spec section 12).
+  status      String   @default("DRAFT")
+  createdById String?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   modules      CourseModule[]
   accessGrants CourseAccessGrant[]
+  packageAccess PackageCourseAccess[]
+  bonusIncentives Incentive[]
+
+  @@index([status])
 }
 
+// Course.accessType is the course-level DEFAULT policy (Package/Manual/
+// Open); an individual CourseAccessGrant.source is a separate, richer,
+// plain string (Package/Manual/Bonus/Promotion/Admin Override/Future
+// Purchase/Feedback Incentive) layered on top — see resolveCourseAccess in
+// server/src/modules/courses/access.ts.
 enum CourseAccessType {
   PACKAGE
   MANUAL
@@ -667,11 +696,13 @@ enum CourseAccessType {
 }
 
 model CourseModule {
-  id       String   @id @default(cuid())
-  courseId String
-  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  title    String
-  order    Int
+  id          String   @id @default(cuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  order       Int
+  status      String   @default("Active") // Active | Archived
 
   lessons Lesson[]
 
@@ -680,41 +711,96 @@ model CourseModule {
 
 model Lesson {
   id             String   @id @default(cuid())
+  lessonDisplayId String  @unique // e.g. LSN-000001
   moduleId       String
   module         CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   title          String
-  type           String   // Video | Text | Downloadable Resource | External Resource | Assignment | Quiz Placeholder | Live Session-Replay
+  description    String?
+  type           String   // Video Lesson | Text Lesson | Downloadable Resource | External Resource | Assignment | Quiz Placeholder | Live Session / Replay
+  // Provider-agnostic embed reference only (e.g. a Vimeo video id), never a
+  // raw playback URL — matches the frontend's honest videoRef field. No
+  // real video-hosting API call exists anywhere in this build; see the
+  // Phase 3 completion report's video-hosting status.
+  videoEmbedRef  String?
+  textContent    String?
+  duration       String?
   order          Int
-  videoEmbedRef  String?  // embed reference only, never a raw playback URL
+  status         String   @default("Draft") // Draft | Published
+  completionRule String   @default("View") // View | Manual Mark Complete
 
-  progress LessonProgress[]
+  progress  LessonProgress[]
+  resources LessonResource[]
 
   @@index([moduleId])
 }
 
+// A resource backed by real private storage (a Document row, reusing the
+// exact same signed-URL/ownership-checked download path Phase 1 built for
+// student documents) OR, for "External Link" resources only, a plain URL —
+// never both, and never a public/guessable file path.
+model LessonResource {
+  id         String   @id @default(cuid())
+  lessonId   String
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type       String   // PDF | Worksheet | Template | Checklist | Prompt | Guide | External Link | Other
+  label      String
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id])
+  url        String?  // only meaningful for type = "External Link"
+  createdById String?
+  createdAt  DateTime @default(now())
+
+  @@index([lessonId])
+}
+
 model CourseAccessGrant {
-  id        String   @id @default(cuid())
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id])
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id])
-  source    CourseAccessType
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id])
+  // Plain string, not the narrower CourseAccessType enum — a grant's
+  // origin has more shapes than a course's default policy (spec section
+  // 18): Package | Manual | Bonus | Promotion | Admin Override | Future
+  // Purchase | Feedback Incentive.
+  source        String
+  sourceReference String? // e.g. the Package id, or the IncentiveRedemption id
   grantedById String?
-  grantedAt DateTime @default(now())
-  expiresAt DateTime?
-  revokedAt DateTime?
+  grantedAt   DateTime @default(now())
+  expiresAt   DateTime?
+  status      String   @default("Active") // Active | Expired | Revoked
+  revokedAt   DateTime?
+  revokedById String?
+  notes       String?
 
   @@unique([studentId, courseId])
   @@index([studentId])
 }
 
+// Configurable PACKAGE/PROGRAM -> COURSE ACCESS mapping (spec section 20)
+// as a real table, never a hard-coded matrix in application code — an
+// Admin can add/remove a row here without a code change.
+model PackageCourseAccess {
+  id        String   @id @default(cuid())
+  packageId String
+  package   Package  @relation(fields: [packageId], references: [id])
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([packageId, courseId])
+}
+
 model LessonProgress {
-  id          String   @id @default(cuid())
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id])
-  lessonId    String
-  lesson      Lesson   @relation(fields: [lessonId], references: [id])
-  completedAt DateTime?
+  id             String   @id @default(cuid())
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id])
+  lessonId       String
+  lesson         Lesson   @relation(fields: [lessonId], references: [id])
+  status         String   @default("Not Started") // Not Started | In Progress | Completed
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastAccessedAt DateTime @default(now())
 
   @@unique([studentId, lessonId])
   @@index([studentId])
@@ -724,45 +810,101 @@ model LessonProgress {
 // TRAINING / ATTENDANCE / CERTIFICATES
 // ---------------------------------------------------------------------------
 
+// `type`/`status` are deliberately plain configurable strings (spec section
+// 2-3: "do not unnecessarily hard-code" training types/statuses) rather
+// than enums — an Owner/Admin can introduce a new training type or status
+// label without a schema migration, mirroring how Package/Batch already
+// work in this schema.
 model TrainingSession {
-  id        String   @id @default(cuid())
-  sessionDisplayId String @unique // e.g. TRN-B14-0001
-  title     String
-  mode      String   // "Face-to-Face" | "Zoom"
-  scheduledAt DateTime
-  status    String
-  createdById String
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  sessionDisplayId  String   @unique // e.g. TRN-B14-0001
+  title             String
+  description       String?
+  type              String   // Face-to-Face | Zoom | Masterclass | Workshop | Orientation | Special Session | Other
+  batchId           String?
+  batch             Batch?   @relation(fields: [batchId], references: [id])
+  program           String?
+  date              DateTime
+  startTime         String
+  endTime           String
+  venue             String?
+  platform          String?
+  meetingLink       String?
+  meetingId         String?
+  passcode          String?
+  trainer           String?
+  capacity          Int?
+  status            String   @default("Draft") // Draft | Scheduled | Ongoing | Completed | Cancelled | Archived
+  notes             String?
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   attendance TrainingAttendance[]
+
+  @@index([batchId])
 }
 
+// One row per Student+Session covers BOTH eligibility/roster membership
+// AND the attendance outcome (mirrors the frontend's single
+// `SessionEnrollment` shape in src/types/training.ts) — a roster entry is
+// created with status "Registered" before the session happens, then the
+// SAME row is updated when attendance is marked. The @@unique constraint
+// below is the actual duplicate-attendance guard (spec section 7): a
+// second attendance record for the same Student+Session is structurally
+// impossible, not just discouraged by the UI.
 model TrainingAttendance {
-  id        String   @id @default(cuid())
-  sessionId String
-  session   TrainingSession @relation(fields: [sessionId], references: [id])
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id])
-  status    String   // Present | Late | Absent | Attended Online
-  recordedById String?
-  recordedAt DateTime?
+  id            String   @id @default(cuid())
+  sessionId     String
+  session       TrainingSession @relation(fields: [sessionId], references: [id])
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id])
+  eligibility   String   @default("Eligible") // Eligible | Not Eligible | Pending Review
+  status        String   @default("Registered") // Registered | Present | Late | Absent | Excused | Online Attended
+  checkInTime   DateTime?
+  checkOutTime  DateTime?
+  method        String?  // Quick Attendance | QR | Manual
+  recordedById  String?
+  recordedAt    DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@unique([sessionId, studentId])
   @@index([studentId])
 }
 
+// Reissue never overwrites history (spec section 34): a reissue is a NEW
+// row with `reissueOfId` pointing at the original, which is left
+// untouched. Duplicate issuance of the SAME row is prevented by a status
+// guard at the route layer (mirrors the payment-verify double-guard
+// pattern from Phase 2) — the unique `certificateDisplayId` is the
+// per-record collision guard.
 model Certificate {
   id                String   @id @default(cuid())
   certificateDisplayId String @unique // e.g. CERT-B14-000001
   studentId         String
   student           Student  @relation(fields: [studentId], references: [id])
-  status            String   // Not Eligible | Eligible | For Preparation | Ready | Issued | Reissued
+  batchId           String?
+  batch             Batch?   @relation(fields: [batchId], references: [id])
+  program           String?
+  certificateType   String   @default("Program Completion")
+  status            String   @default("Not Eligible") // Not Eligible | Eligible | For Preparation | Ready | Issued | Reissued
+  completionDate    DateTime?
+  preparedById      String?
+  preparedAt        DateTime?
   issuedAt          DateTime?
   issuedById        String?
   fileDocumentId    String?  // null until real PDF generation exists (Phase 1 leaves this unset)
+  notes             String?
+  reissueOfId       String?
+  reissueOf         Certificate? @relation("CertificateReissue", fields: [reissueOfId], references: [id])
+  reissues          Certificate[] @relation("CertificateReissue")
   createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@index([studentId])
+  @@index([batchId])
 }
 
 // ---------------------------------------------------------------------------
@@ -882,46 +1024,83 @@ model FollowUp {
 // ---------------------------------------------------------------------------
 
 model FeedbackRequest {
-  id        String   @id @default(cuid())
-  source    String
+  id            String   @id @default(cuid())
+  requestDisplayId String @unique // e.g. FREQ-2026-000001
+  title         String
+  sourceType    String   // Course | Module | Masterclass | Workshop | Face-to-Face Training | Zoom Training | Free Webinar | Full Program | Special Event | Other
+  sourceId      String?
+  sourceLabel   String?
+  batchId       String?
+  batch         Batch?   @relation(fields: [batchId], references: [id])
+  audience      String   @default("All Eligible Students") // All Eligible Students | Individual Student
+  audienceStudentId String?
+  message       String?
   questionsJson Json
-  openDate  DateTime @default(now())
-  closeDate DateTime?
+  allowWritten  Boolean  @default(true)
+  allowVideo    Boolean  @default(true)
+  incentiveId   String?
+  incentive     Incentive? @relation(fields: [incentiveId], references: [id])
+  openDate      DateTime @default(now())
+  closeDate     DateTime?
+  status        String   @default("Open") // Draft | Open | Closed
+  createdById   String?
+  createdAt     DateTime @default(now())
 
   submissions FeedbackSubmission[]
+
+  @@index([batchId])
+  @@index([status])
 }
 
 model FeedbackSubmission {
-  id           String   @id @default(cuid())
-  requestId    String?
-  request      FeedbackRequest? @relation(fields: [requestId], references: [id])
-  studentId    String?
-  student      Student? @relation(fields: [studentId], references: [id])
-  leadId       String?
-  lead         Lead?    @relation(fields: [leadId], references: [id])
-  rating       Int?
-  writtenText  String?
+  id            String   @id @default(cuid())
+  feedbackDisplayId String @unique // e.g. FDBK-2026-000001
+  requestId     String?
+  request       FeedbackRequest? @relation(fields: [requestId], references: [id])
+  studentId     String?
+  student       Student? @relation(fields: [studentId], references: [id])
+  leadId        String?
+  lead          Lead?    @relation(fields: [leadId], references: [id])
+  sourceType    String
+  sourceId      String?
+  sourceLabel   String?
+  batchId       String?
+  rating        Int?
+  writtenText   String?
   videoDocumentId String?
-  status       String   @default("Submitted")
+  videoDocument Document? @relation(fields: [videoDocumentId], references: [id])
+  answersJson   Json?
+  // Submitted | Reviewed | Approved for Marketing | Kept Private | Featured | Archived
+  status        String   @default("Submitted")
+  reviewedById  String?
+  reviewedAt    DateTime?
   internalNotes String?
-  createdAt    DateTime @default(now())
+  marketingTagsJson Json? // internal organization tags only, never shown publicly
+  incentiveId   String?
+  createdAt     DateTime @default(now())
 
   marketingConsent MarketingConsent?
   incentiveRedemptions IncentiveRedemption[]
 
   // Exactly one of studentId / leadId is ever set — enforced at the service
-  // layer (server/src/modules/feedback/service.ts), matching the existing
+  // layer (server/src/modules/feedback/routes.ts), matching the existing
   // frontend rule.
   @@index([studentId])
   @@index([leadId])
+  @@index([status])
 }
 
-// Append-only consent history (spec section 16) — status is derived from
-// the latest ConsentEvent, never overwritten in place.
+// Append-only consent history (spec sections 41-42) — `status` here is a
+// convenience cache of the latest ConsentEvent, kept in sync on every
+// write; the ConsentEvent trail is the actual source of truth and is never
+// overwritten or deleted, so a withdrawal never erases the fact consent was
+// once granted.
 model MarketingConsent {
   id            String   @id @default(cuid())
   feedbackSubmissionId String @unique
   feedbackSubmission FeedbackSubmission @relation(fields: [feedbackSubmissionId], references: [id])
+  status        String   @default("Withdrawn") // Granted | Withdrawn — cache of the latest event
+  consentVersion String
   permittedAssetsJson Json
   events        ConsentEvent[]
 }
@@ -931,6 +1110,7 @@ model ConsentEvent {
   consentId    String
   consent      MarketingConsent @relation(fields: [consentId], references: [id], onDelete: Cascade)
   status       String   // Granted | Withdrawn
+  permittedAssetsJson Json
   occurredAt   DateTime @default(now())
   source       String
 }
@@ -938,13 +1118,25 @@ model ConsentEvent {
 model Incentive {
   id          String   @id @default(cuid())
   name        String
-  type        String   // course bonus | resource | other
-  courseId    String?
-  isActive    Boolean  @default(true)
+  description String?
+  eligibility String?
+  sourceTypeFilter String? // a FeedbackSourceType value, or "Any"
+  // Bonus Course | PDF | Template | Checklist | Prompt Pack | Recorded Training | Digital Resource | Coupon / Offer | Other
+  deliveryType String
+  bonusCourseId String?
+  bonusCourse Course? @relation(fields: [bonusCourseId], references: [id])
+  resourceDocumentId String?
+  resourceDocument Document? @relation(fields: [resourceDocumentId], references: [id])
+  status      String   @default("Active") // Active | Inactive
+  createdAt   DateTime @default(now())
 
   redemptions IncentiveRedemption[]
+  feedbackRequests FeedbackRequest[]
 }
 
+// The reward is for SUBMITTING genuine feedback, never for a positive
+// rating (spec section 46) — nothing in this model or the route that
+// creates it reads FeedbackSubmission.rating before unlocking.
 model IncentiveRedemption {
   id           String   @id @default(cuid())
   incentiveId  String
@@ -955,8 +1147,10 @@ model IncentiveRedemption {
   feedbackSubmission FeedbackSubmission @relation(fields: [feedbackSubmissionId], references: [id])
   status       String   @default("Unlocked") // Unlocked | Delivered
   deliveredAt  DateTime?
+  notes        String?
   createdAt    DateTime @default(now())
 
+  @@unique([incentiveId, feedbackSubmissionId])
   @@index([studentId])
 }
 

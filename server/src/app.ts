@@ -15,6 +15,13 @@ import { requirementRoutes } from "./modules/requirements/routes.js";
 import { studentNoteRoutes } from "./modules/notes/routes.js";
 import { activityRoutes } from "./modules/activity/routes.js";
 import { dashboardRoutes } from "./modules/dashboard/routes.js";
+import { trainingRoutes } from "./modules/training/routes.js";
+import { courseRoutes } from "./modules/courses/routes.js";
+import { courseAccessRoutes } from "./modules/course-access/routes.js";
+import { progressRoutes } from "./modules/progress/routes.js";
+import { certificateRoutes } from "./modules/certificates/routes.js";
+import { feedbackRoutes } from "./modules/feedback/routes.js";
+import { incentiveRoutes } from "./modules/incentives/routes.js";
 
 export interface BuildAppOptions {
   /** Overrides env.LOGIN_RATE_LIMIT_PER_MINUTE for this instance only — used by the brute-force test to prove the limiter actually blocks, without lowering the shared limit every other test's logins run against. */
@@ -64,6 +71,13 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(studentNoteRoutes);
   await app.register(activityRoutes);
   await app.register(dashboardRoutes);
+  await app.register(trainingRoutes);
+  await app.register(courseRoutes);
+  await app.register(courseAccessRoutes);
+  await app.register(progressRoutes);
+  await app.register(certificateRoutes);
+  await app.register(feedbackRoutes);
+  await app.register(incentiveRoutes);
 
   return app;
 }
