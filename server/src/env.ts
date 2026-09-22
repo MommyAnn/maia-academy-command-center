@@ -34,6 +34,11 @@ const schema = z.object({
   STORAGE_LOCAL_DIR: z.string().default("./uploads-dev"),
   PORT: z.coerce.number().int().positive().default(4000),
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  // The frontend's own dev origin, allowed to send credentialed
+  // (cookie-carrying) requests here. Never a wildcard — a wildcard origin
+  // combined with credentials would let ANY site read an authenticated
+  // user's session data (spec section 35: no OWASP-class vulnerabilities).
+  CORS_ORIGIN: z.string().default("http://localhost:5173"),
 });
 
 const parsed = schema.safeParse(process.env);

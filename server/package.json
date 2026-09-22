@@ -4,7 +4,9 @@
   "private": true,
   "description": "M.A.I.A. Academy Command Center — production backend foundation (Phase 1). Independent package from the frontend at repo root; never imported by the Vite app.",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
@@ -19,6 +21,7 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.3.0",
     "@fastify/rate-limit": "^10.2.1",
     "@prisma/client": "^6.2.1",
     "bcryptjs": "^2.4.3",

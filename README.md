@@ -159,6 +159,51 @@ Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
 
+## Production Backend (`server/`) — Phase 1 & Phase 2
+
+The 12 steps above are the frontend demo app described throughout the rest
+of this README: React 19 + Vite, zero backend, all data in
+`localStorage`. Alongside it, `server/` is an independent, real backend —
+its own `package.json`, never imported by the Vite app — built across two
+Production Phases:
+
+- **Phase 1** — real PostgreSQL database (Prisma), bcrypt password auth
+  with server-revocable sessions, the exact 34-module permission matrix
+  from `src/types/staff.ts` enforced server-side per request, server-side
+  student/business data isolation, a swappable file-storage interface
+  (local-disk dev implementation) with HMAC-signed download URLs, and a
+  durable audit log — all covered by an automated Vitest suite.
+- **Phase 2** — migrates Packages, Batches, Enrollment (with immutable
+  price snapshots), Lead→Student conversion (reservation payments carried
+  forward, never duplicated), Requirements (append-only review trail),
+  Admin Notes, Activity History, and a live Dashboard KPI aggregation
+  endpoint onto that real backend, with concurrency-safe sequential ID
+  generation, internal (not yet dispatched) domain events, and duplicate
+  detection that only ever flags for staff review — never auto-merges.
+
+A typed API client lives at `src/api/client.ts`, and the Owner Dashboard
+(`/dashboard`) has one additive "Production Backend (Phase 2)" card that
+reads live KPIs from it — everything else on that page, and every other
+page in the app, still runs on the original demo data untouched.
+
+**Important:** this app's own login (`src/context/AuthContext.tsx`) is a
+separate, mock, `localStorage`-only system — signing into the demo app does
+**not** sign this browser into `server/`. Wiring the Student Portal itself
+(My Enrollment/Payments/Requirements/Profile) onto real backend data is the
+next planned increment; see `server/README` migrations and the Phase 1/
+Phase 2 completion reports (delivered in-conversation) for full technical
+detail, honest IMPLEMENTED/CONNECTED/DEFERRED status per area, and what a
+real deployment still needs (S3-compatible storage, a managed Postgres
+instance, real environment secrets, GHL/AI provider credentials — none of
+which are connected anywhere in this build).
+
+To run it locally: `cd server && npm install`, copy `.env.example` to
+`.env.development`, then `npm run prisma:migrate:deploy && npm run
+prisma:seed && npm run dev` (listens on `:4000`). See `server/.env.example`
+for every variable, including `CORS_ORIGIN`, which must match the frontend's
+dev origin (`http://localhost:5173` by default) for the API client above to
+reach it.
+
 ## What's Included in Step 12
 
 **M.A.I.A. AI Business Tools Hub — a Master Brain-powered business

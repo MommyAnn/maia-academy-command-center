@@ -42,3 +42,18 @@ export async function computeStudentFinanceSummary(studentId: string, netAmountD
 function toNumber(value: Prisma.Decimal | null): number {
   return value ? Number(value) : 0;
 }
+
+/**
+ * The authoritative amount due for a student: their most recent Enrollment's
+ * frozen netAmountDue snapshot (spec section 8) when one exists, falling
+ * back to the Package's current default price for Phase-1-only seed data
+ * that predates the Enrollment model. Never recomputes from a package price
+ * once a real Enrollment row exists.
+ */
+export async function resolveNetAmountDue(studentId: string): Promise<number> {
+  const enrollment = await db.enrollment.findFirst({ where: { studentId }, orderBy: { createdAt: "desc" } });
+  if (enrollment) return Number(enrollment.netAmountDue);
+
+  const student = await db.student.findUnique({ where: { id: studentId }, include: { package: true } });
+  return Number(student?.package.defaultPrice ?? 0);
+}

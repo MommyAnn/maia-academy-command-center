@@ -40,6 +40,7 @@ import { LmsFeedbackSnapshotCard } from "@/components/dashboard/LmsFeedbackSnaps
 import { WebinarFunnelSnapshotCard } from "@/components/dashboard/WebinarFunnelSnapshotCard";
 import { CommunicationsSnapshotCard } from "@/components/dashboard/CommunicationsSnapshotCard";
 import { AiToolsSnapshotCard } from "@/components/dashboard/AiToolsSnapshotCard";
+import { ProductionBackendKpiCard } from "@/components/dashboard/ProductionBackendKpiCard";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -505,6 +506,8 @@ export function Dashboard() {
           icon={<BadgeCheck size={18} />}
         />
       </div>
+
+      <ProductionBackendKpiCard />
 
       <ActionCenterCard items={actionCenterItems} />
 

@@ -3,7 +3,9 @@ import { z } from "zod";
 import { db } from "../../db.js";
 import { requireAuth, requirePermission, requireStudentSelf } from "../../rbac/middleware.js";
 import { writeAuditLog } from "../../audit/log.js";
-import { computeStudentFinanceSummary } from "./calc.js";
+import { computeStudentFinanceSummary, resolveNetAmountDue } from "./calc.js";
+import { generatePaymentDisplayId } from "../sequence.js";
+import { recordDomainEvent } from "../events.js";
 
 const submitPaymentSchema = z.object({
   amount: z.number().positive(),
@@ -12,10 +14,6 @@ const submitPaymentSchema = z.object({
   referenceNumber: z.string().optional(),
   proofDocumentId: z.string().optional(),
 });
-
-function generatePaymentDisplayId(batchCode: string, seq: number): string {
-  return `PAY-B${batchCode}-${String(seq).padStart(6, "0")}`;
-}
 
 export async function financeRoutes(app: FastifyInstance) {
   // Student self-service: submit a payment. Always lands as
@@ -33,10 +31,13 @@ export async function financeRoutes(app: FastifyInstance) {
       const student = await db.student.findUnique({ where: { id: studentId } });
       if (!student) return reply.code(404).send({ error: "Student not found." });
 
-      const count = await db.paymentTransaction.count({ where: { batchId: student.batchId } });
+      const batch = await db.batch.findUniqueOrThrow({ where: { id: student.batchId } });
+      // Concurrency-safe (spec section 29) — an atomic counter, not
+      // "count existing rows + 1", which two simultaneous submissions could
+      // both read before either had written, producing a duplicate ID.
       const payment = await db.paymentTransaction.create({
         data: {
-          paymentDisplayId: generatePaymentDisplayId((await db.batch.findUniqueOrThrow({ where: { id: student.batchId } })).code, count + 1),
+          paymentDisplayId: await generatePaymentDisplayId(batch.code),
           studentId,
           batchId: student.batchId,
           packageId: student.packageId,
@@ -76,6 +77,12 @@ export async function financeRoutes(app: FastifyInstance) {
         return reply.code(409).send({ error: `Cannot verify a payment with status ${payment.status}.` });
       }
 
+      // Fully-paid detection reads the state BEFORE this write, so the
+      // STUDENT_FULLY_PAID event only fires on the verification that
+      // actually crosses the threshold, never on every later verification
+      // of an already-fully-paid student.
+      const wasFullyPaidBefore = payment.studentId ? (await computeStudentFinanceSummary(payment.studentId, await resolveNetAmountDue(payment.studentId))).status === "Fully Paid" : false;
+
       const updated = await db.paymentTransaction.update({
         where: { id: paymentId },
         data: { status: "VERIFIED", verifiedById: request.authContext!.userId, verifiedAt: new Date() },
@@ -88,6 +95,15 @@ export async function financeRoutes(app: FastifyInstance) {
         entityType: "PaymentTransaction",
         entityId: payment.id,
       });
+
+      if (payment.studentId && !wasFullyPaidBefore) {
+        const summaryAfter = await computeStudentFinanceSummary(payment.studentId, await resolveNetAmountDue(payment.studentId));
+        if (summaryAfter.status === "Fully Paid") {
+          // Internal event only (spec section 37) — no GHL message, no
+          // external workflow triggered anywhere in this codebase.
+          await recordDomainEvent("STUDENT_FULLY_PAID", { studentId: payment.studentId, verifiedPaid: summaryAfter.verifiedPaid, netAmountDue: summaryAfter.netAmountDue });
+        }
+      }
 
       return reply.send({ payment: serializePayment(updated) });
     },
@@ -124,16 +140,45 @@ export async function financeRoutes(app: FastifyInstance) {
     },
   );
 
+  // Voids a previously recorded payment (data-entry correction, bounced
+  // reversal, etc.) — a VOIDED payment counts toward neither verifiedPaid
+  // nor pending (spec's payment status set: PENDING VERIFICATION / VERIFIED
+  // / REJECTED-NEEDS-RESUBMISSION / VOIDED, mapped here onto the existing
+  // CANCELLED enum value per "use existing project naming if equivalent
+  // statuses already exist").
+  app.post(
+    "/api/payments/:paymentId/void",
+    { preHandler: [requireAuth, requirePermission("Finance - Payments", "VERIFY")] },
+    async (request, reply) => {
+      const { paymentId } = request.params as { paymentId: string };
+      const payment = await db.paymentTransaction.findUnique({ where: { id: paymentId } });
+      if (!payment) return reply.code(404).send({ error: "Payment not found." });
+      if (payment.status === "CANCELLED") return reply.code(409).send({ error: "This payment is already voided." });
+
+      const updated = await db.paymentTransaction.update({ where: { id: paymentId }, data: { status: "CANCELLED" } });
+
+      await writeAuditLog({
+        action: "Payment Voided",
+        summary: `Payment ${payment.paymentDisplayId} voided`,
+        actorUserId: request.authContext!.userId,
+        entityType: "PaymentTransaction",
+        entityId: payment.id,
+      });
+
+      return reply.send({ payment: serializePayment(updated) });
+    },
+  );
+
   // Isolation-enforced read: a student can only ever see their own ledger.
   app.get(
     "/api/students/:studentId/finance-summary",
     { preHandler: [requireAuth, requireStudentSelfOrPermission("Finance - Payments", "VIEW")] },
     async (request, reply) => {
       const { studentId } = request.params as { studentId: string };
-      const student = await db.student.findUnique({ where: { id: studentId }, include: { package: true } });
+      const student = await db.student.findUnique({ where: { id: studentId } });
       if (!student) return reply.code(404).send({ error: "Student not found." });
 
-      const netAmountDue = Number(student.package.defaultPrice ?? 0);
+      const netAmountDue = await resolveNetAmountDue(studentId);
       const summary = await computeStudentFinanceSummary(studentId, netAmountDue);
       return reply.send({ summary });
     },

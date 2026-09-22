@@ -166,6 +166,7 @@ model Lead {
   followUps         FollowUp[]
   conversion        LeadStudentConversion?
   feedbackSubmissions FeedbackSubmission[]
+  paymentTransactions PaymentTransaction[]
 
   @@index([pipelineStage])
 }
@@ -208,22 +209,47 @@ model LeadStudentConversion {
 // ---------------------------------------------------------------------------
 
 model Batch {
-  id        String   @id @default(cuid())
-  code      String   @unique // e.g. "14"
-  label     String            // e.g. "Batch 14"
-  startDate DateTime?
-  isActive  Boolean  @default(true)
+  id                   String      @id @default(cuid())
+  code                 String      @unique // e.g. "14"
+  label                String               // e.g. "Batch 14"
+  program              String?
+  startDate            DateTime?
+  endDate              DateTime?
+  enrollmentPeriodStart DateTime?
+  enrollmentPeriodEnd  DateTime?
+  trainingScheduleNotes String?
+  status               BatchStatus @default(UPCOMING)
+  capacity             Int?
+  notes                String?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  // isActive is kept (not renamed) so the Phase 1 migration's existing rows
+  // and any code already reading it keep working — `status` is the new,
+  // richer field Phase 2 adds; the two are kept in sync at the service layer
+  // (isActive == status in {OPEN, ACTIVE}).
+  isActive             Boolean     @default(true)
 
   students    Student[]
   enrollments Enrollment[]
   payments    PaymentTransaction[]
 }
 
+enum BatchStatus {
+  UPCOMING
+  OPEN
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
 model Package {
   id           String   @id @default(cuid())
   name         String   @unique // e.g. "Premium", "VIP", "Dual VIP"
+  description  String?
   defaultPrice Decimal? @db.Decimal(12, 2)
   isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   students    Student[]
   enrollments Enrollment[]
@@ -262,6 +288,8 @@ model Student {
   aiManualGrants   AiManualGrant[]
   supportRequests  SupportRequest[]
   activityLogs     ActivityLog[] @relation("ActorStudent")
+  requirements     Requirement[]
+  notes            StudentNote[]
 
   @@index([batchId])
   @@index([packageId])
@@ -284,18 +312,32 @@ enum MasterBrainStatus {
 // A student may have more than one enrollment over time (spec section 5) —
 // never a field on Student itself.
 model Enrollment {
-  id         String   @id @default(cuid())
-  studentId  String
-  student    Student  @relation(fields: [studentId], references: [id])
-  batchId    String
-  batch      Batch    @relation(fields: [batchId], references: [id])
-  packageId  String
-  package    Package  @relation(fields: [packageId], references: [id])
-  status     String
-  enrolledAt DateTime @default(now())
-  createdAt  DateTime @default(now())
+  id                 String   @id @default(cuid())
+  enrollmentDisplayId String  @unique // e.g. ENR-2026-000001
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id])
+  batchId            String
+  batch              Batch    @relation(fields: [batchId], references: [id])
+  packageId          String
+  package            Package  @relation(fields: [packageId], references: [id])
+  attendanceChoice   String?  // "Face-to-Face" | "Zoom"
+  companionName      String?
+  // CRITICAL (spec section 8): the agreed price at the moment of enrollment,
+  // frozen forever — later changes to Package.defaultPrice must never alter
+  // this or any already-derived balance for this enrollment.
+  packagePriceSnapshot Decimal @db.Decimal(12, 2)
+  discount           Decimal  @default(0) @db.Decimal(12, 2)
+  netAmountDue       Decimal  @db.Decimal(12, 2)
+  status             String
+  source             String?
+  enrolledAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  payments PaymentTransaction[]
 
   @@index([studentId])
+  @@index([batchId])
 }
 
 // One student may run more than one business (spec sections 4-5, 15) — kept
@@ -324,9 +366,17 @@ model Business {
 model PaymentTransaction {
   id               String   @id @default(cuid())
   paymentDisplayId String   @unique // e.g. PAY-B14-000001
-  studentId        String
-  student          Student  @relation(fields: [studentId], references: [id])
+  // Exactly one of studentId/leadId is set at creation (enforced at the
+  // service layer, not the DB) — a Lead's reservation payment (spec section
+  // 14) has no Student yet. Converting the Lead re-parents this SAME row by
+  // setting studentId, so the payment is carried forward once, never
+  // duplicated.
+  studentId        String?
+  student          Student? @relation(fields: [studentId], references: [id])
+  leadId           String?
+  lead             Lead?    @relation(fields: [leadId], references: [id])
   enrollmentId     String?
+  enrollment       Enrollment? @relation(fields: [enrollmentId], references: [id])
   batchId          String
   batch            Batch    @relation(fields: [batchId], references: [id])
   packageId        String
@@ -399,6 +449,7 @@ model Document {
   uploadedAt       DateTime @default(now())
 
   paymentProofOf PaymentTransaction[]
+  currentForRequirements Requirement[]
   expenseReceiptOf Expense[]
 
   @@index([ownerStudentId])
@@ -430,6 +481,103 @@ model TaobaoRecord {
   updatedAt DateTime @updatedAt
   // Deliberately no password field — matches the existing frontend's
   // explicit "the Taobao password is never requested, stored, or displayed" rule.
+}
+
+// ---------------------------------------------------------------------------
+// REQUIREMENTS (Phase 2) — the review/status trail is a record OF a
+// Document, never the same row: resubmitting swaps in a new Document but
+// keeps every prior RequirementReview entry, so "silently erasing the
+// previous review trail" (spec section 36) is structurally impossible.
+// ---------------------------------------------------------------------------
+
+model Requirement {
+  id           String   @id @default(cuid())
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id])
+  enrollmentId String?
+  type         String   // "ValidId" | "PaymentProof" | ...
+  currentDocumentId String?
+  currentDocument   Document? @relation(fields: [currentDocumentId], references: [id])
+  status       RequirementStatus @default(PENDING)
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  reviewedById String?
+  reasonNote   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  reviews RequirementReview[]
+
+  @@unique([studentId, type])
+  @@index([studentId])
+}
+
+enum RequirementStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+/** Append-only review trail — never overwritten, never deleted, even across a resubmission (spec section 36). */
+model RequirementReview {
+  id            String   @id @default(cuid())
+  requirementId String
+  requirement   Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  documentId    String?
+  status        RequirementStatus
+  reason        String?
+  actedById     String?
+  occurredAt    DateTime @default(now())
+
+  @@index([requirementId])
+}
+
+// ---------------------------------------------------------------------------
+// STUDENT ADMIN NOTES — staff-only, a Student must never see these (spec
+// section 32).
+// ---------------------------------------------------------------------------
+
+model StudentNote {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  authorId  String
+  note      String
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// DOMAIN EVENTS (spec sections 37-39) — internal only. Recorded so a future
+// integration phase (GHL, email/SMS) can subscribe without coupling core
+// business logic to any external system; nothing in Phase 2 dispatches
+// these anywhere outside this table.
+// ---------------------------------------------------------------------------
+
+model DomainEvent {
+  id          String   @id @default(cuid())
+  type        String   // "STUDENT_CREATED" | "ENROLLMENT_CREATED" | "ENROLLMENT_CONFIRMED" | "STUDENT_FULLY_PAID" | "REQUIREMENT_SUBMITTED" | "REQUIREMENT_VERIFIED" | "REQUIREMENT_REJECTED" | ...
+  studentId   String?
+  enrollmentId String?
+  payloadJson Json
+  occurredAt  DateTime @default(now())
+  processedAt DateTime? // set once a future consumer (e.g. GHL dispatch) actually handles it — always null in Phase 2
+
+  @@index([type])
+  @@index([studentId])
+}
+
+// ---------------------------------------------------------------------------
+// COUNTER — atomic, concurrency-safe sequence generation (spec section 29)
+// for human-readable IDs (MAIA-B14-0001, ENR-2026-000001, ...). An
+// upsert-increment is race-free under Postgres's MVCC without needing
+// explicit row locking in application code.
+// ---------------------------------------------------------------------------
+
+model Counter {
+  scope String @id // e.g. "student:14", "enrollment:2026", "payment:14"
+  value Int    @default(0)
 }
 
 // ---------------------------------------------------------------------------

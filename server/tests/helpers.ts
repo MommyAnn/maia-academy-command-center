@@ -6,22 +6,42 @@ import { db } from "../src/db.js";
 import { runDevSeed } from "../prisma/seed.js";
 
 /** Wipes every table this test suite might have written to, then reseeds baseline roles/packages/batch/dev users. Keeps each test file's assertions deterministic regardless of run order. */
-const DEV_SEED_EMAILS = [
-  "owner-dev@maiaacademy.local",
-  "finance-dev@maiaacademy.local",
-  "student-a-dev@maiaacademy.local",
-  "student-b-dev@maiaacademy.local",
-];
+const FIXED_PERSON_IDS = ["seed-owner-person", "seed-finance-person", "seed-student-a-person", "seed-student-b-person"];
+const FIXED_STUDENT_DISPLAY_IDS = ["MAIA-B14-DEV-A", "MAIA-B14-DEV-B"];
 
-/** Also deletes and recreates the dev seed Users so a password-reset test in one file can never leak a changed password into another file's assertions. */
+/**
+ * Also deletes every Student/Person/User this suite created beyond the four
+ * fixed dev-seed identities (e.g. via /api/enroll or a Lead conversion) —
+ * not just the dev-seed Users themselves. Without this, the Counter table
+ * reset below would restart a scope like `student:14` back at 1 while an
+ * OLD Student row from a previous test file's run still occupies
+ * "MAIA-B14-0001", producing a real unique-constraint collision that has
+ * nothing to do with the concurrency-safety logic under test.
+ */
 export async function resetDb() {
   await db.$transaction([
+    db.requirementReview.deleteMany(),
+    db.requirement.deleteMany(),
+    db.studentNote.deleteMany(),
+    db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),
     db.paymentTransaction.deleteMany(),
+    db.enrollment.deleteMany(),
+    db.leadStudentConversion.deleteMany(),
+    db.leadActivity.deleteMany(),
+    db.lead.deleteMany(),
     db.document.deleteMany(),
     db.session.deleteMany(),
     db.passwordResetToken.deleteMany(),
-    db.user.deleteMany({ where: { email: { in: DEV_SEED_EMAILS } } }),
+    db.user.deleteMany(),
+    db.student.deleteMany({ where: { studentDisplayId: { notIn: FIXED_STUDENT_DISPLAY_IDS } } }),
+    db.person.deleteMany({ where: { id: { notIn: FIXED_PERSON_IDS } } }),
+    // Also cleans up Batches/Packages a Phase 2 test file created (e.g. a
+    // uniquely-coded/-named CRUD fixture) — otherwise a re-run collides on
+    // that same unique code/name exactly like the Student case above.
+    db.batch.deleteMany({ where: { code: { not: "14" } } }),
+    db.package.deleteMany({ where: { name: { notIn: ["Premium", "VIP", "Dual VIP"] } } }),
+    db.counter.deleteMany(),
   ]);
   await runDevSeed();
 }
