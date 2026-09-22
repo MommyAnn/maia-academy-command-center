@@ -6,6 +6,7 @@
 import { db } from "../src/db.js";
 import { hashPassword } from "../src/auth/password.js";
 import { PERMISSION_MODULES, STAFF_ROLES } from "../src/rbac/modules.js";
+import { seedAiToolLibrary } from "../src/modules/ai-tools/seed.js";
 
 export { main as runDevSeed };
 
@@ -93,7 +94,7 @@ async function main() {
     update: {},
     create: { id: "seed-owner-person", fullName: "Mommy Ann (Dev Seed)", email: "owner-dev@maiaacademy.local" },
   });
-  await db.user.upsert({
+  const ownerUser = await db.user.upsert({
     where: { email: "owner-dev@maiaacademy.local" },
     update: {},
     create: {
@@ -104,6 +105,9 @@ async function main() {
       status: "ACTIVE",
     },
   });
+
+  console.log("Seeding the AI Tool Library (18 tools) + model configs + provider rows...");
+  await seedAiToolLibrary(ownerUser.id);
 
   console.log("Seeding a dev Finance Officer account (for RBAC-denial tests)...");
   const financeRole = await db.role.findUniqueOrThrow({ where: { name: "Finance Officer" } });

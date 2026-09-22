@@ -72,3 +72,15 @@ export async function generateWebinarSessionDisplayId(): Promise<string> {
   const n = await nextSequence(`webinar:${year}`);
   return `WEB-${year}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateAiProjectDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ai-project:${year}`);
+  return `PROJ-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAiGenerationDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ai-generation:${year}`);
+  return `GEN-${year}-${String(n).padStart(6, "0")}`;
+}

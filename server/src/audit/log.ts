@@ -69,6 +69,21 @@ export const AUDIT_ACTIONS = [
   "Automation Rule Changed",
   "Message Sent",
   "Bulk Message Sent",
+  // Phase 6 — Brand Master Brain + AI Business Tools (spec sections 6, 28, 65, 78).
+  "AI Provider Configuration Changed",
+  "AI Connection Tested",
+  "AI Model Config Changed",
+  "AI Tool Changed",
+  "AI Usage Limit Changed",
+  "Prompt Version Changed",
+  "Master Brain Generated",
+  "Master Brain Published",
+  "Master Brain Revision Requested",
+  "AI Tool Used",
+  "AI Generation Completed",
+  "AI Generation Failed",
+  "AI Access Granted",
+  "AI Access Revoked",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

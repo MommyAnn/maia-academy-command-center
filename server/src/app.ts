@@ -29,6 +29,10 @@ import { ghlAdminRoutes } from "./modules/ghl/admin-routes.js";
 import { ghlWebhookRoutes } from "./modules/ghl/webhook.js";
 import { communicationsRoutes } from "./modules/communications/routes.js";
 import { startOutboxWorker } from "./modules/ghl/outbox.js";
+import { aiAdminRoutes } from "./modules/ai/admin-routes.js";
+import { masterBrainRoutes } from "./modules/master-brain/routes.js";
+import { aiToolAdminRoutes } from "./modules/ai-tools/admin-routes.js";
+import { aiToolGenerateRoutes } from "./modules/ai-tools/generate-routes.js";
 
 export interface BuildAppOptions {
   /** Overrides env.LOGIN_RATE_LIMIT_PER_MINUTE for this instance only — used by the brute-force test to prove the limiter actually blocks, without lowering the shared limit every other test's logins run against. */
@@ -91,6 +95,10 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(ghlAdminRoutes);
   await app.register(ghlWebhookRoutes);
   await app.register(communicationsRoutes);
+  await app.register(aiAdminRoutes);
+  await app.register(masterBrainRoutes);
+  await app.register(aiToolAdminRoutes);
+  await app.register(aiToolGenerateRoutes);
 
   // The outbox sweep is a real interval timer in every real environment —
   // skipped only under test, where the test suite drives processing

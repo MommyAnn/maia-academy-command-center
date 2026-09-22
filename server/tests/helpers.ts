@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../src/db.js";
 import { runDevSeed } from "../prisma/seed.js";
+import { AI_TOOL_SEED_DEFS } from "../src/modules/ai-tools/seed-data.js";
 
 /** Wipes every table this test suite might have written to, then reseeds baseline roles/packages/batch/dev users. Keeps each test file's assertions deterministic regardless of run order. */
 const FIXED_PERSON_IDS = ["seed-owner-person", "seed-finance-person", "seed-student-a-person", "seed-student-b-person"];
@@ -39,6 +40,29 @@ export async function resetDb() {
     db.ghlCustomFieldMapping.deleteMany(),
     db.ghlWorkflowMapping.deleteMany(),
     db.ghlIntegrationConfig.deleteMany(),
+    // Phase 6 (Brand Master Brain / AI Business Tools) — AiHandoff has real
+    // FKs to AiGeneration (x2) and AiTool; AiGeneration/AiProject/
+    // AiManualGrant/MasterBrainSubmission all reference Student, so all of
+    // this must clear before the Student/Person cleanup below.
+    // PromptVersion is cleared and always re-seeded (not just upserted) so
+    // a test-created DRAFT/version number never collides with another test
+    // file's — matches the same "reset even what's normally seed-managed"
+    // principle already used for GhlTagMapping etc. above.
+    db.aiHandoff.deleteMany(),
+    db.aiGeneration.deleteMany(),
+    db.aiProject.deleteMany(),
+    db.aiUsageLimit.deleteMany(),
+    db.aiManualGrant.deleteMany(),
+    db.promptVersion.deleteMany(),
+    // Also removes an ad-hoc AiTool a test file created directly (e.g. a
+    // "no access" fixture) — the 18 real seeded tools are matched by key
+    // and always survive, exactly like the Batch/Package cleanup below.
+    // Runs only after every table with a hard FK to AiTool is cleared above.
+    db.aiTool.deleteMany({ where: { toolKey: { notIn: AI_TOOL_SEED_DEFS.map((d) => d.toolKey) } } }),
+    db.masterBrainDocument.deleteMany(),
+    db.masterBrainRevisionRequest.deleteMany(),
+    db.masterBrainSubmission.deleteMany(),
+    db.business.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),
     db.paymentTransaction.deleteMany(),

@@ -54,6 +54,19 @@ const schema = z.object({
   GHL_WEBHOOK_SIGNATURE_PUBLIC_KEY: z.string().min(1).optional(),
   GHL_API_BASE_URL: z.string().default("https://services.leadconnectorhq.com"),
   GHL_API_VERSION: z.string().default("2021-07-28"),
+
+  // Phase 6 — AI provider credentials. ALL optional: the server must boot
+  // and every non-AI feature must keep working with none of these set (spec
+  // section 92 — no real AI provider is live in this production phase).
+  // Never read anywhere outside this file, src/ai/*, and the admin
+  // connection-status routes; never returned by any API response or
+  // persisted to the database (spec section 4).
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  // Override point for tests only — points the Anthropic client at a local
+  // fake server instead of the real api.anthropic.com.
+  ANTHROPIC_BASE_URL: z.string().optional(),
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  GOOGLE_AI_API_KEY: z.string().min(1).optional(),
 });
 
 const parsed = schema.safeParse(process.env);

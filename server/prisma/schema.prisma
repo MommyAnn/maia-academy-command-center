@@ -344,6 +344,7 @@ model Package {
   enrollments Enrollment[]
   payments    PaymentTransaction[]
   aiAccess    AiPackageAccess[]
+  aiUsageLimits AiUsageLimit[]
   courseAccess PackageCourseAccess[]
 }
 
@@ -368,7 +369,7 @@ model Student {
   payments         PaymentTransaction[]
   documents        Document[]
   taobaoRecord     TaobaoRecord?
-  masterBrainSubmission MasterBrainSubmission?
+  masterBrainSubmissions MasterBrainSubmission[]
   courseAccess     CourseAccessGrant[]
   lessonProgress   LessonProgress[]
   trainingAttendance TrainingAttendance[]
@@ -686,9 +687,12 @@ model Counter {
 
 model MasterBrainSubmission {
   id               String   @id @default(cuid())
-  studentId        String   @unique
+  studentId        String
   student          Student  @relation(fields: [studentId], references: [id])
-  businessId       String
+  // One submission per BUSINESS, not per Student (Phase 6 spec section 33:
+  // a Student may own several Businesses, each with its own independent
+  // Master Brain questionnaire/document lineage — never shared or mixed).
+  businessId       String   @unique
   business         Business @relation(fields: [businessId], references: [id])
   status           MasterBrainStatus @default(NOT_STARTED)
   currentStep      Int      @default(1)
@@ -728,6 +732,18 @@ model MasterBrainDocument {
   documentVersion             Int
   generatedFromSubmissionVersion Int
   sectionsJson                Json
+  // AI_ASSISTED | MANUAL (spec section 14) — draft generation is never
+  // silently treated as final; isCurrentPublished only ever flips true via
+  // an explicit human publish action, whichever method produced the draft.
+  generationMethod            String   @default("MANUAL")
+  aiProvider                  String?
+  aiModel                     String?
+  aiPromptVersionId           String?
+  // Missing-section / unsupported-claim flags recorded at generation time
+  // (spec sections 16-17, 75) — surfaced to the human reviewer, never
+  // silently resolved by the AI itself.
+  validationJson               Json?
+  generatedById                String?
   isCurrentPublished          Boolean  @default(false)
   generatedAt                 DateTime @default(now())
   publishedAt                 DateTime?
@@ -1495,19 +1511,71 @@ model AutomationExecution {
 // ---------------------------------------------------------------------------
 // AI BUSINESS TOOLS — AiGeneration pins the exact MasterBrainDocument
 // version it was generated from and is never re-pointed (spec section 16).
+// Phase 6 extends this Phase-1 stub into a real, config-driven Tool
+// Library: one generic generation engine reads AiTool + its ACTIVE
+// PromptVersion + its AiModelConfig, rather than 18 hand-coded endpoints
+// (spec sections 8-9, 25) — see server/src/modules/ai-tools/engine.ts.
 // ---------------------------------------------------------------------------
+
+// Centralized, provider-agnostic model configuration (spec section 8) — no
+// model name is ever hard-coded in application code; every call site reads
+// one of these rows by key. `enabled: false` is this config's own kill
+// switch (spec section 65), independent of the tool's own status and the
+// provider's own enabled flag.
+model AiModelConfig {
+  id            String   @id @default(cuid())
+  configKey     String   @unique // "default" | "reasoning" | "structured-analytical" | ...
+  provider      String   // "ANTHROPIC" | "OPENAI" | "GOOGLE"
+  model         String   // e.g. "claude-opus-5"
+  purpose       String?
+  temperature   Float?
+  maxOutputTokens Int    @default(4096)
+  supportsStructuredOutput Boolean @default(true)
+  fallbackConfigKey String? // another AiModelConfig.configKey, resolved at call time
+  enabled       Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tools AiTool[]
+}
+
+// Real backend for the ADMIN -> AI CONNECTIONS screen (spec section 6) —
+// NEVER holds the actual API key (spec section 4): that lives only in this
+// server process's own environment variables (ANTHROPIC_API_KEY, ...).
+model AiProviderConfig {
+  id                      String   @id @default(cuid())
+  provider                String   @unique // "ANTHROPIC" | "OPENAI" | "GOOGLE"
+  enabled                 Boolean  @default(true) // kill switch (spec section 65)
+  environment             String   @default("TEST") // TEST | PRODUCTION — never auto-switches
+  status                  String   @default("NOT_CONNECTED") // NOT_CONNECTED | CONNECTED | AUTHENTICATION_FAILED | MODEL_UNAVAILABLE | RATE_LIMITED | QUOTA_BILLING_ISSUE | PROVIDER_ERROR | CONFIGURATION_ERROR
+  lastSuccessfulRequestAt DateTime?
+  lastErrorAt             DateTime?
+  lastErrorMessage        String?
+  updatedById             String?
+  updatedAt               DateTime @updatedAt
+}
 
 model AiTool {
   id          String   @id @default(cuid())
   toolKey     String   @unique // "business-strategist", ...
   name        String
+  description String?
   category    String
   status      AiToolStatus @default(ACTIVE)
   displayOrder Int
+  modelConfigId String?
+  modelConfig   AiModelConfig? @relation(fields: [modelConfigId], references: [id])
+  inputSchemaJson  Json?
+  outputSchemaJson Json?
+  usageRulesJson   Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   promptVersions PromptVersion[]
   manualGrants   AiManualGrant[]
   generations    AiGeneration[]
+  usageLimits    AiUsageLimit[]
+  handoffTargets AiHandoff[]
 }
 
 enum AiToolStatus {
@@ -1520,12 +1588,16 @@ model PromptVersion {
   id          String   @id @default(cuid())
   toolId      String
   tool        AiTool   @relation(fields: [toolId], references: [id])
+  name        String?
   version     Int
   systemInstruction String
   status      PromptVersionStatus @default(DRAFT)
   changeNotes String?
   updatedById String
   createdAt   DateTime @default(now())
+  publishedAt DateTime?
+
+  generations AiGeneration[]
 
   @@unique([toolId, version])
 }
@@ -1563,20 +1635,50 @@ model AiGeneration {
   project      AiProject? @relation(fields: [projectId], references: [id])
   toolId       String
   tool         AiTool   @relation(fields: [toolId], references: [id])
+  promptVersionId String?
+  promptVersion   PromptVersion? @relation(fields: [promptVersionId], references: [id])
   masterBrainDocumentId String?
   masterBrainDocument   MasterBrainDocument? @relation(fields: [masterBrainDocumentId], references: [id])
   masterBrainVersion    Int?
+  provider      String?
+  model         String?
   userInputJson Json
-  outputJson    Json
-  status        String  // Completed | Failed
+  outputJson    Json?
+  // QUEUED | GENERATING | COMPLETED | FAILED | CANCELLED (spec section 57)
+  status        String
   failureReason String?
+  errorCategory String? // ProviderUnavailable | RateLimited | QuotaExhausted | InvalidApiKey | ModelRemoved | Timeout | InvalidStructuredOutput | ContextTooLarge | SafetyRejection | NetworkError
+  usageJson     Json?   // provider-reported input/output token counts, never a cost figure shown to Students
+  validationJson Json?  // missing-section / unsupported-claim flags (spec sections 74-75)
+  retryOfGenerationId String? // points at the ORIGINAL failed generation this retried (spec section 58) — failure history is never overwritten
+  requestedAt   DateTime @default(now())
+  completedAt   DateTime?
   favorited     Boolean @default(false)
   archived      Boolean @default(false)
   createdAt     DateTime @default(now())
 
+  handoffsAsSource      AiHandoff[] @relation("HandoffSource")
+  handoffAsDestination  AiHandoff?  @relation("HandoffDestination")
+
   @@index([studentId])
   @@index([businessId])
   @@index([projectId])
+}
+
+// Structured cross-tool handoff (spec sections 66-67) — a deliberate
+// excerpt, never the full raw conversation, so a destination tool only
+// ever receives what its own request actually needs.
+model AiHandoff {
+  id                      String   @id @default(cuid())
+  sourceGenerationId      String
+  sourceGeneration        AiGeneration @relation("HandoffSource", fields: [sourceGenerationId], references: [id])
+  destinationToolId       String
+  destinationTool         AiTool   @relation(fields: [destinationToolId], references: [id])
+  selectedSectionsJson    Json
+  userInstructions        String?
+  destinationGenerationId String?  @unique
+  destinationGeneration   AiGeneration? @relation("HandoffDestination", fields: [destinationGenerationId], references: [id])
+  createdAt               DateTime @default(now())
 }
 
 model AiPackageAccess {
@@ -1599,6 +1701,25 @@ model AiManualGrant {
   grantedAt DateTime @default(now())
 
   @@unique([studentId, toolId])
+}
+
+// Configurable usage caps (spec sections 59-60) — GLOBAL applies to every
+// Student; PACKAGE/TOOL/PACKAGE_TOOL narrow it. Usage itself is always
+// live-counted from AiGeneration (never a separately stored counter),
+// matching this codebase's established "derive, never store" rule.
+model AiUsageLimit {
+  id           String   @id @default(cuid())
+  scope        String   // GLOBAL | PACKAGE | TOOL | PACKAGE_TOOL
+  packageId    String?
+  package      Package? @relation(fields: [packageId], references: [id])
+  toolId       String?
+  tool         AiTool?  @relation(fields: [toolId], references: [id])
+  dailyLimit   Int?
+  monthlyLimit Int?
+  updatedById  String?
+  updatedAt    DateTime @updatedAt
+
+  @@unique([scope, packageId, toolId])
 }
 
 // ---------------------------------------------------------------------------
