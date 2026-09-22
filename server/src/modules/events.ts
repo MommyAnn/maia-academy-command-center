@@ -28,6 +28,17 @@ export const DOMAIN_EVENT_TYPES = [
   "CERTIFICATE_ELIGIBLE",
   "CERTIFICATE_READY",
   "CERTIFICATE_ISSUED",
+  // Phase 4 — Free Webinar / Lead / Pipeline / Follow-Up (spec section 46).
+  // Consumed later by a GHL/communications integration worker — nothing in
+  // this codebase dispatches these anywhere external yet.
+  "LEAD_CREATED",
+  "WEBINAR_REGISTERED",
+  "WEBINAR_ATTENDED",
+  "WEBINAR_NO_SHOW",
+  "LEAD_INTERESTED",
+  "LEAD_CONSIDERING",
+  "RESERVATION_SUBMITTED",
+  "RESERVATION_VERIFIED",
 ] as const;
 
 export type DomainEventType = (typeof DOMAIN_EVENT_TYPES)[number];

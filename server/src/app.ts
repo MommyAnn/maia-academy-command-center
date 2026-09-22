@@ -22,6 +22,9 @@ import { progressRoutes } from "./modules/progress/routes.js";
 import { certificateRoutes } from "./modules/certificates/routes.js";
 import { feedbackRoutes } from "./modules/feedback/routes.js";
 import { incentiveRoutes } from "./modules/incentives/routes.js";
+import { webinarRoutes } from "./modules/webinar/routes.js";
+import { followUpRoutes } from "./modules/follow-ups/routes.js";
+import { webinarDashboardRoutes } from "./modules/webinar-dashboard/routes.js";
 
 export interface BuildAppOptions {
   /** Overrides env.LOGIN_RATE_LIMIT_PER_MINUTE for this instance only — used by the brute-force test to prove the limiter actually blocks, without lowering the shared limit every other test's logins run against. */
@@ -78,6 +81,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(certificateRoutes);
   await app.register(feedbackRoutes);
   await app.register(incentiveRoutes);
+  await app.register(webinarRoutes);
+  await app.register(followUpRoutes);
+  await app.register(webinarDashboardRoutes);
 
   return app;
 }

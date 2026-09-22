@@ -50,6 +50,16 @@ export const AUDIT_ACTIONS = [
   "Marketing Consent Revoked",
   "Testimonial Approved",
   "Incentive Granted",
+  "Lead Created",
+  "Registration Created",
+  "Pipeline Stage Changed",
+  "Follow-Up Created",
+  "Follow-Up Completed",
+  "Reservation Submitted",
+  "Reservation Verified",
+  "Duplicate Flagged",
+  "Lead Assigned",
+  "Consent Updated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

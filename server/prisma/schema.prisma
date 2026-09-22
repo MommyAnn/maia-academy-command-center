@@ -155,20 +155,56 @@ model Lead {
   leadDisplayId  String    @unique // e.g. LEAD-2026-000001
   personId       String    @unique
   person         Person    @relation(fields: [personId], references: [id])
+  // ORIGINAL / FIRST-TOUCH acquisition attribution (spec section 12) — set
+  // ONCE, at Lead creation, and never overwritten by a later registration.
+  // A WebinarRegistration's own source/campaign/UTM fields are the LATEST
+  // touch instead — see that model.
   source         String?
   campaign       String?
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  utmContent     String?
+  utmTerm        String?
+  landingPage    String?
+  referralSource String?
+  firstRegistrationDate DateTime?
+  businessStatus String?
+  businessName   String?
   pipelineStage  LeadStage @default(NOT_CONTACTED)
+  // A lightweight lifecycle marker distinct from the funnel position above
+  // (spec section 2's "Status" field, listed separately from "Current
+  // Pipeline Stage") — Active | Converted | Inactive.
+  status         String    @default("Active")
+  leadOwnerId    String?
+  lastFollowUpAt DateTime?
+  nextFollowUpAt DateTime?
+  // Communication eligibility (spec section 48) — registering is never
+  // treated as unlimited marketing permission; each channel is its own
+  // explicit flag, defaulting closed.
+  canEmail       Boolean   @default(false)
+  canSms         Boolean   @default(false)
+  canWhatsapp    Boolean   @default(false)
+  optedOut       Boolean   @default(false)
+  dnd            Boolean   @default(false)
+  consentSource  String?
+  consentVersion String?
+  consentDate    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   activity          LeadActivity[]
   webinarRegistrations WebinarRegistration[]
   followUps         FollowUp[]
+  notes             LeadNote[]
+  pipelineHistory   LeadPipelineHistory[]
+  consentEvents     LeadConsentEvent[]
   conversion        LeadStudentConversion?
   feedbackSubmissions FeedbackSubmission[]
   paymentTransactions PaymentTransaction[]
 
   @@index([pipelineStage])
+  @@index([leadOwnerId])
 }
 
 enum LeadStage {
@@ -179,6 +215,54 @@ enum LeadStage {
   RESERVATION_PAID
   ENROLLED
   NOT_INTERESTED
+  NO_RESPONSE
+}
+
+// Append-only (spec section 18) — the current stage lives on Lead itself,
+// but every transition is preserved here too, so "how did this Lead get
+// here" is never lost the way an in-place status update would lose it.
+model LeadPipelineHistory {
+  id             String   @id @default(cuid())
+  leadId         String
+  lead           Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  previousStage  LeadStage?
+  newStage       LeadStage
+  changedById    String?
+  reason         String?
+  occurredAt     DateTime @default(now())
+
+  @@index([leadId])
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String
+  note      String
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// Append-only consent history (spec sections 7, 48) — mirrors the
+// ConsentEvent pattern from Phase 3's marketing consent exactly, scoped to
+// webinar/communication consent instead of testimonial-marketing consent.
+// A withdrawal/opt-out is a NEW row, never an edit to a prior one.
+model LeadConsentEvent {
+  id             String   @id @default(cuid())
+  leadId         String
+  lead           Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  action         String   // Granted | Updated | Opted Out
+  canEmail       Boolean
+  canSms         Boolean
+  canWhatsapp    Boolean
+  optedOut       Boolean
+  consentVersion String?
+  source         String
+  occurredAt     DateTime @default(now())
+
+  @@index([leadId])
 }
 
 model LeadActivity {
@@ -977,44 +1061,88 @@ model InventoryTransaction {
 // ---------------------------------------------------------------------------
 
 model WebinarSession {
-  id        String   @id @default(cuid())
-  title     String
-  type      String
-  scheduledAt DateTime
-  platform  String
-  status    String
-  createdById String
-  createdAt DateTime @default(now())
+  id                   String   @id @default(cuid())
+  sessionDisplayId     String   @unique // e.g. WEB-2026-000001
+  title                String
+  description          String?
+  type                 String   // configurable, not hard-coded — matches TrainingSession's convention
+  date                 DateTime
+  startTime            String
+  endTime              String
+  platform             String
+  meetingLink          String?
+  meetingId            String?
+  passcode             String?
+  host                 String?
+  capacity             Int?
+  registrationOpenDate DateTime?
+  registrationCloseDate DateTime?
+  status               String   @default("Draft") // Draft | Upcoming | Registration Open | Registration Closed | Ongoing | Completed | Cancelled | Archived
+  notes                String?
+  createdById          String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   registrations WebinarRegistration[]
 }
 
+// One row per Lead+Session — the @@unique constraint is the structural
+// guard against a duplicate registration to the SAME session, while still
+// allowing the SAME Lead to hold many rows across DIFFERENT sessions
+// (spec section 9: one Lead, multiple webinar registrations, history never
+// overwritten).
 model WebinarRegistration {
-  id         String   @id @default(cuid())
-  sessionId  String
-  session    WebinarSession @relation(fields: [sessionId], references: [id])
-  leadId     String
-  lead       Lead     @relation(fields: [leadId], references: [id])
-  registeredAt DateTime @default(now())
-  attendanceStatus String? // Attended | Completed | Left Early | No Show
-  marketingConsent Boolean @default(false)
+  id               String   @id @default(cuid())
+  sessionId        String
+  session          WebinarSession @relation(fields: [sessionId], references: [id])
+  leadId           String
+  lead             Lead     @relation(fields: [leadId], references: [id])
+  registeredAt     DateTime @default(now())
+  // LATEST-touch attribution, captured at THIS registration — distinct
+  // from Lead's own first-touch fields, which this never overwrites (spec
+  // section 12).
+  source           String?
+  campaign         String?
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  utmContent       String?
+  utmTerm          String?
+  landingPage      String?
+  referralSource   String?
+  registrationStatus String @default("Registered") // Registered | Cancelled
+  attendanceStatus String   @default("Registered") // Registered | Attended | Completed Webinar | Left Early | No Show | Cancelled
+  consentReference String?  // the LeadConsentEvent id captured at registration time, if any
+  notes            String?
+  recordedById     String?
+  recordedAt       DateTime?
 
+  @@unique([sessionId, leadId])
   @@index([sessionId])
   @@index([leadId])
 }
 
 model FollowUp {
-  id           String   @id @default(cuid())
-  leadId       String
-  lead         Lead     @relation(fields: [leadId], references: [id])
-  scheduledFor DateTime
-  channel      String
+  id              String   @id @default(cuid())
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id])
+  purpose         String?
+  channel          String  // Phone | Messenger | SMS | Email | WhatsApp | Viber | Other — reference only, never a delivery claim
+  status          String   @default("Scheduled") // Scheduled | Due | Completed | No Response | Rescheduled | Cancelled
+  scheduledFor    DateTime
+  completedAt     DateTime?
   assignedStaffId String?
-  outcome      String?
-  notes        String?
-  createdAt    DateTime @default(now())
+  outcome         String?
+  notes           String?
+  nextFollowUpAt  DateTime?
+  taskId          String?  @unique
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([leadId])
+  @@index([assignedStaffId])
+  @@index([status])
 }
 
 // ---------------------------------------------------------------------------

@@ -29,6 +29,15 @@ export async function resetDb() {
     db.enrollment.deleteMany(),
     db.leadStudentConversion.deleteMany(),
     db.leadActivity.deleteMany(),
+    // Phase 4 (Free Webinar / Lead / Pipeline / Follow-Up) — WebinarRegistration
+    // and FollowUp both have a plain (non-cascading) FK to Lead, so they
+    // must be cleared before Lead itself; LeadPipelineHistory/LeadNote/
+    // LeadConsentEvent all cascade automatically when their Lead row goes.
+    // Task has no real FK to FollowUp (just a soft taskId string), so order
+    // relative to FollowUp doesn't matter.
+    db.webinarRegistration.deleteMany(),
+    db.followUp.deleteMany(),
+    db.task.deleteMany(),
     db.lead.deleteMany(),
     db.document.deleteMany(),
     db.session.deleteMany(),
@@ -53,6 +62,11 @@ export async function resetDb() {
     db.trainingAttendance.deleteMany(),
     db.trainingSession.deleteMany(),
     db.certificate.deleteMany(),
+    // Staff has a plain (RESTRICT) FK to Person — the dev-seed Owner/
+    // Finance/Student accounts never have a Staff row (only the frontend's
+    // own demo data model implies staff, not the Phase 1 seed), so it is
+    // always safe to clear every Staff row here.
+    db.staff.deleteMany(),
     db.student.deleteMany({ where: { studentDisplayId: { notIn: FIXED_STUDENT_DISPLAY_IDS } } }),
     db.person.deleteMany({ where: { id: { notIn: FIXED_PERSON_IDS } } }),
     // Also cleans up Batches/Packages a Phase 2 test file created (e.g. a
@@ -60,6 +74,7 @@ export async function resetDb() {
     // that same unique code/name exactly like the Student case above.
     db.batch.deleteMany({ where: { code: { not: "14" } } }),
     db.package.deleteMany({ where: { name: { notIn: ["Premium", "VIP", "Dual VIP"] } } }),
+    db.webinarSession.deleteMany(),
     db.counter.deleteMany(),
   ]);
   await runDevSeed();

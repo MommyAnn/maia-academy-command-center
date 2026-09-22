@@ -6,6 +6,7 @@ import { writeAuditLog } from "../../audit/log.js";
 import { computeStudentFinanceSummary, resolveNetAmountDue } from "./calc.js";
 import { generatePaymentDisplayId } from "../sequence.js";
 import { recordDomainEvent } from "../events.js";
+import { moveLeadStage } from "../leads/pipeline.js";
 
 const submitPaymentSchema = z.object({
   amount: z.number().positive(),
@@ -103,6 +104,17 @@ export async function financeRoutes(app: FastifyInstance) {
           // external workflow triggered anywhere in this codebase.
           await recordDomainEvent("STUDENT_FULLY_PAID", { studentId: payment.studentId, verifiedPaid: summaryAfter.verifiedPaid, netAmountDue: summaryAfter.netAmountDue });
         }
+      }
+
+      // A Lead's reservation payment only ever moves the pipeline once it
+      // is genuinely VERIFIED — never on submission (Phase 4 spec sections
+      // 32-33, fixing the premature bump the Phase 2 reservation-payment
+      // route used to do). Staff can still manually override the stage via
+      // PATCH /api/leads/:leadId/pipeline-stage regardless of this.
+      if (payment.leadId && payment.type === "Reservation") {
+        await moveLeadStage(db, payment.leadId, "RESERVATION_PAID", request.authContext!.userId, `Reservation payment ${payment.paymentDisplayId} verified`);
+        await recordDomainEvent("RESERVATION_VERIFIED", { leadId: payment.leadId, paymentId: payment.id });
+        await writeAuditLog({ action: "Reservation Verified", summary: `Reservation payment ${payment.paymentDisplayId} verified`, actorUserId: request.authContext!.userId, entityType: "PaymentTransaction", entityId: payment.id });
       }
 
       return reply.send({ payment: serializePayment(updated) });

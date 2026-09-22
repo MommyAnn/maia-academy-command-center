@@ -66,3 +66,9 @@ export async function generateFeedbackSubmissionDisplayId(): Promise<string> {
   const n = await nextSequence(`feedback-submission:${year}`);
   return `FDBK-${year}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateWebinarSessionDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`webinar:${year}`);
+  return `WEB-${year}-${String(n).padStart(6, "0")}`;
+}
