@@ -66,6 +66,13 @@ export const PERMISSION_MODULES = [
   "Communications - Templates",
   "Communications - Automation",
   "Communications - GHL Integration",
+  "AI Business Tools - Usage",
+  "AI Business Tools - Tool Library",
+  "AI Business Tools - Access",
+  "AI Business Tools - Prompts",
+  "AI Business Tools - Providers",
+  "AI Business Tools - Student Outputs",
+  "AI Business Tools - Technical Logs",
   "System Settings",
 ] as const;
 

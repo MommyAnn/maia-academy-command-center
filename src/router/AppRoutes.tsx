@@ -94,6 +94,20 @@ import { FeedbackSubmit as PortalFeedbackSubmit } from "@/pages/portal/FeedbackS
 import { Announcements as PortalAnnouncements } from "@/pages/portal/Announcements";
 import { Profile as PortalProfile } from "@/pages/portal/Profile";
 import { Support as PortalSupport } from "@/pages/portal/Support";
+import { Hub as PortalAiToolsHub } from "@/pages/portal/aiTools/Hub";
+import { ToolRunner as PortalAiToolRunner } from "@/pages/portal/aiTools/ToolRunner";
+import { Workspace as PortalAiWorkspace } from "@/pages/portal/aiTools/Workspace";
+import { Projects as PortalAiProjects } from "@/pages/portal/aiTools/Projects";
+import { ProjectDetail as PortalAiProjectDetail } from "@/pages/portal/aiTools/ProjectDetail";
+import { Dashboard as AiToolsDashboard } from "@/pages/aiTools/Dashboard";
+import { ToolLibrary as AiToolsLibrary } from "@/pages/aiTools/ToolLibrary";
+import { ToolAccess as AiToolsAccess } from "@/pages/aiTools/ToolAccess";
+import { Projects as AiToolsProjects } from "@/pages/aiTools/Projects";
+import { Usage as AiToolsUsage } from "@/pages/aiTools/Usage";
+import { PromptManager as AiToolsPromptManager } from "@/pages/aiTools/PromptManager";
+import { Connections as AiToolsConnections } from "@/pages/aiTools/Connections";
+import { Activity as AiToolsActivity } from "@/pages/aiTools/Activity";
+import { Settings as AiToolsSettings } from "@/pages/aiTools/Settings";
 import { NAV_SECTIONS } from "@/data/navigation";
 
 const BUILT_PATHS = new Set([
@@ -154,6 +168,15 @@ const BUILT_PATHS = new Set([
   "/communications/logs",
   "/communications/sync-logs",
   "/communications/settings",
+  "/ai-tools/dashboard",
+  "/ai-tools/library",
+  "/ai-tools/access",
+  "/ai-tools/projects",
+  "/ai-tools/usage",
+  "/ai-tools/prompts",
+  "/ai-tools/connections",
+  "/ai-tools/activity",
+  "/ai-tools/settings",
 ]);
 
 export function AppRoutes() {
@@ -188,6 +211,11 @@ export function AppRoutes() {
         <Route path="/portal/announcements" element={<PortalAnnouncements />} />
         <Route path="/portal/profile" element={<PortalProfile />} />
         <Route path="/portal/support" element={<PortalSupport />} />
+        <Route path="/portal/ai-tools" element={<PortalAiToolsHub />} />
+        <Route path="/portal/ai-tools/tools/:toolId" element={<PortalAiToolRunner />} />
+        <Route path="/portal/ai-tools/workspace" element={<PortalAiWorkspace />} />
+        <Route path="/portal/ai-tools/projects" element={<PortalAiProjects />} />
+        <Route path="/portal/ai-tools/projects/:projectId" element={<PortalAiProjectDetail />} />
       </Route>
 
       <Route
@@ -277,6 +305,16 @@ export function AppRoutes() {
         <Route path="/communications/logs" element={<CommunicationLogs />} />
         <Route path="/communications/sync-logs" element={<SyncLogs />} />
         <Route path="/communications/settings" element={<CommunicationSettings />} />
+
+        <Route path="/ai-tools/dashboard" element={<AiToolsDashboard />} />
+        <Route path="/ai-tools/library" element={<AiToolsLibrary />} />
+        <Route path="/ai-tools/access" element={<AiToolsAccess />} />
+        <Route path="/ai-tools/projects" element={<AiToolsProjects />} />
+        <Route path="/ai-tools/usage" element={<AiToolsUsage />} />
+        <Route path="/ai-tools/prompts" element={<AiToolsPromptManager />} />
+        <Route path="/ai-tools/connections" element={<AiToolsConnections />} />
+        <Route path="/ai-tools/activity" element={<AiToolsActivity />} />
+        <Route path="/ai-tools/settings" element={<AiToolsSettings />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

@@ -11,8 +11,9 @@ import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { useWebinarStore } from "@/data/webinarStore";
 import { useCommunicationsStore } from "@/data/communicationsStore";
+import { useAiToolsStore } from "@/data/aiToolsStore";
 
-type LogCategory = "Student" | "Staff" | "Task" | "Inventory" | "Training" | "Free Webinar" | "Communications";
+type LogCategory = "Student" | "Staff" | "Task" | "Inventory" | "Training" | "Free Webinar" | "Communications" | "AI Business Tools";
 
 interface LogEntry {
   id: string;
@@ -31,6 +32,7 @@ const CATEGORY_TONE: Record<LogCategory, "gold" | "info" | "success" | "warning"
   Training: "neutral",
   "Free Webinar": "gold",
   Communications: "info",
+  "AI Business Tools": "gold",
 };
 
 function tryParseDateTime(date: string, time: string): number {
@@ -46,6 +48,7 @@ export function ActivityLog() {
   const { sessions, enrollments, certificates } = useTrainingStore();
   const { sessions: webinarSessions, leads: webinarLeads } = useWebinarStore();
   const { communicationLogs, syncLogs, automationRules } = useCommunicationsStore();
+  const { activityLog: aiActivityLog } = useAiToolsStore();
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<"all" | LogCategory>("all");
@@ -254,8 +257,21 @@ export function ActivityLog() {
       });
     }
 
+    for (const a of aiActivityLog) {
+      const student = students.find((s) => s.id === a.studentId);
+      const occurred = new Date(a.occurredAt);
+      list.push({
+        id: a.id,
+        message: `${a.action} — ${student?.fullName ?? a.studentId}: ${a.summary}`,
+        user: student?.fullName ?? a.studentId,
+        category: "AI Business Tools",
+        sortKey: occurred.getTime(),
+        timestampLabel: occurred.toLocaleString("en-PH"),
+      });
+    }
+
     return list.sort((a, b) => b.sortKey - a.sortKey);
-  }, [students, staff, tasks, items, inventoryTransactions, sessions, enrollments, certificates, webinarSessions, webinarLeads, communicationLogs, syncLogs, automationRules]);
+  }, [students, staff, tasks, items, inventoryTransactions, sessions, enrollments, certificates, webinarSessions, webinarLeads, communicationLogs, syncLogs, automationRules, aiActivityLog]);
 
   const filtered = useMemo(
     () =>
@@ -272,7 +288,7 @@ export function ActivityLog() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-maia-gold-deep">Team</p>
         <h1 className="mt-1 font-display text-2xl font-extrabold text-maia-ink sm:text-[28px]">Activity Log</h1>
         <p className="mt-1 text-sm text-maia-ink-soft">
-          A combined feed of student, staff, task, inventory, training, and free webinar activity — most recent 200 entries.
+          A combined feed of student, staff, task, inventory, training, free webinar, and AI Business Tools activity — most recent 200 entries.
         </p>
       </div>
 
@@ -290,6 +306,7 @@ export function ActivityLog() {
             { value: "Training", label: "Training" },
             { value: "Free Webinar", label: "Free Webinar" },
             { value: "Communications", label: "Communications" },
+            { value: "AI Business Tools", label: "AI Business Tools" },
           ]}
         />
       </div>

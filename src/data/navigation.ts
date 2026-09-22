@@ -36,6 +36,20 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "AI Business Tools",
+    items: [
+      { label: "AI Dashboard", path: "/ai-tools/dashboard" },
+      { label: "Tool Library", path: "/ai-tools/library" },
+      { label: "Tool Access", path: "/ai-tools/access" },
+      { label: "AI Projects", path: "/ai-tools/projects" },
+      { label: "Usage", path: "/ai-tools/usage" },
+      { label: "Prompt Manager", path: "/ai-tools/prompts" },
+      { label: "AI Connections", path: "/ai-tools/connections" },
+      { label: "AI Activity", path: "/ai-tools/activity" },
+      { label: "Settings", path: "/ai-tools/settings" },
+    ],
+  },
+  {
     label: "Training",
     items: [
       { label: "Sessions", path: "/training/sessions" },

@@ -10,6 +10,7 @@ export const PORTAL_NAV_ITEMS: NavLeafItem[] = [
   { label: "My Requirements", path: "/portal/requirements" },
   { label: "My Taobao", path: "/portal/taobao" },
   { label: "My Master Brain", path: "/portal/master-brain" },
+  { label: "M.A.I.A. AI Business Tools", path: "/portal/ai-tools" },
   { label: "My Training", path: "/portal/training" },
   { label: "My Courses", path: "/portal/courses" },
   { label: "My Certificates", path: "/portal/certificates" },

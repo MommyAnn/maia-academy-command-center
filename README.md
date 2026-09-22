@@ -159,6 +159,111 @@ Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
 
+## What's Included in Step 12
+
+**M.A.I.A. AI Business Tools Hub — a Master Brain-powered business
+intelligence system.** See `src/types/aiTools.ts` / `src/utils/aiTools.ts` /
+`src/data/aiToolsStore.tsx` for the domain model, Context Engine, and
+template-based generation engine. **Core principle, enforced in code:** the
+student's own PUBLISHED Brand Master Brain (Step 8) is the single shared
+business-intelligence layer every one of the 18 tools reads from live
+(`extractBusinessContext()`) — never a duplicated or re-typed copy, and a
+student never re-explains their business twice. **No real AI provider
+exists anywhere in this build** — every "generation" is a deterministic,
+template-based transform over the student's real Master Brain data + their
+task-specific input, honestly labeled (`AiToolOutput.simulated: true`,
+`AiProvider.connectionStatus: "Not Connected"`), never claimed as real AI
+output.
+
+- **New Student Portal module "M.A.I.A. AI Business Tools"**
+  (`/portal/ai-tools`) — a Master Brain Connection Status card
+  (✓ CONNECTED with Business/Version/Last Updated, or a "NOT READY YET" CTA
+  into the Step 8 questionnaire), a "What Do You Want To Do Today?"
+  goal-based start (12 goals → recommended tool), and the full 18-tool
+  library grouped into 13 categories.
+- **18 specialized tools, one shared brain, not 18 unrelated chatbots:**
+  Business Strategist, Market Intelligence, Content Strategist, Content
+  Planner, Creative Strategist, Video Director, Copywriter, Facebook Ads
+  Strategist, Ads Analyzer, Offer Builder, Sales Script Builder, Chatbot
+  Flow Builder, Automation Architect, Customer Journey Builder, Funnel
+  Builder, Website Copy Builder, Email Marketing Builder, Business Systems
+  Advisor — every one reads the same `AiBusinessContext` snapshot
+  (avatars, pain points, positioning, brand voice, offers, goals).
+- **A single generic Tool Runner** (`/portal/ai-tools/tools/:toolId`),
+  driven entirely by each tool's `AiToolDefinition.inputFields` schema —
+  never 18 bespoke pages. Realistic staged loading states ("ANALYZING YOUR
+  BRAND MASTER BRAIN..." → "GENERATING..." → "PREPARING YOUR OUTPUT..."),
+  a collapsible Master Brain context panel, and a **Product/Service
+  Selector** populated from the Master Brain's real offers plus an explicit
+  "NEW / NOT YET IN MASTER BRAIN" option that never silently rewrites the
+  Published Master Brain.
+- **Master Brain Data / Student-Provided Data / AI Hypothesis / AI
+  Recommendation / Assumption labeling** — applied specifically to Business
+  Strategist and Market Intelligence output sections (`AiOutputSection.
+  provenance`) per their explicit spec requirement to distinguish known
+  facts from AI reasoning, rather than retrofitted onto all 18 tools.
+- **Marketing Claim Safety** (`flagUnsupportedClaims()` /
+  `FLAGGED_CLAIM_PATTERNS`) — a fixed, non-admin-editable safety guardrail
+  that scans every generated section for phrases like "GUARANTEED RESULTS"
+  or "FDA APPROVED" and surfaces a "review before publishing" warning;
+  every output is also labeled "AI-GENERATED DRAFT — REVIEW BEFORE
+  PUBLISHING".
+- **AI Projects** (`/portal/ai-tools/projects`) — students group related
+  outputs (a campaign, a launch, a content sprint); each records the Master
+  Brain version active at creation, and every output **permanently keeps
+  the Master Brain version it was actually generated from** even if the
+  student republishes their Master Brain later (`AiGeneration.
+  masterBrainVersion`, never rewritten after the fact).
+- **Cross-tool workflows** — "Send To Another Tool" carries the prior
+  output, student, business, and Master Brain context into the next tool
+  via `sourceGenerationId`/`?from=`, without re-typing anything; three
+  seeded workflow recipes (Product Launch, 30-Day Content, Sales Funnel)
+  document the intended tool chains.
+- **My AI Workspace** (`/portal/ai-tools/workspace`) — Recent, Saved
+  Outputs, Favorites, and full Generation History, each output
+  expandable/collapsible with Favorite, Archive, Export, and per-section
+  Edit actions.
+- **Provider-agnostic AI architecture** — `AiProvider` never hard-codes a
+  vendor; **AI Connections** (`/ai-tools/connections`) shows connection
+  status/model/status with no API key field anywhere in this frontend
+  (production credentials must live server-side only).
+- **Prompt / Instruction Manager** (`/ai-tools/prompts`) — internal-only
+  system instructions per tool, versioned Draft/Active/Archived; saving a
+  new version archives the previous Active version rather than destroying
+  it, exactly like Step 8's Master Brain document versioning.
+- **AI Tool Access** (`/ai-tools/access`) — a package → tools matrix
+  (reusing the existing Premium/VIP/Dual VIP `PackageType`, seeded as a
+  sensible starting point, fully admin-editable) plus manual per-student
+  grant overrides; tools are never given to every student by default.
+- **AI Usage Limits** (`/ai-tools/usage`) — configurable Unlimited/Daily
+  Limit/Monthly Limit, enforced for real in `aiToolsStore.generate()`
+  (`USAGE LIMIT REACHED` is a genuine failure branch, not decorative), plus
+  package-based overrides and prepared (never activated) AI Credit costs —
+  no billing exists.
+- **AI Dashboard** (`/ai-tools/dashboard`) — Active AI Users, Generations
+  by Tool, Usage by Package, Failed Generations, all real counts over local
+  demo data; explicitly does not fabricate token usage or cost since no
+  real provider is connected.
+- **AI Activity Log** (`/ai-tools/activity`) — Tool Opened / Generation
+  Requested / Generation Completed / Generation Failed / Output Saved /
+  Output Edited, each recording the Master Brain version and prompt
+  version used; also feeds into the existing combined Team Activity Log
+  as a new "AI Business Tools" category.
+- **Owner Dashboard** gained a compact "AI Business Tools" snapshot card
+  (Active AI Users / Total Generations / Failed Generations / Active
+  Projects).
+- **Role permissions** — seven new modules (`"AI Business Tools - Usage"`,
+  `"- Tool Library"`, `"- Access"`, `"- Prompts"`, `"- Providers"`,
+  `"- Student Outputs"`, `"- Technical Logs"`), defaulting to **no access**
+  for every existing staff role except Owner/Administrator — AI Business
+  Tools access is never automatically granted to staff.
+- **Data isolation** — every generation and project is scoped to Student
+  ID + Business ID + Master Brain ID/Version + Tool ID + Project ID; the
+  Student Portal only ever reads the logged-in student's own records (same
+  pattern as every other Step 7–11 portal page), and the one deliberate
+  admin exception (`/ai-tools/projects`'s cross-student view) is
+  read-only.
+
 ## What's Included in Step 11
 
 **M.A.I.A. Communications, Follow-Up Automation & GoHighLevel Integration.**
@@ -957,3 +1062,28 @@ same as it was in Step 7), and a dedicated "Technical/Integration Admin"
 staff role (Administrator's existing full-access role covers GHL mappings/
 sync logs/integration health instead — adding a new StaffRoleName was
 judged too large a structural change for this step).
+
+**Step 12 specifically leaves unbuilt** (see "What's Included in Step 12"
+above for the full simulated architecture that IS built): a real AI
+provider connection of any kind (no API call, no token/cost figures — every
+generation is a deterministic template transform, exactly like Step 8's
+Master Brain document generator), real image or video generation (Creative
+Strategist and Video Director produce prompts/plans/scene lists only — a
+"VIDEO GENERATION PROVIDER NOT CONNECTED" state is shown rather than a fake
+video), a real multi-business UI for one student managing more than one
+business (the data model already carries `businessId` on every Master Brain
+and AI record — Step 8's exact prepared field — but the Portal UI still
+assumes one business per student, same scoping note as Step 8), the full
+multi-dimensional AI Tool Access rule engine the spec lists as possible
+(Package/Program/Student/Course/Promotion/Bonus/Subscription/Future-Paid-
+Add-On) — only Package and Manual per-student grants are wired, judged the
+two practically important dimensions for this step, real AI Credits/billing
+(the settings and per-generation-type costs exist as reference-only
+placeholders — `creditsEnabled` can be toggled but nothing is ever charged),
+a real GHL handoff for AI-generated automations/emails/sales scripts (Step
+11's Communications module is the real implementation surface — this step
+only labels outputs as DRAFT and never auto-activates anything), and
+server-side enforcement of AI Business Tools permissions, usage limits, or
+student/business data isolation (all UI-layer only, exactly like every
+other permission check in this build — a real backend must enforce every
+one of these independently).

@@ -9,6 +9,9 @@ import { PORTAL_NAV_ITEMS } from "@/data/portalNavigation";
 
 function resolvePageTitle(pathname: string): string {
   if (pathname === "/portal/master-brain/questionnaire") return "My Master Brain";
+  if (pathname.startsWith("/portal/ai-tools/tools/")) return "AI Business Tools";
+  if (pathname === "/portal/ai-tools/workspace") return "My AI Workspace";
+  if (pathname === "/portal/ai-tools/projects" || pathname.startsWith("/portal/ai-tools/projects/")) return "My AI Projects";
   for (const item of PORTAL_NAV_ITEMS) {
     if (item.path === pathname) return item.label;
   }

@@ -19,6 +19,7 @@ import { useLmsStore } from "@/data/lmsStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
 import { useWebinarStore } from "@/data/webinarStore";
 import { useCommunicationsStore } from "@/data/communicationsStore";
+import { useAiToolsStore } from "@/data/aiToolsStore";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceDateFilter, DEFAULT_DATE_FILTER } from "@/components/finance/FinanceDateFilter";
 import { ActionCenterCard, ACTION_CENTER_ICONS, type ActionCenterItem } from "@/components/dashboard/ActionCenterCard";
@@ -38,6 +39,7 @@ import { StudentPortalSnapshotCard } from "@/components/dashboard/StudentPortalS
 import { LmsFeedbackSnapshotCard } from "@/components/dashboard/LmsFeedbackSnapshotCard";
 import { WebinarFunnelSnapshotCard } from "@/components/dashboard/WebinarFunnelSnapshotCard";
 import { CommunicationsSnapshotCard } from "@/components/dashboard/CommunicationsSnapshotCard";
+import { AiToolsSnapshotCard } from "@/components/dashboard/AiToolsSnapshotCard";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -109,6 +111,9 @@ export function Dashboard() {
   const { submissions: feedbackSubmissions } = useFeedbackStore();
   const { sessions: webinarSessions, leads: webinarLeads, registrations: webinarRegistrations, followUps: webinarFollowUps } = useWebinarStore();
   const { automationRules, communicationLogs, syncLogs } = useCommunicationsStore();
+  const { generations: aiGenerations, projects: aiProjects } = useAiToolsStore();
+  const aiActiveUsers = new Set(aiGenerations.map((g) => g.studentId)).size;
+  const aiFailedGenerations = aiGenerations.filter((g) => g.status === "Failed").length;
 
   const [dateFilter, setDateFilter] = useState(DEFAULT_DATE_FILTER);
   const [batch, setBatch] = useState("all");
@@ -608,6 +613,13 @@ export function Dashboard() {
         automationsActive={automationsActive}
         communicationFailures={communicationFailures}
         ghlSyncErrors={ghlSyncErrors}
+      />
+
+      <AiToolsSnapshotCard
+        activeUsers={aiActiveUsers}
+        totalGenerations={aiGenerations.length}
+        failedGenerations={aiFailedGenerations}
+        activeProjects={aiProjects.length}
       />
 
       <InventorySnapshotCard snapshot={inventorySnapshot} lowStockItems={lowStockAlerts} />

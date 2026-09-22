@@ -12,6 +12,7 @@ import { LmsStoreProvider } from "@/data/lmsStore";
 import { FeedbackStoreProvider } from "@/data/feedbackStore";
 import { WebinarStoreProvider } from "@/data/webinarStore";
 import { CommunicationsStoreProvider } from "@/data/communicationsStore";
+import { AiToolsStoreProvider } from "@/data/aiToolsStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
 function App() {
@@ -22,23 +23,25 @@ function App() {
           <FinanceStoreProvider>
             <PortalStoreProvider>
               <MasterBrainStoreProvider>
-                <LmsStoreProvider>
-                  <WebinarStoreProvider>
-                    <CommunicationsStoreProvider>
-                      <FeedbackStoreProvider>
-                        <StaffStoreProvider>
-                          <InventoryStoreProvider>
-                            <TrainingStoreProvider>
-                              <TaskStoreProvider>
-                                <AppRoutes />
-                              </TaskStoreProvider>
-                            </TrainingStoreProvider>
-                          </InventoryStoreProvider>
-                        </StaffStoreProvider>
-                      </FeedbackStoreProvider>
-                    </CommunicationsStoreProvider>
-                  </WebinarStoreProvider>
-                </LmsStoreProvider>
+                <AiToolsStoreProvider>
+                  <LmsStoreProvider>
+                    <WebinarStoreProvider>
+                      <CommunicationsStoreProvider>
+                        <FeedbackStoreProvider>
+                          <StaffStoreProvider>
+                            <InventoryStoreProvider>
+                              <TrainingStoreProvider>
+                                <TaskStoreProvider>
+                                  <AppRoutes />
+                                </TaskStoreProvider>
+                              </TrainingStoreProvider>
+                            </InventoryStoreProvider>
+                          </StaffStoreProvider>
+                        </FeedbackStoreProvider>
+                      </CommunicationsStoreProvider>
+                    </WebinarStoreProvider>
+                  </LmsStoreProvider>
+                </AiToolsStoreProvider>
               </MasterBrainStoreProvider>
             </PortalStoreProvider>
           </FinanceStoreProvider>
