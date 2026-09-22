@@ -4,7 +4,7 @@
 
 import type { AttendancePreference, Batch, PackageType } from "@/types/student";
 
-export const BATCH_OPTIONS: Batch[] = ["Batch 14", "Batch 13", "Batch 12"];
+export const BATCH_OPTIONS: Batch[] = ["Batch 15", "Batch 14", "Batch 13", "Batch 12"];
 
 export const PACKAGE_OPTIONS: PackageType[] = ["Premium", "VIP", "Dual VIP"];
 

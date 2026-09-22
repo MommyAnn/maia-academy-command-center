@@ -25,7 +25,9 @@ import {
 import { generateConsentId, generateFeedbackId, generateFeedbackRequestId, isEligibleForIncentive } from "@/utils/feedback";
 import { useStudentStore } from "@/data/studentStore";
 import { useLmsStore } from "@/data/lmsStore";
+import { useWebinarStore } from "@/data/webinarStore";
 import { computeCourseProgress } from "@/utils/lms";
+import { isAttendedStatus } from "@/utils/webinar";
 import { dispatchGhlEvent } from "@/integrations/ghlEvents";
 
 // ---------------------------------------------------------------------------
@@ -119,7 +121,9 @@ export interface CreateFeedbackRequestInput {
 
 export interface SubmitFeedbackInput {
   requestId: string | null;
-  studentId: string;
+  /** Exactly one of studentId/leadId — see the doc comment on FeedbackSubmission. */
+  studentId: string | null;
+  leadId: string | null;
   sourceType: FeedbackSourceType;
   sourceId: string | null;
   sourceLabel: string;
@@ -182,6 +186,7 @@ export function FeedbackStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FeedbackState>(() => loadInitialState());
   const { students, appendActivity } = useStudentStore();
   const { courses, lessons, lessonProgress, grantCourseAccess } = useLmsStore();
+  const { sessions: webinarSessions, registrations: webinarRegistrations, logLeadActivity } = useWebinarStore();
 
   const updateState = useCallback((updater: (prev: FeedbackState) => FeedbackState) => {
     setState((prev) => {
@@ -252,6 +257,60 @@ export function FeedbackStoreProvider({ children }: { children: ReactNode }) {
   }, [state.automationSettings.onCourseCompleted, students, courses, lessons, lessonProgress]);
 
   // -------------------------------------------------------------------
+  // Automatic feedback request trigger (spec section 29/48, Step 10): the
+  // first time a Free Webinar session is Completed and has at least one
+  // attended registration, open one FeedbackRequest for that session — same
+  // dedup-by-sourceId pattern as the course-completion trigger above.
+  // Reuses the SAME Global Feedback System (no second lead-feedback
+  // database); a Lead answers it via leadId, never studentId, until they
+  // convert. Configurable via automationSettings.onFreeWebinarAttended.
+  // -------------------------------------------------------------------
+  useEffect(() => {
+    if (!state.automationSettings.onFreeWebinarAttended) return;
+    if (webinarSessions.length === 0) return;
+
+    updateState((prev) => {
+      let changed = false;
+      const nextRequests = [...prev.requests];
+      const hasRequestFor = (sessionId: string) => nextRequests.some((r) => r.sourceType === "Free Webinar" && r.sourceId === sessionId);
+
+      for (const session of webinarSessions) {
+        if (session.status !== "Completed") continue;
+        if (hasRequestFor(session.id)) continue;
+        const anyoneAttended = webinarRegistrations.some((r) => r.webinarSessionId === session.id && isAttendedStatus(r.attendanceStatus));
+        if (!anyoneAttended) continue;
+
+        const iso = new Date().toISOString();
+        nextRequests.push({
+          id: crypto.randomUUID(),
+          requestId: generateFeedbackRequestId(nextRequests),
+          title: `${session.title} — Webinar Feedback`,
+          sourceType: "Free Webinar",
+          sourceId: session.id,
+          sourceLabel: session.title,
+          batch: "",
+          audience: "All Eligible Students",
+          audienceStudentId: null,
+          message: `Thanks for joining ${session.title}! We'd love to hear what you thought.`,
+          questions: cloneDefaultQuestions(),
+          allowWritten: true,
+          allowVideo: true,
+          incentiveId: null,
+          openDate: iso,
+          closeDate: null,
+          status: "Open",
+          createdBy: "System (Automatic)",
+          createdAt: iso,
+        });
+        changed = true;
+      }
+
+      return changed ? { ...prev, requests: nextRequests } : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.automationSettings.onFreeWebinarAttended, webinarSessions, webinarRegistrations]);
+
+  // -------------------------------------------------------------------
   // Feedback Requests
   // -------------------------------------------------------------------
   const createRequest = useCallback(
@@ -298,11 +357,16 @@ export function FeedbackStoreProvider({ children }: { children: ReactNode }) {
       if (!incentive || !isEligibleForIncentive(submission, incentive)) return;
 
       const iso = nowIso();
-      const isImmediatelyDeliverable = incentive.deliveryType === "Bonus Course" || Boolean(incentive.resourceFileMeta);
+      // A Bonus Course can only be delivered immediately when a real Student
+      // exists to grant access to — a webinar Lead's redemption stays
+      // "Unlocked" until Convert to Student, then can be delivered manually.
+      const canGrantCourseNow = incentive.deliveryType === "Bonus Course" && Boolean(submission.studentId);
+      const isImmediatelyDeliverable = canGrantCourseNow || Boolean(incentive.resourceFileMeta);
       const redemption: IncentiveRedemption = {
         id: crypto.randomUUID(),
         incentiveId: incentive.id,
         studentId: submission.studentId,
+        leadId: submission.leadId,
         feedbackSubmissionId: submission.id,
         unlockedAt: iso,
         deliveryStatus: isImmediatelyDeliverable ? "Delivered" : "Unlocked",
@@ -310,21 +374,26 @@ export function FeedbackStoreProvider({ children }: { children: ReactNode }) {
       };
       updateState((prev) => ({ ...prev, redemptions: [redemption, ...prev.redemptions] }));
 
-      if (incentive.deliveryType === "Bonus Course" && incentive.bonusCourseId) {
+      if (canGrantCourseNow && incentive.bonusCourseId && submission.studentId) {
         grantCourseAccess(submission.studentId, incentive.bonusCourseId, "Bonus", {
           notes: `Unlocked from feedback incentive: ${incentive.name}`,
         });
       }
 
-      appendActivity(submission.studentId, `Bonus unlocked — ${incentive.name}`);
+      if (submission.studentId) {
+        appendActivity(submission.studentId, `Bonus unlocked — ${incentive.name}`);
+      } else if (submission.leadId) {
+        logLeadActivity(submission.leadId, `Bonus unlocked — ${incentive.name}`);
+      }
       dispatchGhlEvent({
         type: "student.incentive_unlocked",
         occurredAt: iso,
-        studentId: submission.studentId,
+        studentId: submission.studentId ?? undefined,
+        leadId: submission.leadId ?? undefined,
         summary: `Feedback incentive unlocked: ${incentive.name}`,
       });
     },
-    [state.incentives, updateState, grantCourseAccess, appendActivity],
+    [state.incentives, updateState, grantCourseAccess, appendActivity, logLeadActivity],
   );
 
   // -------------------------------------------------------------------
@@ -389,18 +458,23 @@ export function FeedbackStoreProvider({ children }: { children: ReactNode }) {
         };
         return { ...prev, submissions: [result, ...prev.submissions] };
       });
-      appendActivity(input.studentId, `Submitted feedback — ${input.sourceLabel}`);
+      if (input.studentId) {
+        appendActivity(input.studentId, `Submitted feedback — ${input.sourceLabel}`);
+      } else if (input.leadId) {
+        logLeadActivity(input.leadId, `Submitted feedback — ${input.sourceLabel}`);
+      }
       dispatchGhlEvent({
         type: "student.feedback_submitted",
         occurredAt: iso,
-        studentId: input.studentId,
+        studentId: input.studentId ?? undefined,
+        leadId: input.leadId ?? undefined,
         summary: `Feedback submitted: ${input.sourceLabel}`,
       });
       if (input.requestId) setRequestStatus(input.requestId, "Open");
       unlockEligibleIncentive(result);
       return result;
     },
-    [updateState, appendActivity, setRequestStatus, unlockEligibleIncentive],
+    [updateState, appendActivity, logLeadActivity, setRequestStatus, unlockEligibleIncentive],
   );
 
   // -------------------------------------------------------------------

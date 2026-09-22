@@ -7,7 +7,7 @@ const TRIGGER_LABELS: { key: keyof FeedbackAutomationSettings; label: string; de
   { key: "onCourseCompleted", label: "Course Completed", description: "Send a feedback request automatically when a student completes a course.", wired: true },
   { key: "onTrainingCompleted", label: "Training Completed", description: "Send a feedback request automatically when a student's training session is marked complete.", wired: false },
   { key: "onMasterclassCompleted", label: "Masterclass Completed", description: "Send a feedback request automatically after a masterclass.", wired: false },
-  { key: "onFreeWebinarAttended", label: "Free Webinar Attended", description: "Prepared for Step 10's full Free Webinar Lead System — not built yet.", wired: false },
+  { key: "onFreeWebinarAttended", label: "Free Webinar Attended", description: "Send a feedback request automatically once a Free Webinar session is marked Completed and has at least one attended registration.", wired: true },
   { key: "onFullProgramCompleted", label: "Full Program Completed", description: "Send a feedback request automatically when a student's full program is complete.", wired: false },
 ];
 

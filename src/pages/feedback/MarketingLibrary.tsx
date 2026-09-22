@@ -6,6 +6,7 @@ import { Badge } from "@/components/common/Badge";
 import { FilterSelect } from "@/components/common/FilterSelect";
 import { useFeedbackStore } from "@/data/feedbackStore";
 import { useStudentStore } from "@/data/studentStore";
+import { useWebinarStore } from "@/data/webinarStore";
 import { useMasterBrainStore } from "@/data/masterBrainStore";
 import { isEligibleForMarketingLibrary } from "@/utils/feedback";
 import { FEEDBACK_SOURCE_TYPES } from "@/types/feedback";
@@ -15,6 +16,7 @@ const BATCHES = ["Batch 14", "Batch 13", "Batch 12"] as const;
 export function MarketingLibrary() {
   const { submissions, consents } = useFeedbackStore();
   const { students } = useStudentStore();
+  const { leads } = useWebinarStore();
   const { getSubmissionForStudent } = useMasterBrainStore();
   const navigate = useNavigate();
 
@@ -24,8 +26,13 @@ export function MarketingLibrary() {
   const [featuredOnly, setFeaturedOnly] = useState("All");
 
   const eligible = submissions
-    .map((s) => ({ submission: s, consent: consents.find((c) => c.feedbackId === s.feedbackId), student: students.find((st) => st.id === s.studentId) }))
-    .filter((r) => r.student && isEligibleForMarketingLibrary(r.submission, r.consent))
+    .map((s) => ({
+      submission: s,
+      consent: consents.find((c) => c.feedbackId === s.feedbackId),
+      student: s.studentId ? students.find((st) => st.id === s.studentId) : undefined,
+      lead: s.leadId ? leads.find((l) => l.id === s.leadId) : undefined,
+    }))
+    .filter((r) => (r.student || r.lead) && isEligibleForMarketingLibrary(r.submission, r.consent))
     .filter((r) => typeFilter === "All" || (typeFilter === "Written" ? r.submission.writtenFeedback.trim().length > 0 : Boolean(r.submission.videoAsset)))
     .filter((r) => sourceFilter === "All" || r.submission.sourceType === sourceFilter)
     .filter((r) => batchFilter === "All" || r.submission.batch === batchFilter)
@@ -49,11 +56,12 @@ export function MarketingLibrary() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {eligible.map(({ submission, consent, student }) => {
+        {eligible.map(({ submission, consent, student, lead }) => {
           const assets = consent!.permittedAssets;
+          const personName = student?.fullName ?? lead?.fullName ?? "";
           const showFirstName = assets.includes("First Name") || assets.includes("Full Name");
-          const displayName = assets.includes("Full Name") ? student!.fullName : assets.includes("First Name") ? student!.fullName.split(" ")[0] : "Anonymous Student";
-          const businessName = assets.includes("Business Name") ? getSubmissionForStudent(student!.id)?.businessFoundation.businessName : "";
+          const displayName = assets.includes("Full Name") ? personName : assets.includes("First Name") ? personName.split(" ")[0] : "Anonymous Student";
+          const businessName = assets.includes("Business Name") ? (student ? getSubmissionForStudent(student.id)?.businessFoundation.businessName : lead?.businessName) : "";
           const showPhoto = assets.includes("Profile Photo");
           const showWritten = assets.includes("Written Feedback") && submission.writtenFeedback.trim();
           const showVideo = assets.includes("Video Feedback") && submission.videoAsset;
@@ -96,7 +104,7 @@ export function MarketingLibrary() {
               <div className="mt-auto flex flex-wrap items-center gap-1.5 border-t border-maia-border pt-3 text-xs text-maia-ink-soft">
                 <Badge tone="neutral">{submission.sourceType}</Badge>
                 <span>{submission.sourceLabel}</span>
-                <span>· {submission.batch}</span>
+                {submission.batch && <span>· {submission.batch}</span>}
                 <span>· {new Date(submission.submittedAt).toLocaleDateString("en-PH")}</span>
               </div>
 

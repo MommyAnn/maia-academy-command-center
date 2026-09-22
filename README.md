@@ -3,16 +3,17 @@
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 
-> **Step 9 of the build:** M.A.I.A. Course Access + LMS + Global Feedback &
-> Testimonial System, on top of Step 1 (Login + App Shell), Step 2
-> (Enrollment Form + Student Records + Student Profile), Step 3 (Finance &
-> Payment Management), Step 4 (Owner Executive Dashboard & Business
-> Analytics), Step 5 (Staff, Task Management & Operations System), Step 6
-> (Inventory, Training, Attendance & Certificate Operations), Step 7 (the
-> complete Student Portal), and Step 8 (the M.A.I.A. Brand Master Brain
-> Builder). All data is DEMO/LOCAL DATA and is not connected to a real
-> database, authentication system, AI API, video hosting, or file storage
-> backend yet.
+> **Step 10 of the build:** the Free Group Webinar Lead, Registration,
+> Attendance, Follow-up & Conversion System, on top of Step 1 (Login + App
+> Shell), Step 2 (Enrollment Form + Student Records + Student Profile), Step
+> 3 (Finance & Payment Management), Step 4 (Owner Executive Dashboard &
+> Business Analytics), Step 5 (Staff, Task Management & Operations System),
+> Step 6 (Inventory, Training, Attendance & Certificate Operations), Step 7
+> (the complete Student Portal), Step 8 (the M.A.I.A. Brand Master Brain
+> Builder), and Step 9 (Course Access + LMS + Global Feedback & Testimonial
+> System). All data is DEMO/LOCAL DATA and is not connected to a real
+> database, authentication system, AI API, video hosting, file storage, GHL,
+> or SMS/email backend yet.
 
 ## Tech Stack
 
@@ -157,6 +158,104 @@ Payment / Fully Paid / Pending Verification) are always **calculated live**
 from the ledger of transactions — see `src/utils/finance.ts`. Rejecting or
 voiding never deletes a record; it's marked and kept in history.
 
+## What's Included in Step 10
+
+**Free Group Webinar Lead, Registration, Attendance, Follow-up & Conversion
+System.** See `src/types/webinar.ts` / `src/data/webinarStore.tsx` for the
+domain model. **Core rule, enforced in the data model:** a webinar
+registrant is a `Lead`, never automatically a `StudentRecord` — a Lead only
+becomes a Student through an explicit "Convert to Student" action.
+
+- **Webinar Sessions** (`/webinar/sessions`) — create unlimited sessions
+  (title, type, date/time, platform, meeting link/ID/passcode, host,
+  optional capacity, registration window, status Draft → Open for
+  Registration → Registration Closed → Ongoing → Completed/Cancelled).
+  Nothing hard-codes a single webinar title.
+- **Public Registration Form** (`/webinar/register`, no login) —
+  M.A.I.A.-branded, mobile-first, single page (not a long wizard): contact
+  info, business status, lead-qualification questions, session picker
+  (pre-selected if only one is open), and **separate** registration-comms
+  vs. marketing consent checkboxes (registering never implies blanket
+  marketing permission). Confirmation screen includes a real, working
+  "Add to Calendar" (`.ics` file download) — never a faked claim.
+- **Duplicate-safe Lead identity** (`findDuplicateMatch` in
+  `src/utils/webinar.ts`) — normalizes email/phone and checks for an
+  **exact** match only against existing Leads and Students; a repeat
+  registration updates/links the same `Lead` (stable `LEAD-2026-XXXXXX` ID)
+  and adds a new `WebinarRegistration`, never a duplicate person and never
+  overwriting prior webinar history. An existing Student registering for a
+  free webinar is recognized and linked, not duplicated (`linkedStudentId`).
+- **Registrations** (`/webinar/registrations`) — full filterable/searchable
+  table, plus **Import Registrations** (CSV, column-mapped, preview with
+  duplicate detection before import — never silently overwrites an existing
+  Lead/Student).
+- **Attendance** (`/webinar/attendance`) — Quick Attendance Mode
+  (search + one-tap Attended/Completed/Left Early/No Show), a Table View,
+  and a CSV attendance-list import with preview. QR/self-check-in is
+  intentionally **not** built (a fake, unverified check-in would be a real
+  security problem) — the architecture is documented as prepared only.
+- **Lead Pipeline** (`/webinar/pipeline`) — Kanban (native drag-and-drop
+  plus a dropdown "Move to..." fallback for mobile) and Table View across
+  the exact stages Not Contacted → Follow-up Needed → Interested →
+  Considering → Reservation Paid → Enrolled → Not Interested, with every
+  change logged to the Lead's Activity History.
+- **Lead Profile** (`/webinar/leads/:id`) — Overview / Webinar History /
+  Follow-ups / Notes / Feedback / Conversion / Activity tabs; webinar
+  history across multiple registrations is always shown in full, never
+  overwritten.
+- **Follow-ups** (`/webinar/follow-ups`) — Today / Overdue / Upcoming / No
+  Response / High-Intent queues, scheduling, and outcome recording that
+  advances the Lead's pipeline stage.
+- **Reservation → real Finance transaction, once** — a Reservation recorded
+  against a Lead becomes a **real** `PaymentTransaction` (via the existing
+  Step 3 Finance ledger) automatically and exactly once, at the moment of
+  Convert to Student — never a disconnected parallel money ledger.
+- **Convert Lead to Student** (from the Lead Profile) — carries forward
+  name/contact/business info/lead source/original webinar/webinar
+  history/reservation payment/consent records onto the new
+  `StudentRecord`, keeps a permanent `Lead ↔ Student` link
+  (`leadId`/`convertedToStudentId`), and never creates an unrelated
+  duplicate person.
+- **Feedback connects to the existing Step 9 Global Feedback System —
+  not a second database.** `FeedbackSubmission`/`IncentiveRedemption` now
+  support `leadId` alongside `studentId` (exactly one is ever set). A
+  configurable, now-wired automation (`onFreeWebinarAttended` in Feedback
+  Settings) opens one feedback request per Completed session with at least
+  one attended registration; a public, non-authenticated
+  `/webinar/feedback-form/:requestId` page (email lookup, no portal login)
+  lets a Lead answer it; `/webinar/feedback` shows Free-Webinar-sourced
+  feedback filtered from the same `/feedback/all` data, and existing
+  Step 9 pages (`AllFeedback`, `MarketingLibrary`, `FeedbackDetail`) now
+  resolve either a Student or a Lead as the submitter.
+- **Conversion Dashboard, Session Performance & Lead Source reports**
+  (`/webinar/conversion`, `/webinar/reports`) — funnel counts and
+  conversion rates computed live from registrations/leads/follow-ups,
+  never a stored duplicate number; filters exist for Session/Date/Source,
+  explicitly never for ranking staff.
+- **Automatic staff tasks** (spec-mirroring Step 5's pattern, in
+  `src/data/taskStore.tsx`) — attended → follow-up task, No Show → invite
+  to next webinar, Interested → sales follow-up, Reservation Paid →
+  enrollment-completion task, each deduped by an `autoTriggerKey` and
+  auto-completed once the underlying Lead progresses; tasks carry a
+  `relatedLeadId`/`relatedLeadName` since a Lead isn't a Student.
+- **Owner Dashboard & Action Center** — a compact "Free Webinar Funnel"
+  card, plus Action Center tiles for Webinar Follow-ups Due / Webinar
+  Payments to Verify / High-Intent Leads / No-Show Follow-up.
+- **Global Search** now also matches Leads and Webinar Registrations (by
+  name, Facebook name, email, contact, or Lead ID) and Courses.
+- **Activity Log** (`/team/activity`) includes a "Free Webinar" category
+  sourced from each Lead's own Activity History and session creation.
+- **GHL integration hooks prepared, not implemented** — new outbound event
+  types (`lead.created`, `lead.webinar_registered`, `lead.interested`,
+  `lead.reservation_paid`, `lead.converted_to_student`, etc. — see
+  `src/integrations/ghlEvents.ts`) and a configurable, never-hard-coded tag
+  mapping placeholder (`src/integrations/ghlTagMapping.ts`). No real GHL
+  connection exists.
+- **Role permissions** — new `"Free Webinar"` / `"Free Webinar - Finance"`
+  / `"Free Webinar - Marketing"` permission modules, with sensible role
+  defaults (Enrollment Officer, Finance Officer, Marketing Staff) mirroring
+  Step 9's private-vs-marketing split.
+
 ## What's Included in Step 9
 
 **M.A.I.A. Course Access + LMS + Global Feedback & Testimonial System.**
@@ -270,11 +369,10 @@ under Courses)
   Delivered" action for non-course resource incentives (a course-bonus
   incentive is delivered automatically via `CourseAccessGrant`).
 - **Settings** (`/feedback/settings`) — the default question bank and
-  configurable automatic feedback-request triggers. Only "On Course
-  Completed" is wired to a real event in this build (see automation below);
-  the others (Training/Masterclass/Full Program Completed, Free Webinar
-  Attended) are prepared toggles only, honestly labeled as not yet wired —
-  the full Free Webinar Lead System is intentionally **not** built in Step 9.
+  configurable automatic feedback-request triggers. "On Course Completed"
+  and, as of Step 10, "Free Webinar Attended" are wired to real events (see
+  automation below); Training/Masterclass/Full Program Completed remain
+  prepared toggles only, honestly labeled as not yet wired.
 - **Permission separation** — `"Feedback"` (private submissions/review) and
   `"Feedback - Marketing"` (the Marketing Library) are two distinct
   permission modules (`src/types/staff.ts`). Marketing Staff hold the
@@ -695,10 +793,20 @@ multiple businesses per student or multiple questionnaire template
 versions (the data model is prepared for both — `businessId` on every
 Master Brain record, `documentVersion` on every document — but the UI
 still assumes one business and one active questionnaire version per
-student), the full Free Webinar Lead System (Step 9 only prepares "Free
-Webinar" as a Feedback Source Type, per spec), AI sentiment analysis over
-feedback text (no analysis service exists — "Feedback by Source" counts are
-the only aggregation shown), and automatic feedback-request triggers for
-Training/Masterclass/Full Program completion or Free Webinar attendance
-(the toggles exist in Feedback Settings, honestly labeled as not yet wired
-to a real event — only "On Course Completed" is live).
+student), AI sentiment analysis over feedback text (no analysis service
+exists — "Feedback by Source" counts are the only aggregation shown), and
+automatic feedback-request triggers for Training/Masterclass/Full Program
+completion (the toggles exist in Feedback Settings, honestly labeled as not
+yet wired to a real event — "On Course Completed" and, as of Step 10, "Free
+Webinar Attended" are the only live triggers).
+
+**Step 10 specifically leaves unbuilt** (see "What's Included in Step 10"
+above for what IS built): a real GHL connection (only typed outbound event
+hooks and a tag-mapping placeholder exist), real SMS/email sending for any
+webinar reminder (registration confirmation and the `.ics` calendar file
+are real; "webinar tomorrow"/"starting soon" reminder sends are not), a
+real Zoom/platform attendance sync (CSV import only), QR-code/self
+check-in for webinar attendance (an unverified public check-in endpoint
+would let anyone mark attendance for anyone else, so it's intentionally
+not built), and secure storage for reservation payment proof (metadata
+only, same as every other "uploaded file" in this build).

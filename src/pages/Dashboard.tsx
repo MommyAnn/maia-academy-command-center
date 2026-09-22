@@ -17,6 +17,7 @@ import { useTrainingStore } from "@/data/trainingStore";
 import { usePortalStore } from "@/data/portalStore";
 import { useLmsStore } from "@/data/lmsStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
+import { useWebinarStore } from "@/data/webinarStore";
 import { FinanceStatCard } from "@/components/finance/FinanceStatCard";
 import { FinanceDateFilter, DEFAULT_DATE_FILTER } from "@/components/finance/FinanceDateFilter";
 import { ActionCenterCard, ACTION_CENTER_ICONS, type ActionCenterItem } from "@/components/dashboard/ActionCenterCard";
@@ -34,6 +35,7 @@ import { NeedsAttentionCard } from "@/components/dashboard/NeedsAttentionCard";
 import { RecentActivityCard } from "@/components/dashboard/RecentActivityCard";
 import { StudentPortalSnapshotCard } from "@/components/dashboard/StudentPortalSnapshotCard";
 import { LmsFeedbackSnapshotCard } from "@/components/dashboard/LmsFeedbackSnapshotCard";
+import { WebinarFunnelSnapshotCard } from "@/components/dashboard/WebinarFunnelSnapshotCard";
 import { BATCH_OPTIONS } from "@/data/enrollmentConfig";
 import {
   getActionCenterCounts,
@@ -54,6 +56,7 @@ import {
 } from "@/utils/finance";
 import { formatPeso } from "@/utils/format";
 import { computeCourseProgress } from "@/utils/lms";
+import { isAttendedStatus, isFollowUpOverdue, isHighIntentLead } from "@/utils/webinar";
 import type { Batch } from "@/types/student";
 
 const MASTER_BRAIN_COLORS: Record<string, string> = {
@@ -102,6 +105,7 @@ export function Dashboard() {
   const { getPortalAccess, updateRequests, supportRequests } = usePortalStore();
   const { courses: lmsCourses, lessons: lmsLessons, lessonProgress } = useLmsStore();
   const { submissions: feedbackSubmissions } = useFeedbackStore();
+  const { sessions: webinarSessions, leads: webinarLeads, registrations: webinarRegistrations, followUps: webinarFollowUps } = useWebinarStore();
 
   const [dateFilter, setDateFilter] = useState(DEFAULT_DATE_FILTER);
   const [batch, setBatch] = useState("all");
@@ -223,6 +227,22 @@ export function Dashboard() {
     (r) => r.status === "Open" && scopedStudents.some((s) => s.id === r.studentId),
   ).length;
   const masterBrainNotStarted = masterBrainCounts["Not Started"] ?? 0;
+
+  const webinarUpcoming = webinarSessions.filter((s) => s.status === "Open for Registration" || s.status === "Registration Closed").length;
+  const webinarRegistrationsCount = webinarRegistrations.length;
+  const webinarAttended = webinarRegistrations.filter((r) => isAttendedStatus(r.attendanceStatus)).length;
+  const webinarInterested = webinarLeads.filter((l) => l.status === "Interested").length;
+  const webinarReservationsPaid = webinarLeads.filter((l) => l.status === "Reservation Paid").length;
+  const webinarEnrolled = webinarLeads.filter((l) => l.status === "Enrolled" || l.convertedToStudentId).length;
+  const webinarFollowUpsOverdue = webinarFollowUps.filter((f) => isFollowUpOverdue(f)).length;
+  const webinarFollowUpsDueTotal = webinarLeads.filter((l) => l.status === "Follow-up Needed").length;
+  const webinarPaymentsToVerify = webinarLeads.filter((l) => l.reservation && l.reservation.verificationStatus === "Pending Verification").length;
+  const webinarHighIntentLeads = webinarLeads.filter((l) => isHighIntentLead(l)).length;
+  const webinarNoShowFollowUp = webinarRegistrations.filter((r) => {
+    if (r.attendanceStatus !== "No Show") return false;
+    const lead = webinarLeads.find((l) => l.id === r.leadId);
+    return lead && (lead.status === "Follow-up Needed" || lead.status === "Not Contacted");
+  }).length;
 
   const attentionItems = [
     {
@@ -360,6 +380,34 @@ export function Dashboard() {
       count: certsForPrep,
       icon: ACTION_CENTER_ICONS.certificates,
       onClick: () => navigate("/training/certificates"),
+    },
+    {
+      key: "webinar-followups",
+      label: "Webinar Follow-ups Due",
+      count: webinarFollowUpsOverdue,
+      icon: ACTION_CENTER_ICONS.webinarFollowUps,
+      onClick: () => navigate("/webinar/follow-ups?queue=overdue"),
+    },
+    {
+      key: "webinar-payments",
+      label: "Webinar Payments to Verify",
+      count: webinarPaymentsToVerify,
+      icon: ACTION_CENTER_ICONS.webinarPayments,
+      onClick: () => navigate("/webinar/conversion"),
+    },
+    {
+      key: "webinar-high-intent",
+      label: "High-Intent Leads",
+      count: webinarHighIntentLeads,
+      icon: ACTION_CENTER_ICONS.highIntentLeads,
+      onClick: () => navigate("/webinar/follow-ups?queue=high-intent"),
+    },
+    {
+      key: "webinar-no-show",
+      label: "No-Show Follow-up",
+      count: webinarNoShowFollowUp,
+      icon: ACTION_CENTER_ICONS.noShowFollowUp,
+      onClick: () => navigate(`/webinar/registrations?attendance=${encodeURIComponent("No Show")}`),
     },
   ];
 
@@ -522,6 +570,16 @@ export function Dashboard() {
         feedbackReceived={feedbackReceivedCount}
         videoTestimonials={videoTestimonialsCount}
         testimonialsForReview={testimonialsForReviewCount}
+      />
+
+      <WebinarFunnelSnapshotCard
+        upcomingWebinars={webinarUpcoming}
+        registrations={webinarRegistrationsCount}
+        attended={webinarAttended}
+        interested={webinarInterested}
+        reservationsPaid={webinarReservationsPaid}
+        enrolled={webinarEnrolled}
+        followUpsDue={webinarFollowUpsDueTotal}
       />
 
       <InventorySnapshotCard snapshot={inventorySnapshot} lowStockItems={lowStockAlerts} />

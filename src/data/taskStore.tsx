@@ -18,6 +18,7 @@ import { useStaffStore } from "@/data/staffStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
+import { useWebinarStore } from "@/data/webinarStore";
 import { getRequirementsBucket } from "@/utils/dashboard";
 import { getStudentFinanceSummary } from "@/utils/finance";
 import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
@@ -138,6 +139,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
   const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
   const { sessions, enrollments, certificates } = useTrainingStore();
   const { submissions: feedbackSubmissions } = useFeedbackStore();
+  const { leads: webinarLeads, registrations: webinarRegistrations } = useWebinarStore();
 
   const updateTasksState = useCallback((updater: (prev: TaskRecord[]) => TaskRecord[]) => {
     setTasks((prev) => {
@@ -178,6 +180,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
         relatedStudentId?: string;
         relatedStudentName?: string;
         relatedBatch?: Batch;
+        relatedLeadId?: string;
+        relatedLeadName?: string;
       }) {
         if (hasKey(input.key)) return;
         const assignee = pickAssignee(input.role);
@@ -195,6 +199,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           relatedStudentId: input.relatedStudentId ?? null,
           relatedStudentName: input.relatedStudentName ?? null,
           relatedBatch: input.relatedBatch ?? null,
+          relatedLeadId: input.relatedLeadId ?? null,
+          relatedLeadName: input.relatedLeadName ?? null,
           dueDate: todayPlus(input.dueOffsetDays),
           createdAt: new Date().toISOString(),
           startedAt: null,
@@ -527,7 +533,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
             dueOffsetDays: 3,
             relatedStudentId: student?.id,
             relatedStudentName: student?.fullName,
-            relatedBatch: submission.batch,
+            relatedBatch: submission.batch || undefined,
           });
         }
 
@@ -542,7 +548,75 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
             dueOffsetDays: 2,
             relatedStudentId: student?.id,
             relatedStudentName: student?.fullName,
-            relatedBatch: submission.batch,
+            relatedBatch: submission.batch || undefined,
+          });
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // Step 10 triggers: Free Webinar Lead pipeline (spec section 27).
+      // Leads aren't Students, so these tasks carry relatedLeadId/Name
+      // instead of relatedStudentId/Name.
+      // ---------------------------------------------------------------
+      for (const registration of webinarRegistrations) {
+        const lead = webinarLeads.find((l) => l.id === registration.leadId);
+        if (!lead) continue;
+
+        if (registration.attendanceStatus === "Attended" || registration.attendanceStatus === "Completed Webinar") {
+          addAuto({
+            key: `webinar-followup-task-${registration.id}`,
+            title: `Follow up with webinar attendee: ${lead.fullName}`,
+            description: `${lead.fullName} attended the webinar (${registration.registrationId}) — reach out to gauge interest.`,
+            category: "Free Webinar",
+            priority: "Medium",
+            role: "Enrollment Officer",
+            dueOffsetDays: 1,
+            relatedLeadId: lead.id,
+            relatedLeadName: lead.fullName,
+          });
+        }
+
+        if (registration.attendanceStatus === "No Show") {
+          addAuto({
+            key: `webinar-noshow-${registration.id}`,
+            title: `Invite ${lead.fullName} to the next webinar`,
+            description: `${lead.fullName} registered but did not attend (${registration.registrationId}) — invite them to the next available session.`,
+            category: "Free Webinar",
+            priority: "Low",
+            role: "Enrollment Officer",
+            dueOffsetDays: 3,
+            relatedLeadId: lead.id,
+            relatedLeadName: lead.fullName,
+          });
+        }
+      }
+
+      for (const lead of webinarLeads) {
+        if (lead.status === "Interested") {
+          addAuto({
+            key: `webinar-lead-interested-${lead.id}`,
+            title: `Sales follow-up: ${lead.fullName}`,
+            description: `${lead.fullName} (${lead.leadId}) is marked Interested — follow up to move them toward enrollment.`,
+            category: "Free Webinar",
+            priority: "High",
+            role: "Enrollment Officer",
+            dueOffsetDays: 1,
+            relatedLeadId: lead.id,
+            relatedLeadName: lead.fullName,
+          });
+        }
+
+        if (lead.status === "Reservation Paid") {
+          addAuto({
+            key: `webinar-lead-reservation-${lead.id}`,
+            title: `Complete enrollment: ${lead.fullName}`,
+            description: `${lead.fullName} (${lead.leadId}) has a reservation on file — complete their enrollment and Convert to Student.`,
+            category: "Free Webinar",
+            priority: "High",
+            role: "Enrollment Officer",
+            dueOffsetDays: 2,
+            relatedLeadId: lead.id,
+            relatedLeadName: lead.fullName,
           });
         }
       }
@@ -611,6 +685,27 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           const submissionId = t.autoTriggerKey.replace("feedback-followup-", "");
           const submission = feedbackSubmissions.find((s) => s.id === submissionId);
           resolved = !submission || submission.internalNotes.length > 0 || submission.status !== "Submitted";
+        } else if (t.autoTriggerKey.startsWith("webinar-followup-task-")) {
+          const registrationId = t.autoTriggerKey.replace("webinar-followup-task-", "");
+          const registration = webinarRegistrations.find((r) => r.id === registrationId);
+          const lead = registration ? webinarLeads.find((l) => l.id === registration.leadId) : undefined;
+          resolved = !lead || (lead.status !== "Follow-up Needed" && lead.status !== "Not Contacted");
+        } else if (t.autoTriggerKey.startsWith("webinar-noshow-")) {
+          const registrationId = t.autoTriggerKey.replace("webinar-noshow-", "");
+          const registration = webinarRegistrations.find((r) => r.id === registrationId);
+          const lead = registration ? webinarLeads.find((l) => l.id === registration.leadId) : undefined;
+          resolved =
+            !lead ||
+            (lead.status !== "Follow-up Needed" && lead.status !== "Not Contacted") ||
+            webinarRegistrations.filter((r) => r.leadId === lead.id).length > 1;
+        } else if (t.autoTriggerKey.startsWith("webinar-lead-interested-")) {
+          const leadId = t.autoTriggerKey.replace("webinar-lead-interested-", "");
+          const lead = webinarLeads.find((l) => l.id === leadId);
+          resolved = !lead || lead.status !== "Interested";
+        } else if (t.autoTriggerKey.startsWith("webinar-lead-reservation-")) {
+          const leadId = t.autoTriggerKey.replace("webinar-lead-reservation-", "");
+          const lead = webinarLeads.find((l) => l.id === leadId);
+          resolved = !lead || lead.status !== "Reservation Paid";
         }
 
         if (resolved) {
@@ -635,7 +730,7 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [students, transactions, adjustments, staff, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions]);
+  }, [students, transactions, adjustments, staff, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions, webinarLeads, webinarRegistrations]);
 
   const logStudentActivity = useCallback(
     (task: TaskRecord, message: string) => {
@@ -671,6 +766,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
           relatedStudentId: input.relatedStudentId ?? null,
           relatedStudentName: input.relatedStudentName ?? null,
           relatedBatch: input.relatedBatch ?? null,
+          relatedLeadId: null,
+          relatedLeadName: null,
           dueDate: input.dueDate,
           createdAt: new Date().toISOString(),
           startedAt: null,
@@ -717,6 +814,8 @@ export function TaskStoreProvider({ children }: { children: ReactNode }) {
             relatedStudentId: input.relatedStudentId ?? null,
             relatedStudentName: input.relatedStudentName ?? null,
             relatedBatch: input.relatedBatch ?? null,
+            relatedLeadId: null,
+            relatedLeadName: null,
             dueDate: todayPlus(item.daysFromNow),
             createdAt: new Date().toISOString(),
             startedAt: null,

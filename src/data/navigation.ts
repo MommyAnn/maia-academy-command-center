@@ -54,6 +54,20 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Free Webinar",
+    items: [
+      { label: "Dashboard", path: "/webinar/dashboard" },
+      { label: "Webinar Sessions", path: "/webinar/sessions" },
+      { label: "Registrations", path: "/webinar/registrations" },
+      { label: "Attendance", path: "/webinar/attendance" },
+      { label: "Leads / Pipeline", path: "/webinar/pipeline" },
+      { label: "Follow-ups", path: "/webinar/follow-ups" },
+      { label: "Conversion", path: "/webinar/conversion" },
+      { label: "Feedback", path: "/webinar/feedback" },
+      { label: "Reports", path: "/webinar/reports" },
+    ],
+  },
+  {
     label: "Feedback",
     items: [
       { label: "Overview", path: "/feedback/overview" },

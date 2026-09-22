@@ -64,6 +64,13 @@ export function TaskDetail() {
               onClick={task.relatedStudentId ? () => navigate(`/students/${task.relatedStudentId}`) : undefined}
             />
           )}
+          {task.relatedLeadName && (
+            <Field
+              label="Related Lead"
+              value={task.relatedLeadName}
+              onClick={task.relatedLeadId ? () => navigate(`/webinar/leads/${task.relatedLeadId}`) : undefined}
+            />
+          )}
           {task.relatedBatch && <Field label="Batch" value={task.relatedBatch} />}
           {task.blockedReason && <Field label="Blocked Reason" value={task.blockedReason} tone="danger" />}
           {task.cancelledReason && <Field label="Cancelled Reason" value={task.cancelledReason} tone="danger" />}

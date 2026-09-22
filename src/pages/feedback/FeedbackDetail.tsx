@@ -7,6 +7,7 @@ import { Button } from "@/components/common/Button";
 import { ChipMultiSelect } from "@/components/common/ChipMultiSelect";
 import { useFeedbackStore } from "@/data/feedbackStore";
 import { useStudentStore } from "@/data/studentStore";
+import { useWebinarStore } from "@/data/webinarStore";
 import { useStaffStore } from "@/data/staffStore";
 import { useAuth } from "@/context/AuthContext";
 import { hasPermission } from "@/data/staffConfig";
@@ -18,6 +19,7 @@ export function FeedbackDetail() {
   const { submissions, consents, redemptions, incentives, markReviewed, approveForMarketing, keepPrivate, featureSubmission, archiveSubmission, addInternalNote, setMarketingTags } =
     useFeedbackStore();
   const { getStudentById } = useStudentStore();
+  const { leads } = useWebinarStore();
   const { staff } = useStaffStore();
   const { user } = useAuth();
   const [noteText, setNoteText] = useState("");
@@ -31,9 +33,11 @@ export function FeedbackDetail() {
   const canManageMarketing = currentStaff ? hasPermission(currentStaff.permissions, "Feedback - Marketing", "edit") : false;
 
   const submission = submissions.find((s) => s.id === id);
-  const student = submission ? getStudentById(submission.studentId) : undefined;
+  const student = submission?.studentId ? getStudentById(submission.studentId) : undefined;
+  const lead = submission?.leadId ? leads.find((l) => l.id === submission.leadId) : undefined;
+  const personName = student?.fullName ?? lead?.fullName;
 
-  if (!submission || !student) {
+  if (!submission || !personName) {
     return <Navigate to="/feedback/all" replace />;
   }
 
@@ -63,7 +67,7 @@ export function FeedbackDetail() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-mono text-xs text-maia-ink-soft">{submission.feedbackId}</p>
-          <h2 className="font-display text-lg font-bold text-maia-ink">{student.fullName} — {submission.sourceLabel}</h2>
+          <h2 className="font-display text-lg font-bold text-maia-ink">{personName} — {submission.sourceLabel}</h2>
           <p className="text-sm text-maia-ink-soft">{submission.sourceType} · {submission.batch} · Submitted {new Date(submission.submittedAt).toLocaleString("en-PH")}</p>
         </div>
         <Badge tone={submission.status === "Approved for Marketing" || submission.status === "Featured" ? "success" : "neutral"}>{submission.status}</Badge>

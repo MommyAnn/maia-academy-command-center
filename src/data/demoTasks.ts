@@ -61,6 +61,8 @@ function makeTask(partial: {
     relatedStudentId: student?.id ?? null,
     relatedStudentName: student?.fullName ?? null,
     relatedBatch: student?.batch ?? null,
+    relatedLeadId: null,
+    relatedLeadName: null,
     dueDate: offsetDate(partial.dueOffsetDays),
     createdAt: createdAt.toISOString(),
     startedAt: partial.status !== "To Do" ? createdAt.toISOString() : null,

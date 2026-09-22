@@ -10,6 +10,7 @@ import { PortalStoreProvider } from "@/data/portalStore";
 import { MasterBrainStoreProvider } from "@/data/masterBrainStore";
 import { LmsStoreProvider } from "@/data/lmsStore";
 import { FeedbackStoreProvider } from "@/data/feedbackStore";
+import { WebinarStoreProvider } from "@/data/webinarStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
 function App() {
@@ -17,25 +18,27 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <StudentStoreProvider>
-          <PortalStoreProvider>
-            <MasterBrainStoreProvider>
-              <LmsStoreProvider>
-                <FeedbackStoreProvider>
-                  <FinanceStoreProvider>
-                    <StaffStoreProvider>
-                      <InventoryStoreProvider>
-                        <TrainingStoreProvider>
-                          <TaskStoreProvider>
-                            <AppRoutes />
-                          </TaskStoreProvider>
-                        </TrainingStoreProvider>
-                      </InventoryStoreProvider>
-                    </StaffStoreProvider>
-                  </FinanceStoreProvider>
-                </FeedbackStoreProvider>
-              </LmsStoreProvider>
-            </MasterBrainStoreProvider>
-          </PortalStoreProvider>
+          <FinanceStoreProvider>
+            <PortalStoreProvider>
+              <MasterBrainStoreProvider>
+                <LmsStoreProvider>
+                  <WebinarStoreProvider>
+                    <FeedbackStoreProvider>
+                      <StaffStoreProvider>
+                        <InventoryStoreProvider>
+                          <TrainingStoreProvider>
+                            <TaskStoreProvider>
+                              <AppRoutes />
+                            </TaskStoreProvider>
+                          </TrainingStoreProvider>
+                        </InventoryStoreProvider>
+                      </StaffStoreProvider>
+                    </FeedbackStoreProvider>
+                  </WebinarStoreProvider>
+                </LmsStoreProvider>
+              </MasterBrainStoreProvider>
+            </PortalStoreProvider>
+          </FinanceStoreProvider>
         </StudentStoreProvider>
       </AuthProvider>
     </BrowserRouter>

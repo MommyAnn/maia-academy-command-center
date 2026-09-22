@@ -1,11 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type {
   AdminNote,
+  AttendancePreference,
   Batch,
   DocumentReviewStatus,
   EnrollmentStatus,
   EnrollmentSubmission,
   MasterBrainStatus,
+  PackageType,
   StudentRecord,
   TaobaoStatus,
   UploadedFileMeta,
@@ -70,10 +72,34 @@ function nowParts() {
 
 const CURRENT_DEMO_USER = "Mommy Ann";
 
+export interface CreateStudentFromLeadInput {
+  leadId: string;
+  facebookName: string;
+  fullName: string;
+  companionName: string;
+  email: string;
+  contactNumber: string;
+  city: string;
+  batch: Batch;
+  package: PackageType;
+  attendance: AttendancePreference;
+  enrollmentDate: string;
+}
+
 interface StudentStoreValue {
   students: StudentRecord[];
   getStudentById: (id: string) => StudentRecord | undefined;
   submitEnrollment: (submission: EnrollmentSubmission) => StudentRecord;
+  /**
+   * Step 10: creates a real StudentRecord from an already-qualified Free
+   * Webinar Lead (Convert to Student). Distinct from submitEnrollment()
+   * (a raw public self-submission starting "Pending Verification") — a
+   * staff-driven conversion starts "Confirmed Student" since the enrollment
+   * decision has already been made. Never call this for a person who
+   * already has a StudentRecord; the webinar store's convertLeadToStudent()
+   * is responsible for that check.
+   */
+  createStudentFromLead: (input: CreateStudentFromLeadInput) => StudentRecord;
   updateEnrollmentStatus: (id: string, status: EnrollmentStatus) => void;
   updateDocumentStatus: (id: string, doc: "validId" | "proofOfPayment", status: DocumentReviewStatus, note?: string) => void;
   updateTaobao: (
@@ -141,7 +167,49 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
         termsAcceptedDate: iso,
         termsVersion: submission.termsVersion,
         adminNotes: [],
+        leadId: null,
         activity: [{ id: crypto.randomUUID(), action: "Enrollment submitted", date, time, user: "Student (Public Form)" }],
+      };
+      const next = [created, ...prev];
+      persist(next);
+      return next;
+    });
+
+    return created;
+  }, []);
+
+  const createStudentFromLead = useCallback((input: CreateStudentFromLeadInput): StudentRecord => {
+    const { iso, date, time } = nowParts();
+    let created!: StudentRecord;
+
+    setStudents((prev) => {
+      const studentId = generateStudentId(input.batch, prev);
+      created = {
+        id: crypto.randomUUID(),
+        studentId,
+        facebookName: input.facebookName,
+        fullName: input.fullName,
+        companionName: input.companionName,
+        email: input.email,
+        contactNumber: input.contactNumber,
+        city: input.city,
+        batch: input.batch,
+        package: input.package,
+        attendance: input.attendance,
+        enrollmentDate: input.enrollmentDate,
+        enrollmentStatus: "Confirmed Student",
+        dateSubmitted: iso,
+        validId: { status: "Pending", file: null },
+        proofOfPayment: { status: "Pending", file: null },
+        payment: { packagePrice: PACKAGE_PRICES[input.package] },
+        taobao: { status: "Not Yet Created", username: "", dateCreated: null, dateGiven: null, adminNotes: "" },
+        masterBrainStatus: "Not Started",
+        termsAccepted: true,
+        termsAcceptedDate: iso,
+        termsVersion: "v1.0",
+        adminNotes: [],
+        leadId: input.leadId,
+        activity: [{ id: crypto.randomUUID(), action: `Converted from Free Webinar Lead (${input.leadId})`, date, time, user: CURRENT_DEMO_USER }],
       };
       const next = [created, ...prev];
       persist(next);
@@ -315,6 +383,7 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
       students,
       getStudentById,
       submitEnrollment,
+      createStudentFromLead,
       updateEnrollmentStatus,
       updateDocumentStatus,
       updateTaobao,
@@ -328,6 +397,7 @@ export function StudentStoreProvider({ children }: { children: ReactNode }) {
       students,
       getStudentById,
       submitEnrollment,
+      createStudentFromLead,
       updateEnrollmentStatus,
       updateDocumentStatus,
       updateTaobao,

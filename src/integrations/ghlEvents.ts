@@ -41,7 +41,21 @@ export type GhlEventType =
   // Global Feedback & Testimonial events (Step 9).
   | "student.feedback_submitted"
   | "student.marketing_consent_granted"
-  | "student.incentive_unlocked";
+  | "student.incentive_unlocked"
+  // Free Webinar Lead & Conversion events (Step 10) — same "prepared hook,
+  // not a real integration" rule as every event above. Incoming GHL events
+  // (Contact Created/Updated, Tag Applied, Workflow Status, Form Submission,
+  // Appointment/Event) have no inbound handler yet — outbound only for now.
+  | "lead.created"
+  | "lead.webinar_registered"
+  | "lead.webinar_attended"
+  | "lead.webinar_no_show"
+  | "lead.follow_up_needed"
+  | "lead.interested"
+  | "lead.considering"
+  | "lead.reservation_paid"
+  | "lead.enrolled"
+  | "lead.converted_to_student";
 
 export interface GhlEventPayload {
   type: GhlEventType;
@@ -49,6 +63,7 @@ export interface GhlEventPayload {
   studentId?: string;
   studentDisplayId?: string;
   taskId?: string;
+  leadId?: string;
   summary: string;
 }
 

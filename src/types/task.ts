@@ -23,6 +23,7 @@ export type TaskCategory =
   | "Event Prep"
   | "Courses"
   | "Feedback"
+  | "Free Webinar"
   | "General";
 
 export const TASK_CATEGORIES: TaskCategory[] = [
@@ -38,6 +39,7 @@ export const TASK_CATEGORIES: TaskCategory[] = [
   "Event Prep",
   "Courses",
   "Feedback",
+  "Free Webinar",
   "General",
 ];
 
@@ -89,6 +91,9 @@ export interface TaskRecord {
   relatedStudentId: string | null;
   relatedStudentName: string | null;
   relatedBatch: Batch | null;
+  /** Set only for tasks triggered by a Free Webinar Lead (spec section 27, Step 10) — a Lead isn't a Student, so it gets its own reference. */
+  relatedLeadId: string | null;
+  relatedLeadName: string | null;
   dueDate: string; // yyyy-mm-dd
   createdAt: string;
   startedAt: string | null;

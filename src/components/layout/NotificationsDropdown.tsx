@@ -6,8 +6,10 @@ import { useFinanceStore } from "@/data/financeStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
 import { useFeedbackStore } from "@/data/feedbackStore";
+import { useWebinarStore } from "@/data/webinarStore";
 import { isTaskDueToday, isTaskOverdue } from "@/utils/staffTasks";
 import { getCurrentStock, getInventoryItemStatus } from "@/utils/inventory";
+import { isFollowUpOverdue, isHighIntentLead } from "@/utils/webinar";
 
 // ---------------------------------------------------------------------------
 // PREPARED, NOT REAL-TIME
@@ -33,6 +35,7 @@ export function NotificationsDropdown() {
   const { items: inventoryItems, transactions: inventoryTransactions } = useInventoryStore();
   const { sessions, enrollments, certificates } = useTrainingStore();
   const { submissions: feedbackSubmissions, consents } = useFeedbackStore();
+  const { leads: webinarLeads, followUps: webinarFollowUps } = useWebinarStore();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -173,8 +176,38 @@ export function NotificationsDropdown() {
       });
     }
 
+    const overdueFollowUps = webinarFollowUps.filter((f) => isFollowUpOverdue(f));
+    if (overdueFollowUps.length > 0) {
+      list.push({
+        id: "webinar-followups-overdue",
+        message: `${overdueFollowUps.length} webinar follow-up(s) overdue`,
+        icon: <AlertTriangle size={15} className="text-maia-danger" />,
+        onClick: () => navigate("/webinar/follow-ups?queue=overdue"),
+      });
+    }
+
+    const pendingReservations = webinarLeads.filter((l) => l.reservation && l.reservation.verificationStatus === "Pending Verification");
+    if (pendingReservations.length > 0) {
+      list.push({
+        id: "webinar-reservations-pending",
+        message: `${pendingReservations.length} webinar reservation payment(s) awaiting verification`,
+        icon: <ClipboardCheck size={15} className="text-maia-info" />,
+        onClick: () => navigate("/webinar/conversion"),
+      });
+    }
+
+    const highIntentLeads = webinarLeads.filter((l) => isHighIntentLead(l));
+    if (highIntentLeads.length > 0) {
+      list.push({
+        id: "webinar-high-intent",
+        message: `${highIntentLeads.length} high-intent webinar lead(s) with no follow-up scheduled`,
+        icon: <Video size={15} className="text-maia-gold-deep" />,
+        onClick: () => navigate("/webinar/follow-ups?queue=high-intent"),
+      });
+    }
+
     return list.slice(0, 10);
-  }, [tasks, transactions, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions, consents, navigate]);
+  }, [tasks, transactions, inventoryItems, inventoryTransactions, sessions, enrollments, certificates, feedbackSubmissions, consents, webinarLeads, webinarFollowUps, navigate]);
 
   return (
     <div className="relative" ref={containerRef}>

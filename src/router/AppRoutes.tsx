@@ -3,6 +3,7 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { EnrollmentForm } from "@/pages/EnrollmentForm";
+import { WebinarRegistration } from "@/pages/WebinarRegistration";
 import { NewEnrollments } from "@/pages/students/NewEnrollments";
 import { AllStudents } from "@/pages/students/AllStudents";
 import { Batches } from "@/pages/students/Batches";
@@ -52,6 +53,17 @@ import { FeedbackDetail } from "@/pages/feedback/FeedbackDetail";
 import { MarketingLibrary } from "@/pages/feedback/MarketingLibrary";
 import { Incentives as FeedbackIncentives } from "@/pages/feedback/Incentives";
 import { Settings as FeedbackSettings } from "@/pages/feedback/Settings";
+import { Dashboard as WebinarDashboard } from "@/pages/webinar/Dashboard";
+import { Sessions as WebinarSessions } from "@/pages/webinar/Sessions";
+import { Registrations as WebinarRegistrations } from "@/pages/webinar/Registrations";
+import { Attendance as WebinarAttendance } from "@/pages/webinar/Attendance";
+import { Pipeline as WebinarPipeline } from "@/pages/webinar/Pipeline";
+import { LeadProfile as WebinarLeadProfile } from "@/pages/webinar/LeadProfile";
+import { FollowUps as WebinarFollowUps } from "@/pages/webinar/FollowUps";
+import { Conversion as WebinarConversion } from "@/pages/webinar/Conversion";
+import { Feedback as WebinarFeedback } from "@/pages/webinar/Feedback";
+import { Reports as WebinarReports } from "@/pages/webinar/Reports";
+import { WebinarFeedbackSubmit } from "@/pages/WebinarFeedbackSubmit";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { StudentProtectedRoute } from "./StudentProtectedRoute";
@@ -115,6 +127,15 @@ const BUILT_PATHS = new Set([
   "/feedback/marketing-library",
   "/feedback/incentives",
   "/feedback/settings",
+  "/webinar/dashboard",
+  "/webinar/sessions",
+  "/webinar/registrations",
+  "/webinar/attendance",
+  "/webinar/pipeline",
+  "/webinar/follow-ups",
+  "/webinar/conversion",
+  "/webinar/feedback",
+  "/webinar/reports",
 ]);
 
 export function AppRoutes() {
@@ -122,6 +143,8 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/enroll" element={<EnrollmentForm />} />
+      <Route path="/webinar/register" element={<WebinarRegistration />} />
+      <Route path="/webinar/feedback-form/:requestId" element={<WebinarFeedbackSubmit />} />
 
       <Route
         element={
@@ -215,6 +238,17 @@ export function AppRoutes() {
         <Route path="/feedback/marketing-library" element={<MarketingLibrary />} />
         <Route path="/feedback/incentives" element={<FeedbackIncentives />} />
         <Route path="/feedback/settings" element={<FeedbackSettings />} />
+
+        <Route path="/webinar/dashboard" element={<WebinarDashboard />} />
+        <Route path="/webinar/sessions" element={<WebinarSessions />} />
+        <Route path="/webinar/registrations" element={<WebinarRegistrations />} />
+        <Route path="/webinar/attendance" element={<WebinarAttendance />} />
+        <Route path="/webinar/pipeline" element={<WebinarPipeline />} />
+        <Route path="/webinar/leads/:leadId" element={<WebinarLeadProfile />} />
+        <Route path="/webinar/follow-ups" element={<WebinarFollowUps />} />
+        <Route path="/webinar/conversion" element={<WebinarConversion />} />
+        <Route path="/webinar/feedback" element={<WebinarFeedback />} />
+        <Route path="/webinar/reports" element={<WebinarReports />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

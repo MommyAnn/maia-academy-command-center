@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, Award, Boxes, CalendarCheck, ClipboardList, FileWarning, ShoppingBag, Timer, Wallet } from "lucide-react";
+import { AlertTriangle, Award, Boxes, CalendarCheck, ClipboardList, FileWarning, PhoneMissed, ShoppingBag, Timer, UserCheck, Wallet } from "lucide-react";
 import { Card } from "@/components/common/Card";
 
 export interface ActionCenterItem {
@@ -66,4 +66,8 @@ export const ACTION_CENTER_ICONS = {
   inventory: <Boxes size={18} />,
   attendance: <CalendarCheck size={18} />,
   certificates: <Award size={18} />,
+  webinarFollowUps: <Timer size={18} />,
+  webinarPayments: <Wallet size={18} />,
+  highIntentLeads: <UserCheck size={18} />,
+  noShowFollowUp: <PhoneMissed size={18} />,
 };

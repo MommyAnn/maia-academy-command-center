@@ -5,6 +5,7 @@ import { Button } from "@/components/common/Button";
 import { FilterSelect } from "@/components/common/FilterSelect";
 import { useFeedbackStore } from "@/data/feedbackStore";
 import { useStudentStore } from "@/data/studentStore";
+import { useWebinarStore } from "@/data/webinarStore";
 import { FEEDBACK_SOURCE_TYPES } from "@/types/feedback";
 
 const BATCHES = ["Batch 14", "Batch 13", "Batch 12"] as const;
@@ -12,6 +13,7 @@ const BATCHES = ["Batch 14", "Batch 13", "Batch 12"] as const;
 export function AllFeedback() {
   const { submissions, consents, redemptions } = useFeedbackStore();
   const { students } = useStudentStore();
+  const { leads } = useWebinarStore();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -32,11 +34,12 @@ export function AllFeedback() {
     .filter((s) => !s.isDraft)
     .map((s) => ({
       submission: s,
-      student: students.find((st) => st.id === s.studentId),
+      student: s.studentId ? students.find((st) => st.id === s.studentId) : undefined,
+      lead: s.leadId ? leads.find((l) => l.id === s.leadId) : undefined,
       consent: consents.find((c) => c.feedbackId === s.feedbackId),
       redemption: redemptions.find((r) => r.feedbackSubmissionId === s.id),
     }))
-    .filter((r) => r.student)
+    .filter((r) => r.student || r.lead)
     .filter((r) => sourceFilter === "All" || r.submission.sourceType === sourceFilter)
     .filter((r) => batchFilter === "All" || r.submission.batch === batchFilter)
     .filter((r) => typeFilter === "All" || (typeFilter === "Written" ? r.submission.writtenFeedback.trim().length > 0 : Boolean(r.submission.videoAsset)))
@@ -90,11 +93,14 @@ export function AllFeedback() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ submission, student, consent, redemption }) => (
+              {rows.map(({ submission, student, lead, consent, redemption }) => (
                 <tr key={submission.id} className="border-b border-maia-border/60 last:border-0 hover:bg-maia-bg/40">
                   <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-maia-ink-soft">{submission.feedbackId}</td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-maia-ink">{student!.fullName}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-maia-ink-soft">{submission.batch}</td>
+                  <td className="whitespace-nowrap px-4 py-3 font-medium text-maia-ink">
+                    {student?.fullName ?? lead?.fullName}
+                    {lead && <span className="ml-1.5 text-[10px] font-semibold uppercase text-maia-gold-deep">Lead</span>}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-maia-ink-soft">{submission.batch || "—"}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-maia-ink-soft">{submission.sourceType}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-maia-ink-soft">
                     {submission.writtenFeedback.trim() ? "Written" : ""}{submission.writtenFeedback.trim() && submission.videoAsset ? " + " : ""}{submission.videoAsset ? "Video" : ""}

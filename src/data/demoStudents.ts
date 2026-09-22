@@ -53,6 +53,7 @@ function makeStudent(partial: Partial<StudentRecord> & { batchCode: string }): S
     termsAcceptedDate: rest.termsAcceptedDate ?? "2026-08-01T09:00:00+08:00",
     termsVersion: rest.termsVersion ?? "v1.0",
     adminNotes: rest.adminNotes ?? [],
+    leadId: rest.leadId ?? null,
     activity: rest.activity ??
       [
         {

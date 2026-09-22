@@ -9,6 +9,7 @@ import type { Batch, StudentRecord } from "@/types/student";
 import type { PackageAdjustment, PaymentTransaction } from "@/types/finance";
 
 const BATCH_TARGETS: Record<Batch, number> = {
+  "Batch 15": 100,
   "Batch 14": 100,
   "Batch 13": 100,
   "Batch 12": 100,

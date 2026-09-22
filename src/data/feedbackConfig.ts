@@ -174,6 +174,7 @@ export const SUBMISSION_MARIA_WRITTEN = submission({
   feedbackId: "FDBK-2026-000001",
   requestId: REQUEST_FB_MASTERCLASS.id,
   studentId: findStudentId("MAIA-B14-0001"),
+  leadId: null,
   sourceType: "Masterclass",
   sourceId: null,
   sourceLabel: "Facebook Ads Masterclass",
@@ -198,6 +199,7 @@ export const SUBMISSION_CARLOS_VIDEO = submission({
   feedbackId: "FDBK-2026-000002",
   requestId: REQUEST_IMPORTATION_COURSE.id,
   studentId: findStudentId("MAIA-B14-0002"),
+  leadId: null,
   sourceType: "Course",
   sourceId: COURSE_IMPORTATION.id,
   sourceLabel: COURSE_IMPORTATION.title,
@@ -222,6 +224,7 @@ export const SUBMISSION_BEA_CONSTRUCTIVE = submission({
   feedbackId: "FDBK-2026-000003",
   requestId: REQUEST_IMPORTATION_COURSE.id,
   studentId: findStudentId("MAIA-B14-0003"),
+  leadId: null,
   sourceType: "Course",
   sourceId: COURSE_IMPORTATION.id,
   sourceLabel: COURSE_IMPORTATION.title,
@@ -280,7 +283,8 @@ export const DEMO_INCENTIVE_REDEMPTIONS: IncentiveRedemption[] = [
   // Maria — Bonus Course delivery type, delivered via a real CourseAccessGrant (see lmsConfig.ts).
   redemption({
     incentiveId: INCENTIVE_FB_MASTERCLASS.id,
-    studentId: SUBMISSION_MARIA_WRITTEN.studentId,
+    studentId: SUBMISSION_MARIA_WRITTEN.studentId!,
+    leadId: null,
     feedbackSubmissionId: SUBMISSION_MARIA_WRITTEN.id,
     unlockedAt: "2026-09-05T15:05:00+08:00",
     deliveryStatus: "Delivered",
@@ -289,7 +293,8 @@ export const DEMO_INCENTIVE_REDEMPTIONS: IncentiveRedemption[] = [
   // Carlos — resource-file delivery, metadata already exists so it's marked Delivered.
   redemption({
     incentiveId: INCENTIVE_IMPORTATION_COURSE.id,
-    studentId: SUBMISSION_CARLOS_VIDEO.studentId,
+    studentId: SUBMISSION_CARLOS_VIDEO.studentId!,
+    leadId: null,
     feedbackSubmissionId: SUBMISSION_CARLOS_VIDEO.id,
     unlockedAt: "2026-09-08T11:10:00+08:00",
     deliveryStatus: "Delivered",
@@ -298,7 +303,8 @@ export const DEMO_INCENTIVE_REDEMPTIONS: IncentiveRedemption[] = [
   // Bea — constructive/critical feedback still unlocks the same resource (spec section 34).
   redemption({
     incentiveId: INCENTIVE_IMPORTATION_COURSE.id,
-    studentId: SUBMISSION_BEA_CONSTRUCTIVE.studentId,
+    studentId: SUBMISSION_BEA_CONSTRUCTIVE.studentId!,
+    leadId: null,
     feedbackSubmissionId: SUBMISSION_BEA_CONSTRUCTIVE.id,
     unlockedAt: "2026-09-09T20:05:00+08:00",
     deliveryStatus: "Delivered",

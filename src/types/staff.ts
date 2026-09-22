@@ -59,6 +59,9 @@ export const PERMISSION_MODULES = [
   "Courses",
   "Feedback",
   "Feedback - Marketing",
+  "Free Webinar",
+  "Free Webinar - Finance",
+  "Free Webinar - Marketing",
   "System Settings",
 ] as const;
 

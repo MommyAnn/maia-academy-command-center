@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Award, CalendarClock, ClipboardList, CreditCard, Package, Search, Truck, User, Users } from "lucide-react";
+import { Award, BookOpen, CalendarClock, ClipboardList, CreditCard, Package, Search, Truck, User, Users, Video } from "lucide-react";
 import { useStudentStore } from "@/data/studentStore";
 import { useFinanceStore } from "@/data/financeStore";
 import { useTaskStore } from "@/data/taskStore";
 import { useStaffStore } from "@/data/staffStore";
 import { useInventoryStore } from "@/data/inventoryStore";
 import { useTrainingStore } from "@/data/trainingStore";
+import { useWebinarStore } from "@/data/webinarStore";
+import { useLmsStore } from "@/data/lmsStore";
 
 const MAX_PER_GROUP = 5;
 
@@ -17,6 +19,8 @@ export function GlobalSearch() {
   const { staff } = useStaffStore();
   const { items, suppliers } = useInventoryStore();
   const { sessions, certificates } = useTrainingStore();
+  const { leads, registrations: webinarRegistrations, sessions: webinarSessions } = useWebinarStore();
+  const { courses } = useLmsStore();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState("");
@@ -35,7 +39,20 @@ export function GlobalSearch() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return { students: [], payments: [], tasks: [], staff: [], sessions: [], certificates: [], items: [], suppliers: [] };
+    if (!q)
+      return {
+        students: [],
+        leads: [],
+        webinarRegistrations: [],
+        payments: [],
+        tasks: [],
+        staff: [],
+        sessions: [],
+        certificates: [],
+        courses: [],
+        items: [],
+        suppliers: [],
+      };
 
     const studentMatches = students
       .filter((s) =>
@@ -72,25 +89,44 @@ export function GlobalSearch() {
 
     const supplierMatches = suppliers.filter((s) => `${s.name} ${s.contactPerson}`.toLowerCase().includes(q)).slice(0, MAX_PER_GROUP);
 
+    const leadMatches = leads
+      .filter((l) => `${l.fullName} ${l.leadId} ${l.facebookName} ${l.email} ${l.contactNumber}`.toLowerCase().includes(q))
+      .slice(0, MAX_PER_GROUP);
+
+    const webinarRegistrationMatches = webinarRegistrations
+      .filter((r) => {
+        const lead = leads.find((l) => l.id === r.leadId);
+        return `${r.registrationId} ${lead?.fullName ?? ""} ${lead?.facebookName ?? ""} ${lead?.email ?? ""} ${lead?.contactNumber ?? ""}`.toLowerCase().includes(q);
+      })
+      .slice(0, MAX_PER_GROUP);
+
+    const courseMatches = courses.filter((c) => `${c.courseId} ${c.title} ${c.category}`.toLowerCase().includes(q)).slice(0, MAX_PER_GROUP);
+
     return {
       students: studentMatches,
+      leads: leadMatches,
+      webinarRegistrations: webinarRegistrationMatches,
       payments: paymentMatches,
       tasks: taskMatches,
       staff: staffMatches,
       sessions: sessionMatches,
       certificates: certificateMatches,
+      courses: courseMatches,
       items: itemMatches,
       suppliers: supplierMatches,
     };
-  }, [query, students, transactions, tasks, staff, sessions, certificates, items, suppliers]);
+  }, [query, students, transactions, tasks, staff, sessions, certificates, items, suppliers, leads, webinarRegistrations, courses]);
 
   const hasResults =
     results.students.length +
+      results.leads.length +
+      results.webinarRegistrations.length +
       results.payments.length +
       results.tasks.length +
       results.staff.length +
       results.sessions.length +
       results.certificates.length +
+      results.courses.length +
       results.items.length +
       results.suppliers.length >
     0;
@@ -113,7 +149,7 @@ export function GlobalSearch() {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          placeholder="Search students, payments, tasks, staff, sessions..."
+          placeholder="Search students, leads, payments, tasks, courses..."
           className="w-full bg-transparent text-maia-ink outline-none placeholder:text-maia-ink-soft/60"
         />
       </div>
@@ -134,6 +170,36 @@ export function GlobalSearch() {
                       onClick={() => goTo(`/students/${s.id}`)}
                     />
                   ))}
+                </ResultGroup>
+              )}
+
+              {results.leads.length > 0 && (
+                <ResultGroup label="Free Webinar Leads" icon={<Video size={13} />}>
+                  {results.leads.map((l) => (
+                    <ResultRow
+                      key={l.id}
+                      primary={l.fullName}
+                      secondary={`${l.leadId} · ${l.status}`}
+                      onClick={() => goTo(`/webinar/leads/${l.id}`)}
+                    />
+                  ))}
+                </ResultGroup>
+              )}
+
+              {results.webinarRegistrations.length > 0 && (
+                <ResultGroup label="Webinar Registrations" icon={<Video size={13} />}>
+                  {results.webinarRegistrations.map((r) => {
+                    const lead = leads.find((l) => l.id === r.leadId);
+                    const session = webinarSessions.find((s) => s.id === r.webinarSessionId);
+                    return (
+                      <ResultRow
+                        key={r.id}
+                        primary={lead?.fullName ?? r.registrationId}
+                        secondary={`${r.registrationId} · ${session?.title ?? ""}`}
+                        onClick={() => goTo(lead ? `/webinar/leads/${lead.id}` : "/webinar/registrations")}
+                      />
+                    );
+                  })}
                 </ResultGroup>
               )}
 
@@ -202,6 +268,14 @@ export function GlobalSearch() {
                       />
                     );
                   })}
+                </ResultGroup>
+              )}
+
+              {results.courses.length > 0 && (
+                <ResultGroup label="Courses" icon={<BookOpen size={13} />}>
+                  {results.courses.map((c) => (
+                    <ResultRow key={c.id} primary={c.title} secondary={`${c.courseId} · ${c.category}`} onClick={() => goTo(`/courses/${c.id}`)} />
+                  ))}
                 </ResultGroup>
               )}
 

@@ -2,7 +2,7 @@
 // Records, Student Profile). These describe the shapes the UI expects.
 // Backed by demo/local state for now — see src/data/studentStore.tsx.
 
-export type Batch = "Batch 14" | "Batch 13" | "Batch 12";
+export type Batch = "Batch 15" | "Batch 14" | "Batch 13" | "Batch 12";
 
 export type PackageType = "Premium" | "VIP" | "Dual VIP";
 
@@ -144,6 +144,15 @@ export interface StudentRecord {
   // Admin
   adminNotes: AdminNote[];
   activity: StudentActivityEntry[];
+
+  /**
+   * Set only when this student was converted from a Free Webinar Lead
+   * (Step 10) — the reverse of Lead.convertedToStudentId. Original lead
+   * source, webinar history, and follow-up history are never copied onto
+   * this record; they stay on the Lead itself (see src/types/webinar.ts)
+   * and are read through this id, keeping one source of truth.
+   */
+  leadId: string | null;
 }
 
 /** Shape submitted by the public Enrollment Form. */

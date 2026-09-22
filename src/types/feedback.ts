@@ -100,11 +100,18 @@ export interface FeedbackSubmission {
   id: string;
   feedbackId: string; // e.g. FDBK-2026-000001
   requestId: string | null; // null for an ad-hoc submission not tied to a specific request
-  studentId: string;
+  /**
+   * EXACTLY ONE of studentId/leadId is set (spec section 29, Step 10) — a
+   * Free Webinar Lead submits feedback before ever becoming a Student, so
+   * this can't require a StudentRecord. Every page resolving "who submitted
+   * this" must check both, never assume studentId alone.
+   */
+  studentId: string | null;
+  leadId: string | null;
   sourceType: FeedbackSourceType;
   sourceId: string | null;
   sourceLabel: string;
-  batch: Batch;
+  batch: Batch | "";
   rating: number | null; // 1-5, optional
   writtenFeedback: string;
   videoAsset: VideoFeedbackAsset | null;
@@ -248,7 +255,9 @@ export type IncentiveDeliveryStatus = "Unlocked" | "Delivered";
 export interface IncentiveRedemption {
   id: string;
   incentiveId: string;
-  studentId: string;
+  /** Exactly one of studentId/leadId — mirrors FeedbackSubmission (spec section 29, Step 10). */
+  studentId: string | null;
+  leadId: string | null;
   feedbackSubmissionId: string;
   unlockedAt: string;
   deliveryStatus: IncentiveDeliveryStatus;
