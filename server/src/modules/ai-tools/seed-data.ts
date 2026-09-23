@@ -140,25 +140,36 @@ export const AI_TOOL_SEED_DEFS: AiToolSeedDef[] = [
     systemInstructionExtra: "Write in the business's own Brand Voice section from the BRAND CONTEXT — never a generic tone that ignores it.",
   },
   {
+    // Upgraded in Phase 14 (spec sections 68-70) from a generic free-text
+    // strategist into the real M.A.I.A. Ads Campaign Planner — same toolKey,
+    // now called via structured generation (src/modules/ads/planner.ts),
+    // producing a real DRAFT AdCampaignPlan row. A plan is NEVER a live
+    // campaign (spec section 69) — converting one into a real AdCampaign is
+    // always a separate, explicit human action.
     toolKey: "facebook-ads-strategist",
-    name: "M.A.I.A. Facebook Ads Strategist",
-    description: "Campaign structure, audience strategy, and creative testing plan.",
+    name: "M.A.I.A. Ads Campaign Planner",
+    description: "Generates a structured DRAFT campaign plan — objective, audience, creative strategy, funnel, tracking, budget context, and testing plan. A plan is never a live campaign.",
     category: "Advertising",
     displayOrder: 8,
-    modelConfigKey: "default",
+    modelConfigKey: "structured-analytical",
     inputFields: [
-      { key: "campaignGoal", label: "Campaign Goal", type: "text", required: true },
-      { key: "product", label: "Product/Service", type: "text", required: false },
-      { key: "budget", label: "Budget", type: "text", required: false },
-      { key: "audienceNotes", label: "Audience/Location Notes", type: "textarea", required: false },
+      { key: "objective", label: "Objective", type: "text", required: true },
+      { key: "offerContext", label: "Offer / Product Context", type: "textarea", required: false },
+      { key: "audienceNotes", label: "Audience Notes", type: "textarea", required: false },
+      { key: "budgetContext", label: "Budget Context", type: "text", required: false },
     ],
-    outputFields: ["Campaign Strategy", "Objective", "Audience Strategy", "Creative Testing", "Offer Strategy", "Budget Framework", "Testing Plan", "Scaling Considerations"],
-    systemInstructionExtra: "Never guarantee ROAS, sales, leads, or Meta ad-platform approval.",
+    outputFields: ["Objective", "Audience", "Offer", "Creative Strategy", "Creative Variations", "Funnel", "Tracking", "Budget Context", "Testing Plan", "Metrics To Watch", "Risks"],
+    systemInstructionExtra: "This produces a DRAFT campaign PLAN only — never a live campaign, never a guarantee of platform approval, ROAS, leads, or sales. Never target or recommend targeting based on sensitive personal attributes. Never label an audience 'guaranteed buyers' or similar.",
   },
   {
+    // Upgraded in Phase 14 (spec sections 27-29) into the real Ads Analyzer
+    // — called via structured generation (src/modules/ads/analyzer.ts),
+    // grounded in real retrieved AdPerformanceSnapshot rows or user-entered
+    // metrics, never both invented. Fact vs interpretation kept structurally
+    // separate in the output.
     toolKey: "ads-analyzer",
     name: "M.A.I.A. Ads Analyzer",
-    description: "Analyzes the metrics you enter — never invents missing numbers.",
+    description: "Analyzes real retrieved or user-entered ad performance data and returns observed facts separated from interpretation. Never invents missing numbers.",
     category: "Advertising",
     displayOrder: 9,
     modelConfigKey: "structured-analytical",
@@ -176,8 +187,8 @@ export const AI_TOOL_SEED_DEFS: AiToolSeedDef[] = [
       { key: "revenue", label: "Revenue", type: "number", required: false },
       { key: "roas", label: "ROAS", type: "number", required: false },
     ],
-    outputFields: ["Analysis of only the metrics actually provided"],
-    systemInstructionExtra: "Only analyze metrics the Student actually provided in this request — never invent, estimate, or assume a missing metric's value.",
+    outputFields: ["Observed Facts", "Metric Changes", "Potential Strengths", "Potential Weaknesses", "Possible Explanations", "Recommended Tests", "Risks / Limitations"],
+    systemInstructionExtra: "Separate FACT from INTERPRETATION at all times — e.g. 'CTR decreased from X to Y' is a fact; 'creative fatigue may be one possible explanation' is interpretation, never presented as a proven cause. Only analyze metrics actually present in the provided data — never invent, estimate, or assume a missing metric's value.",
   },
   {
     toolKey: "offer-builder",

@@ -67,6 +67,23 @@ const schema = z.object({
   ANTHROPIC_BASE_URL: z.string().optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
   GOOGLE_AI_API_KEY: z.string().min(1).optional(),
+
+  // Phase 14 — Meta Ads credentials. ALL optional: the server must boot and
+  // every non-Ads feature must keep working with none of these set. No real
+  // Meta App is configured in this production phase — AdConnection.status
+  // for provider "META" honestly stays NOT_CONNECTED / CONFIGURATION_REQUIRED
+  // until a real App ID/Secret/System User Token are supplied and a real
+  // authenticated request against META_GRAPH_API_BASE_URL succeeds (spec
+  // sections 4-5). Never read anywhere outside src/modules/ads/provider.ts;
+  // never returned by any API response or persisted to the database.
+  META_APP_ID: z.string().min(1).optional(),
+  META_APP_SECRET: z.string().min(1).optional(),
+  META_SYSTEM_USER_TOKEN: z.string().min(1).optional(),
+  // Centralized here so the Graph API version is never scattered through
+  // the codebase (spec section 110) — reverify against Meta's current
+  // developer documentation before any real connection is configured.
+  META_GRAPH_API_BASE_URL: z.string().default("https://graph.facebook.com"),
+  META_GRAPH_API_VERSION: z.string().default("v21.0"),
 });
 
 const parsed = schema.safeParse(process.env);

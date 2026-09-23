@@ -142,6 +142,21 @@ export const AUDIT_ACTIONS = [
   "Form Submission Received",
   "Domain Configuration Changed",
   "Tracking Configuration Changed",
+  // Phase 14 — M.A.I.A. Ads Command Center (spec sections 106, 78-82).
+  "Ad Connection Added",
+  "Ad Connection Removed",
+  "Ad Connection Status Changed",
+  "Ad Account Sync",
+  "Ad Import Committed",
+  "Ad Import Rolled Back",
+  "Ad Recommendation Actioned",
+  "Ad Optimization Action Requested",
+  "Ad Optimization Action Decided",
+  "Ad Budget Alert Rule Changed",
+  "Ad Campaign Plan Created",
+  "Ad Campaign Created",
+  "Ad Test Plan Created",
+  "Ad Test Plan Status Changed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -127,6 +127,33 @@ export async function resetDb() {
     db.funnel.deleteMany(),
     db.websiteProject.deleteMany(),
     db.offer.deleteMany(),
+    // Phase 14 (M.A.I.A. Ads Command Center) — AdImportBatch/
+    // AdPerformanceSnapshot/AdOptimizationAction before AdCampaign or
+    // AdAccount; AdCreativeLink before Ad; AdAttributionRecord before both
+    // Lead (cleared later below) and AdCampaign; AdTestVariant before
+    // AdTestPlan; Ad before AdSet before AdCampaign before AdAccount before
+    // AdConnection, and AdConnection itself before the Business/Student
+    // cleanup right below (its own FK to both is RESTRICT). AdBudgetAlertRule/
+    // AdRecommendation/AdCampaignPlan have no FK ordering constraint (their
+    // AdCampaign reference is ON DELETE SET NULL, and AdCampaignPlan has no
+    // real FK at all) but are reset every run anyway, matching the same
+    // "always reset even what's normally durable" principle used throughout
+    // this file.
+    db.adImportBatch.deleteMany(),
+    db.adPerformanceSnapshot.deleteMany(),
+    db.adCreativeLink.deleteMany(),
+    db.adOptimizationAction.deleteMany(),
+    db.adAttributionRecord.deleteMany(),
+    db.adBudgetAlertRule.deleteMany(),
+    db.adRecommendation.deleteMany(),
+    db.adTestVariant.deleteMany(),
+    db.adTestPlan.deleteMany(),
+    db.adCampaignPlan.deleteMany(),
+    db.ad.deleteMany(),
+    db.adSet.deleteMany(),
+    db.adCampaign.deleteMany(),
+    db.adAccount.deleteMany(),
+    db.adConnection.deleteMany(),
     db.business.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),

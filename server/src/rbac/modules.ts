@@ -45,6 +45,7 @@ export const PERMISSION_MODULES = [
   "Creative Studio",
   "Automation Studio",
   "Website & Funnel Studio",
+  "Ads Command Center",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

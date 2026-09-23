@@ -150,3 +150,63 @@ export async function generateFormDisplayId(): Promise<string> {
   const n = await nextSequence(`form:${year}`);
   return `FORM-${year}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateAdConnectionDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-connection:${year}`);
+  return `ADCONN-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdAccountDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-account:${year}`);
+  return `ADACC-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdCampaignDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-campaign:${year}`);
+  return `ADCMP-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdSetDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-set:${year}`);
+  return `ADSET-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad:${year}`);
+  return `AD-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdRecommendationDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-recommendation:${year}`);
+  return `ADREC-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdOptimizationActionDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-optimization-action:${year}`);
+  return `ADACT-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdTestPlanDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-test-plan:${year}`);
+  return `ADTEST-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdCampaignPlanDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-campaign-plan:${year}`);
+  return `ADPLAN-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAdImportBatchDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`ad-import-batch:${year}`);
+  return `ADIMP-${year}-${String(n).padStart(6, "0")}`;
+}

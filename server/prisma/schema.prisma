@@ -204,6 +204,7 @@ model Lead {
   conversion        LeadStudentConversion?
   feedbackSubmissions FeedbackSubmission[]
   paymentTransactions PaymentTransaction[]
+  adAttributionRecords AdAttributionRecord[]
 
   @@index([pipelineStage])
   @@index([leadOwnerId])
@@ -387,6 +388,7 @@ model Student {
   offers           Offer[]
   websiteProjects  WebsiteProject[]
   funnels          Funnel[]
+  adConnections    AdConnection[]
 
   @@index([batchId])
   @@index([packageId])
@@ -461,6 +463,7 @@ model Business {
   websiteProjects        WebsiteProject[]
   funnels                Funnel[]
   webForms               WebForm[]
+  adConnections          AdConnection[]
 
   @@index([studentId])
 }
@@ -2774,4 +2777,424 @@ model WebsiteAnalyticsEvent {
 
   @@index([websiteProjectId, eventName])
   @@index([pageId, eventName])
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 14 — M.A.I.A. ADS COMMAND CENTER
+// ---------------------------------------------------------------------------
+// Meta is the first provider (spec section 112) but the architecture is
+// provider-neutral (spec section 111) — every model keys providers by a
+// plain string, never a fixed enum, so a future provider never needs a
+// migration. This build has NO real Meta App / OAuth credentials, so
+// AdConnection.status for provider "META" honestly stays NOT_CONNECTED /
+// CONFIGURATION_REQUIRED forever here — CONNECTED is only ever set after a
+// real authenticated provider request succeeds (spec section 5), which
+// never happens in this sandbox. "MANUAL" is the only provider that can
+// ever reach CONNECTED in this build, since it has no external auth step.
+//
+// No live write-action capability exists anywhere in this phase (spec
+// sections 9-12) — AdOptimizationAction models the human approval workflow
+// a future write-capable connection would need, but its terminal states
+// never include an actual executed provider mutation.
+
+model AdConnection {
+  id                String   @id @default(cuid())
+  connectionDisplayId String @unique // e.g. ADCONN-2026-000001
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id])
+  businessId        String
+  business          Business @relation(fields: [businessId], references: [id])
+  // "META" | "MANUAL" (spec sections 111-112) — validated against
+  // ADS_PROVIDERS in code, not a fixed Prisma enum.
+  provider          String
+  // NOT_CONNECTED | CONFIGURATION_REQUIRED | AUTHORIZING | CONNECTED |
+  // DEGRADED | EXPIRED | ERROR | DISABLED (spec section 4)
+  status            String   @default("NOT_CONNECTED")
+  // READ_ONLY | LIVE_ACTION (spec sections 9-11) — LIVE_ACTION is never
+  // actually enabled for execution in this build; see AdOptimizationAction.
+  mode              String   @default("READ_ONLY")
+  // Never the actual secret (spec section 6) — only whether one is on file
+  // server-side. Always false for "META" in this build; no real Meta App
+  // credentials exist here.
+  credentialsConfigured Boolean @default(false)
+  lastSyncedAt      DateTime?
+  lastError         String?
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  adAccounts        AdAccount[]
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model AdAccount {
+  id                String   @id @default(cuid())
+  adAccountDisplayId String  @unique // e.g. ADACC-2026-000001
+  connectionId      String
+  connection        AdConnection @relation(fields: [connectionId], references: [id])
+  studentId         String
+  businessId        String
+  // Provider's own account id (e.g. "act_123") — never used as the only
+  // internal identity (spec section 14). Null for a MANUAL-provider account.
+  externalAccountId String?
+  name              String
+  currency          String   // never assumed PHP for every business (spec 23)
+  timezone          String   // account reporting timezone (spec section 22)
+  isActive          Boolean  @default(true)
+  // NOT_SYNCED | QUEUED | SYNCING | SYNCED | PARTIAL | FAILED | RETRYING (spec section 16)
+  syncStatus        String   @default("NOT_SYNCED")
+  lastSyncedAt      DateTime?
+  lastSyncError     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  campaigns         AdCampaign[]
+  snapshots         AdPerformanceSnapshot[]
+  importBatches     AdImportBatch[]
+
+  @@index([connectionId])
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model AdCampaign {
+  id                String   @id @default(cuid())
+  campaignDisplayId String   @unique // e.g. ADCMP-2026-000001
+  adAccountId       String
+  adAccount         AdAccount @relation(fields: [adAccountId], references: [id])
+  studentId         String
+  businessId        String
+  externalCampaignId String?
+  name              String
+  objective         String?
+  // Provider-reported or manually set status string — never assumed live
+  // merely because a row exists (spec sections 5, 69-70 apply here too).
+  status            String   @default("DRAFT")
+  dailyBudget       Decimal? @db.Decimal(12, 2)
+  lifetimeBudget    Decimal? @db.Decimal(12, 2)
+  currency          String?
+  startDate         DateTime?
+  endDate           DateTime?
+  // SYNCED | MANUAL | CSV_IMPORT | BLUEPRINT (spec sections 69-70) —
+  // BLUEPRINT rows never came from a real provider and are labeled as such
+  // everywhere they're shown.
+  source            String
+  utmCampaign       String?  // spec section 75 — the UTM value this campaign's ads should carry
+  offerId           String?  // soft ref to Offer (Phase 13)
+  creativePackageId String?  // soft ref to CreativePackage (Phase 11)
+  funnelId          String?  // soft ref to Funnel (Phase 13)
+  journeyId         String?  // soft ref to CustomerJourney (Phase 12)
+  marketingCampaignId String? // soft ref to Campaign (Phase 11)
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  adSets            AdSet[]
+  snapshots         AdPerformanceSnapshot[]
+  attributionRecords AdAttributionRecord[]
+  recommendations   AdRecommendation[]
+  optimizationActions AdOptimizationAction[]
+  budgetAlertRules  AdBudgetAlertRule[]
+
+  @@index([adAccountId])
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model AdSet {
+  id                String   @id @default(cuid())
+  adSetDisplayId    String   @unique // e.g. ADSET-2026-000001
+  campaignId        String
+  campaign          AdCampaign @relation(fields: [campaignId], references: [id])
+  externalAdSetId   String?
+  name              String
+  // Structured targeting description (spec sections 31, 71) — never labeled
+  // "guaranteed buyers" or similar (spec section 73).
+  audienceJson      Json?
+  placement         String?
+  dailyBudget       Decimal? @db.Decimal(12, 2)
+  status            String   @default("DRAFT")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  ads               Ad[]
+  snapshots         AdPerformanceSnapshot[]
+
+  @@index([campaignId])
+}
+
+model Ad {
+  id                String   @id @default(cuid())
+  adDisplayId       String   @unique // e.g. AD-2026-000001
+  adSetId           String
+  adSet             AdSet    @relation(fields: [adSetId], references: [id])
+  externalAdId      String?
+  name              String
+  status            String   @default("DRAFT")
+  utmCampaign       String?
+  utmContent        String?  // spec section 75 — per-ad UTM for creative-level attribution
+  landingPageId     String?  // soft ref to WebsitePage (Phase 13)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  creativeLink      AdCreativeLink?
+  snapshots         AdPerformanceSnapshot[]
+
+  @@index([adSetId])
+}
+
+// Spec section 32-33: connects an Ad to the exact Creative Studio artifacts
+// it came from, when that mapping exists — never invented.
+model AdCreativeLink {
+  id                String   @id @default(cuid())
+  adId              String   @unique
+  ad                Ad       @relation(fields: [adId], references: [id])
+  creativePackageId String?  // soft ref to CreativePackage (Phase 11)
+  hookId            String?  // soft ref to Hook (Phase 11)
+  creativeAngleId   String?  // soft ref to CreativeAngle (Phase 11)
+  scriptId          String?  // soft ref to Script (Phase 11)
+  assetDocumentId   String?  // soft ref to Document (Asset Library)
+  format            String?  // Video | Image | Carousel | Collection | Other
+  ctaType           String?
+  createdAt         DateTime @default(now())
+
+  @@index([creativePackageId])
+  @@index([hookId])
+}
+
+model AdPerformanceSnapshot {
+  id                String   @id @default(cuid())
+  adAccountId       String
+  adAccount         AdAccount @relation(fields: [adAccountId], references: [id])
+  campaignId        String?
+  campaign          AdCampaign? @relation(fields: [campaignId], references: [id])
+  adSetId           String?
+  adSet             AdSet?   @relation(fields: [adSetId], references: [id])
+  adId              String?
+  ad                Ad?      @relation(fields: [adId], references: [id])
+  provider          String   // denormalized (spec section 18)
+  dateFrom          DateTime
+  dateTo            DateTime
+  currency          String?
+  spend             Decimal? @db.Decimal(14, 2)
+  impressions       Int?
+  reach             Int?
+  frequency         Float?
+  cpm               Decimal? @db.Decimal(14, 4)
+  clicks            Int?
+  linkClicks        Int?
+  ctr               Float?
+  cpc               Decimal? @db.Decimal(14, 4)
+  landingPageViews  Int?
+  messages          Int?
+  leads             Int?
+  purchases         Int?
+  purchaseValue     Decimal? @db.Decimal(14, 2)
+  // The provider's own raw metric payload, name/definition preserved
+  // verbatim (spec section 20) — metrics are never assumed equivalent
+  // across providers.
+  rawMetricsJson    Json?
+  // SYNCED | MANUAL | CSV_IMPORT (spec section 87) — sync/import
+  // idempotency (spec section 17) is enforced at the application layer via
+  // a find-then-upsert keyed on (scope, dateFrom, dateTo, source), not a DB
+  // unique constraint, since the scope's optional FKs make a clean
+  // composite key awkward with Postgres NULL semantics.
+  source            String
+  importBatchId     String?  // soft ref to AdImportBatch
+  retrievedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@index([adAccountId, dateFrom, dateTo])
+  @@index([campaignId, dateFrom, dateTo])
+  @@index([adSetId, dateFrom, dateTo])
+  @@index([adId, dateFrom, dateTo])
+}
+
+// A cached, recomputable result of matching a real Lead's UTMs against a
+// real AdCampaign/Ad — never invented (spec sections 43-44).
+model AdAttributionRecord {
+  id                String   @id @default(cuid())
+  leadId            String
+  lead              Lead     @relation(fields: [leadId], references: [id])
+  adCampaignId      String
+  adCampaign        AdCampaign @relation(fields: [adCampaignId], references: [id])
+  adSetId           String?  // soft ref
+  adId              String?  // soft ref
+  // FIRST_TOUCH | LATEST_TOUCH (spec section 43) — only FIRST_TOUCH ever
+  // credits verified revenue (spec section 47's no-double-count rule),
+  // since a Lead has exactly one first touch.
+  touchType         String
+  // KNOWN | PARTIAL | UNKNOWN (spec section 44) — never treated as
+  // perfectly attributable.
+  confidence        String
+  matchedUtmJson    Json     // exactly which UTM values matched, for transparency
+  computedAt        DateTime @default(now())
+
+  @@unique([leadId, adCampaignId, touchType])
+  @@index([adCampaignId])
+}
+
+model AdBudgetAlertRule {
+  id                String   @id @default(cuid())
+  studentId         String
+  businessId        String
+  adCampaignId      String?  // null = account-wide
+  adCampaign        AdCampaign? @relation(fields: [adCampaignId], references: [id])
+  // DAILY_SPEND | CAMPAIGN_SPEND | CPL | COST_PER_CONVERSATION | ROAS (spec 57)
+  metric            String
+  comparator        String   // ABOVE | BELOW
+  threshold         Decimal  @db.Decimal(14, 4)
+  isActive          Boolean  @default(true)
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([businessId])
+  @@index([adCampaignId])
+}
+
+// Spec section 28 body shape: { observedFacts[], potentialStrengths[],
+// potentialWeaknesses[], possibleExplanations[], recommendedTests[],
+// risks[] } — fact vs interpretation kept structurally separate (spec 29).
+model AdRecommendation {
+  id                String   @id @default(cuid())
+  recommendationDisplayId String @unique // e.g. ADREC-2026-000001
+  studentId         String
+  businessId        String
+  adCampaignId      String?
+  adCampaign        AdCampaign? @relation(fields: [adCampaignId], references: [id])
+  adSetId           String?  // soft ref
+  adId              String?  // soft ref
+  // CREATIVE_FATIGUE | BUDGET_ALERT | TRACKING_GAP | LEAD_FOLLOWUP_GAP |
+  // LANDING_PAGE_DROP | ATTRIBUTION_GAP | TEST_SUGGESTION | GENERAL
+  category          String
+  title             String
+  bodyJson          Json
+  status            String   @default("OPEN") // OPEN | ACTIONED | DISMISSED
+  actionedById      String?
+  actionedAt        DateTime?
+  actionNote        String?
+  createdAt         DateTime @default(now())
+
+  @@index([studentId])
+  @@index([businessId])
+  @@index([adCampaignId])
+}
+
+// The human-approval scaffold spec sections 11-12 and 78-82 require for any
+// future live budget/pause/resume mutation. No write-capable provider
+// connection exists in this build, so APPROVED never triggers a real
+// provider call — CANNOT_EXECUTE_NO_PROVIDER is the honest terminal state.
+model AdOptimizationAction {
+  id                String   @id @default(cuid())
+  actionDisplayId   String   @unique // e.g. ADACT-2026-000001
+  studentId         String
+  businessId        String
+  adCampaignId      String
+  adCampaign        AdCampaign @relation(fields: [adCampaignId], references: [id])
+  recommendationId  String?  // soft ref to AdRecommendation
+  // BUDGET_CHANGE_REQUESTED | PAUSE_REQUESTED | RESUME_REQUESTED
+  actionType        String
+  currentValueJson  Json?
+  proposedValueJson Json?
+  reason            String?
+  // PENDING_APPROVAL | APPROVED | REJECTED | CANNOT_EXECUTE_NO_PROVIDER
+  status            String   @default("PENDING_APPROVAL")
+  requestedById     String
+  approvedById      String?
+  decidedAt         DateTime?
+  createdAt         DateTime @default(now())
+
+  @@index([adCampaignId])
+  @@index([studentId])
+}
+
+model AdTestPlan {
+  id                String   @id @default(cuid())
+  testDisplayId     String   @unique // e.g. ADTEST-2026-000001
+  studentId         String
+  businessId        String
+  adCampaignId      String?  // soft ref
+  name              String
+  hypothesis        String
+  // HOOK | VISUAL | COPY | CTA | AUDIENCE | OTHER — exactly one variable per
+  // test (spec section 37).
+  variable          String
+  audience          String?
+  status            String   @default("PLANNED") // PLANNED | RUNNING | INSUFFICIENT_DATA | READY_FOR_REVIEW | COMPLETED | CANCELLED
+  startDate         DateTime?
+  endDate           DateTime?
+  metricFocus       String?
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  variants          AdTestVariant[]
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model AdTestVariant {
+  id                String   @id @default(cuid())
+  testPlanId        String
+  testPlan          AdTestPlan @relation(fields: [testPlanId], references: [id])
+  label             String   // e.g. "Variant A"
+  adId              String?  // soft ref to a real Ad, once one exists
+  creativeLinkId    String?  // soft ref
+  notes             String?
+  createdAt         DateTime @default(now())
+
+  @@index([testPlanId])
+}
+
+// A planning artifact only — never a live campaign (spec section 69). A
+// human always creates a separate real AdCampaign (source = "BLUEPRINT")
+// to act on one; this row is never silently promoted.
+model AdCampaignPlan {
+  id                String   @id @default(cuid())
+  planDisplayId     String   @unique // e.g. ADPLAN-2026-000001
+  studentId         String
+  businessId        String
+  offerId           String?  // soft ref to Offer
+  objective         String
+  audienceJson      Json?
+  creativeStrategyJson Json?
+  funnelPlanJson    Json?
+  trackingPlanJson  Json?
+  budgetContextJson Json?
+  testingPlanJson   Json?
+  metricsToWatchJson Json?
+  status            String   @default("DRAFT") // DRAFT | APPROVED | ARCHIVED
+  generationId      String?  // soft ref to AiGeneration
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model AdImportBatch {
+  id                String   @id @default(cuid())
+  importDisplayId   String   @unique // e.g. ADIMP-2026-000001
+  studentId         String
+  businessId        String
+  adAccountId       String
+  adAccount         AdAccount @relation(fields: [adAccountId], references: [id])
+  fileNameOriginal  String?
+  status            String   @default("UPLOADED") // UPLOADED | VALIDATED | COMMITTED | ROLLED_BACK | FAILED
+  rowCountTotal     Int      @default(0)
+  rowCountValid     Int      @default(0)
+  rowCountInvalid   Int      @default(0)
+  rowCountDuplicate Int      @default(0)
+  errorsJson        Json?
+  createdById       String
+  createdAt         DateTime @default(now())
+
+  @@index([adAccountId])
+  @@index([studentId])
 }
