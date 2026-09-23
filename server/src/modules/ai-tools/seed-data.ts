@@ -220,19 +220,25 @@ export const AI_TOOL_SEED_DEFS: AiToolSeedDef[] = [
     outputFields: ["Trigger", "Opening Message", "Questions", "Branches", "Responses", "Follow-Ups", "Stop Conditions", "Handoff"],
     systemInstructionExtra: "This is a design document for a human to configure in a real chatbot platform — it does not activate anything by itself.",
   },
+  // Phase 12 — M.A.I.A. Automation Studio upgrades this from a free-text
+  // "blueprint design document" stub into a real STRUCTURED generator
+  // (src/modules/automation/architect.ts), never the generic free-text
+  // engine. Same toolKey preserved on purpose — this is the tool becoming
+  // real, not a second parallel one. Output is always a DRAFT the Flow
+  // Validator and a human must still approve — never auto-published, never
+  // a claim a platform connection exists when it doesn't (spec sections
+  // 42, 45).
   {
     toolKey: "automation-architect",
     name: "M.A.I.A. Automation Architect",
-    description: "Designs automation blueprints — never auto-activated in a live system.",
+    description: "Translates a plain-language automation description into a structured DRAFT blueprint (trigger, conditions, flow, messages, delays, branches, exit conditions).",
     category: "Automation",
     displayOrder: 13,
-    modelConfigKey: "reasoning",
-    inputFields: [
-      { key: "goal", label: "Goal", type: "text", required: true },
-      { key: "channels", label: "Channels", type: "text", required: false },
-    ],
-    outputFields: ["Trigger", "Conditions", "Audience", "Actions", "Delays", "Messages", "Branches", "Stop Conditions", "Platform"],
-    systemInstructionExtra: "This is a blueprint only — it must never claim to have published or activated any live automation.",
+    modelConfigKey: "structured-analytical",
+    inputFields: [{ key: "description", label: "Describe the automation you want", type: "textarea", required: true, placeholder: "e.g. My webinar registrants need reminders before the webinar and follow-up after." }],
+    outputFields: ["Goal", "Trigger", "Eligibility", "Flow", "Messages Needed", "Conditions", "Branches", "Delays", "Exit Conditions", "Platform Requirements", "Potential Risks", "Missing Information"],
+    systemInstructionExtra:
+      "Only use trigger events, conditions, and actions from the fixed lists provided in the request — never invent a system event or action that doesn't exist. If a required channel/platform (e.g. WhatsApp) is not confirmed connected in the request context, say so explicitly in Platform Requirements and Risks rather than assuming it. This is always a DRAFT for human review — never claim the automation is live, connected, or deployed.",
   },
   {
     toolKey: "customer-journey-builder",

@@ -113,6 +113,20 @@ export const AUDIT_ACTIONS = [
   "Creative Package Status Changed",
   "Creative Test Created",
   "Creative Test Metrics Updated",
+  // Phase 12 — M.A.I.A. Automation Studio (spec sections 39, 42, 84, 86).
+  "Journey Created",
+  "Journey Status Changed",
+  "Automation Created",
+  "Automation Version Created",
+  "Automation Approved",
+  "Automation Published",
+  "Automation Activated",
+  "Automation Paused",
+  "Automation Archived",
+  "Automation Run Started",
+  "Automation Run Retried",
+  "Automation Run Cancelled",
+  "Automation Test Run",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

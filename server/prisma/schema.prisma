@@ -382,6 +382,8 @@ model Student {
   requirements     Requirement[]
   notes            StudentNote[]
   campaigns        Campaign[]
+  customerJourneys CustomerJourney[]
+  automations      Automation[]
 
   @@index([batchId])
   @@index([packageId])
@@ -449,6 +451,9 @@ model Business {
   campaigns              Campaign[]
   characterProfiles      CharacterProfile[]
   inspirationReferences  InspirationReference[]
+  customerJourneys       CustomerJourney[]
+  automations            Automation[]
+  automationTestContacts AutomationTestContact[]
 
   @@index([studentId])
 }
@@ -2242,6 +2247,219 @@ model InspirationReference {
   analysisJson  Json?
   createdById   String
   createdAt     DateTime @default(now())
+
+  @@index([businessId])
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 12 — M.A.I.A. AUTOMATION STUDIO (Customer Journey Builder +
+// Automation Architect + Visual Flow Builder). This is the FIRST real
+// event-driven execution engine in this codebase — Phase 5's AutomationRule/
+// AutomationExecution (left untouched, still real for CRUD) was never wired
+// to an automatic DomainEvent consumer, so there is no existing execution
+// path this phase could collide with. It reuses, rather than duplicates:
+// the same DomainEvent trigger log (events.ts), the same communication
+// eligibility engine + CommunicationLog + MessageTemplate (Phase 5), the
+// same GHL client (ghl/client.ts — never a second GHL integration), the
+// same Task/FollowUp/autoTriggerKey idempotency convention (Phase 2/4), and
+// the same PackageCourseAccess entitlement table (never AI opinion) for
+// GRANT_COURSE_ACCESS. No action anywhere in this engine can mark a payment
+// VERIFIED — that capability simply does not exist in the action library
+// (spec sections 20-21).
+// ---------------------------------------------------------------------------
+
+model CustomerJourney {
+  id               String   @id @default(cuid())
+  journeyDisplayId String   @unique // e.g. JRNY-2026-000001
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id])
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  name             String
+  description      String?
+  objective        String?
+  audience         String?
+  entryPoint       String?
+  // Ordered array of { stageName, purpose, customerState, businessGoal,
+  // entryCondition, exitCondition, touchpoints: string[], messages: string[],
+  // automations: string[], responsibleRole, metrics: string[] } — stages are
+  // configurable data (spec section 6), never a hard-coded enum, though the
+  // 15-stage Academy funnel (spec section 3) is offered as a seedable
+  // starting template (see automation/templates.ts).
+  stagesJson       Json
+  // DRAFT | FOR_REVIEW | APPROVED | ACTIVE | PAUSED | ARCHIVED — ACTIVE here
+  // means only that its linked Automations may run; it is never itself an
+  // execution unit (spec section 5).
+  status           String   @default("DRAFT")
+  masterBrainVersionAtCreation Int?
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  automations      Automation[]
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model Automation {
+  id                  String   @id @default(cuid())
+  automationDisplayId String   @unique // e.g. AUTO-2026-000001
+  studentId           String
+  student             Student  @relation(fields: [studentId], references: [id])
+  businessId          String
+  business            Business @relation(fields: [businessId], references: [id])
+  journeyId           String?
+  journey             CustomerJourney? @relation(fields: [journeyId], references: [id])
+  name                String
+  goal                String?
+  audience            String?
+  // DRAFT | FOR_REVIEW | APPROVED | PUBLISHED | ACTIVE | PAUSED | ARCHIVED |
+  // BLOCKED (spec section 41). ACTIVE never implies external-platform
+  // deployment unless platformExecutionMode/connection state actually
+  // confirms it (spec section "Do not pretend an automation is live").
+  status              String   @default("DRAFT")
+  // DESIGN_ONLY | READY_FOR_TEST | READY_FOR_APPROVAL | READY_TO_PUBLISH |
+  // ACTIVE | BLOCKED (spec section 47) — recomputed by the validator on
+  // every version save, cached here for fast dashboard/list reads.
+  readiness           String   @default("DESIGN_ONLY")
+  // MAIA_NATIVE | GHL | MANUAL | EXTERNAL_WEBHOOK | FUTURE_CONNECTOR (spec
+  // section 56) — declares who actually has execution authority.
+  platformExecutionMode String @default("MAIA_NATIVE")
+  currentVersionId    String?  @unique
+  currentVersion      AutomationVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  createdById         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  versions            AutomationVersion[] @relation("AutomationVersions")
+  runs                AutomationRun[]
+
+  @@index([studentId])
+  @@index([businessId])
+  @@index([journeyId])
+}
+
+model AutomationVersion {
+  id              String   @id @default(cuid())
+  automationId    String
+  automation      Automation @relation("AutomationVersions", fields: [automationId], references: [id])
+  versionNumber   Int
+  // { nodes: [{id, type, config}], edges: [{from, to, branch?}] } — node
+  // type is one of START | TRIGGER | CONDITION | ACTION | MESSAGE | DELAY |
+  // DECISION | TASK | WEBHOOK | INTEGRATION | GOAL | EXIT (spec section 11).
+  flowJson        Json
+  // A DomainEventType (see events.ts), "MANUAL", or "SCHEDULE" (spec
+  // sections 13-15).
+  triggerType     String
+  triggerConfig   Json?
+  // DRAFT | ACTIVE | ARCHIVED — exactly one ACTIVE version per Automation at
+  // a time, identical to PromptVersion's own established pattern. Editing an
+  // ACTIVE automation always creates a new DRAFT version (spec section 39);
+  // it never mutates the version an in-flight AutomationRun is pinned to.
+  status          String   @default("DRAFT")
+  // The validator's last result: { issues: [{severity, code, message,
+  // nodeId?}], readiness } (spec sections 46-47).
+  validationJson  Json?
+  changeNotes     String?
+  createdById     String
+  reviewedById    String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  publishedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  currentForAutomation Automation? @relation("CurrentVersion")
+  runs                 AutomationRun[]
+
+  @@unique([automationId, versionNumber])
+  @@index([automationId])
+}
+
+model AutomationRun {
+  id                  String   @id @default(cuid())
+  runDisplayId        String   @unique // e.g. RUN-2026-000001
+  automationId        String
+  automation          Automation @relation(fields: [automationId], references: [id])
+  automationVersionId String
+  automationVersion   AutomationVersion @relation(fields: [automationVersionId], references: [id])
+  entityType          String   // "Lead" | "Student"
+  entityId            String
+  triggerEvent        String
+  // The DomainEvent that spawned this run, when event-triggered (null for a
+  // MANUAL or SCHEDULE trigger). The @@unique below on
+  // [automationId, domainEventId] is the REAL idempotency guard (spec
+  // section 34) — a database constraint, not an in-memory check, exactly
+  // matching IntegrationOutboxEvent's own domainEventId-uniqueness pattern.
+  domainEventId       String?
+  correlationId       String   @unique
+  currentNodeId       String?
+  status              String   @default("QUEUED") // QUEUED | RUNNING | WAITING | COMPLETED | FAILED | CANCELLED | STOPPED
+  // TEST MODE runs (spec sections 48-50) never call a real external action —
+  // see automation/actions.ts's isTest branch on every side-effecting action.
+  isTest              Boolean  @default(false)
+  // Set when WAITING (a DELAY or WAIT_UNTIL node) — the dispatcher worker
+  // polls for resumeAt <= now() exactly like the GHL outbox's nextRetryAt.
+  resumeAt            DateTime?
+  errorMessage        String?
+  startedAt           DateTime @default(now())
+  completedAt         DateTime?
+
+  steps               AutomationRunStep[]
+
+  @@unique([automationId, domainEventId])
+  @@index([status, resumeAt])
+  @@index([entityType, entityId])
+}
+
+model AutomationRunStep {
+  id           String   @id @default(cuid())
+  runId        String
+  run          AutomationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepIndex    Int
+  nodeId       String
+  nodeType     String
+  status       String   // RUNNING | COMPLETED | FAILED | SKIPPED | WAITING
+  // Sanitized only — never an API key/token/password/credential (spec
+  // section 38). Action executors are responsible for redacting before
+  // writing here; see automation/actions.ts's sanitizeForLog helper.
+  inputJson    Json?
+  outputJson   Json?
+  errorMessage String?
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+
+  @@index([runId])
+}
+
+// A minimal, real Tag store (spec sections 16, 18) — no Tag concept existed
+// anywhere in this codebase before Phase 12; rather than fake a CONDITION/
+// ACTION that reads a field that doesn't exist, this is a small new table
+// backing both the ADD_TAG/REMOVE_TAG actions and the Tag condition type.
+model EntityTag {
+  id         String   @id @default(cuid())
+  entityType String   // "Lead" | "Student"
+  entityId   String
+  tag        String
+  addedById  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([entityType, entityId, tag])
+  @@index([entityType, entityId])
+}
+
+// Configured test recipients (spec section 50) — TEST MODE runs are only
+// ever allowed to target an entity listed here, never the real student
+// population.
+model AutomationTestContact {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  label       String
+  entityType  String   // "Lead" | "Student"
+  entityId    String
+  createdById String
+  createdAt   DateTime @default(now())
 
   @@index([businessId])
 }

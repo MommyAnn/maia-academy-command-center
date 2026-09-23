@@ -100,6 +100,13 @@ export async function checkStopConditions(personId: string, stopConditions: stri
     const verifiedPayment = await db.paymentTransaction.findFirst({ where: { leadId: lead.id, status: "VERIFIED" } });
     if (verifiedPayment) triggered.push("PAYMENT_VERIFIED");
   }
+  if (stopConditions.includes("ENROLLED")) {
+    const student = await db.student.findUnique({ where: { personId } });
+    if (student) {
+      const enrollment = await db.enrollment.findFirst({ where: { studentId: student.id } });
+      if (enrollment) triggered.push("ENROLLED");
+    }
+  }
   if (stopConditions.includes("REQUIREMENT_COMPLETED")) {
     const student = await db.student.findUnique({ where: { personId } });
     if (student) {

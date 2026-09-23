@@ -38,6 +38,8 @@ import { intelligenceRoutes } from "./modules/intelligence/routes.js";
 import { aiToolAdminRoutes } from "./modules/ai-tools/admin-routes.js";
 import { aiToolGenerateRoutes } from "./modules/ai-tools/generate-routes.js";
 import { creativeStudioRoutes } from "./modules/creative/routes.js";
+import { automationStudioRoutes } from "./modules/automation/routes.js";
+import { startAutomationDispatcher } from "./modules/automation/dispatcher.js";
 
 export interface BuildAppOptions {
   /** Overrides env.LOGIN_RATE_LIMIT_PER_MINUTE for this instance only — used by the brute-force test to prove the limiter actually blocks, without lowering the shared limit every other test's logins run against. */
@@ -118,12 +120,15 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(migrationRoutes, { uploadRateLimitPerMinute: options.migrationUploadRateLimitOverride });
   await app.register(intelligenceRoutes);
   await app.register(creativeStudioRoutes);
+  await app.register(automationStudioRoutes);
 
-  // The outbox sweep is a real interval timer in every real environment —
-  // skipped only under test, where the test suite drives processing
-  // explicitly and deterministically instead (spec section 30).
+  // The outbox sweep and automation dispatcher are both real interval
+  // timers in every real environment — skipped only under test, where the
+  // test suite drives processing explicitly and deterministically instead
+  // (spec section 30; Phase 12 spec section 126).
   if (env.NODE_ENV !== "test") {
     startOutboxWorker();
+    startAutomationDispatcher();
   }
 
   return app;

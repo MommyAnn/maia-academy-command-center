@@ -91,6 +91,21 @@ export async function resetDb() {
     db.characterProfile.deleteMany(),
     db.inspirationReference.deleteMany(),
     db.campaign.deleteMany(),
+    // Phase 12 (M.A.I.A. Automation Studio) — AutomationRun cascades its own
+    // AutomationRunStep rows automatically (onDelete: Cascade). Automation
+    // and AutomationVersion have a real two-way FK (Automation.currentVersionId
+    // -> AutomationVersion, AutomationVersion.automationId -> Automation), so
+    // currentVersionId is nulled out first to break the cycle before either
+    // side is deleted. EntityTag/AutomationTestContact have no FK ordering
+    // constraint but are reset every run anyway, matching the same "always
+    // reset even what's normally durable" principle used throughout this file.
+    db.automationRun.deleteMany(),
+    db.automation.updateMany({ where: {}, data: { currentVersionId: null } }),
+    db.automationVersion.deleteMany(),
+    db.entityTag.deleteMany(),
+    db.automationTestContact.deleteMany(),
+    db.automation.deleteMany(),
+    db.customerJourney.deleteMany(),
     db.business.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),

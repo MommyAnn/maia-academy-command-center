@@ -102,3 +102,21 @@ export async function generateCreativePackageDisplayId(): Promise<string> {
   const n = await nextSequence(`creative-package:${year}`);
   return `CRPKG-${year}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateJourneyDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`journey:${year}`);
+  return `JRNY-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAutomationDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`automation:${year}`);
+  return `AUTO-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAutomationRunDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`automation-run:${year}`);
+  return `RUN-${year}-${String(n).padStart(6, "0")}`;
+}

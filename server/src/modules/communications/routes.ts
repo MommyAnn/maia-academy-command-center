@@ -285,7 +285,12 @@ async function buildSendPreview(personId: string, channel: CommunicationChannel,
   };
 }
 
-async function executeSend(personId: string, channel: "Email" | "SMS" | "WhatsApp", templateId: string, actorUserId: string) {
+// Exported for reuse by the Phase 12 Automation Studio's QUEUE_COMMUNICATION
+// action (automation/actions.ts) — the SAME eligibility/template/GHL-send
+// path a manual staff send uses, never a second parallel implementation
+// (spec section 53's "do not create a second independent GHL integration"
+// applies just as much to the send path itself as to the API client).
+export async function executeSend(personId: string, channel: "Email" | "SMS" | "WhatsApp", templateId: string, actorUserId: string | null, triggerEvent: string = "Manual") {
   const [eligibility, template, person, lead, student, contactMap] = await Promise.all([
     checkCommunicationEligibility(personId, channel),
     db.messageTemplate.findUnique({ where: { id: templateId } }),
@@ -296,7 +301,7 @@ async function executeSend(personId: string, channel: "Email" | "SMS" | "WhatsAp
   ]);
   const templateCheck = checkTemplateApproved(template);
 
-  const baseLog = { personId, leadId: lead?.id ?? null, studentId: student?.id ?? null, channel, templateId, triggerEvent: "Manual", provider: "GHL", sentById: actorUserId };
+  const baseLog = { personId, leadId: lead?.id ?? null, studentId: student?.id ?? null, channel, templateId, triggerEvent, provider: "GHL", sentById: actorUserId ?? undefined };
 
   if (!eligibility.eligible || !templateCheck.eligible) {
     const reason = !eligibility.eligible ? eligibility.reason : !templateCheck.eligible ? templateCheck.reason : undefined;
