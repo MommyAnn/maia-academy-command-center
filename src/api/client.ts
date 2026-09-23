@@ -42,6 +42,10 @@ function post<T>(path: string, payload?: unknown): Promise<T> {
   return apiRequest<T>(path, { method: "POST", body: payload !== undefined ? JSON.stringify(payload) : undefined });
 }
 
+function patch<T>(path: string, payload?: unknown): Promise<T> {
+  return apiRequest<T>(path, { method: "PATCH", body: payload !== undefined ? JSON.stringify(payload) : undefined });
+}
+
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
@@ -166,4 +170,87 @@ export const studentsApi = {
 export const documentsApi = {
   upload: (studentId: string, payload: { documentType: string; filename: string; mimeType: string; contentBase64: string }) =>
     post<{ document: { id: string; documentType: string; status: string } }>(`/api/students/${studentId}/documents`, payload),
+};
+
+// ---------------------------------------------------------------------------
+// M.A.I.A. Intelligence (Production Phase 10) — this app's own login
+// (AuthContext) does not sign into the real backend (see
+// ProductionBackendKpiCard's disclosure); this module's page therefore
+// authenticates against server/ directly via authApi.login before calling
+// any of these. Every number returned is real and DB-derived; nothing here
+// is fabricated client-side.
+// ---------------------------------------------------------------------------
+
+export interface ApiIntelligenceSignal {
+  id: string;
+  ruleId: string;
+  domain: string;
+  entityType: string;
+  entityId: string;
+  severity: string;
+  title: string;
+  explanation: string;
+  evidenceJson: Record<string, unknown>;
+  detectedAt: string;
+  status: string;
+  resolution: string | null;
+  rule: { ruleKey: string; name: string; recommendation: string };
+}
+
+export interface ApiIntelligenceRule {
+  id: string;
+  ruleKey: string;
+  name: string;
+  domain: string;
+  description: string;
+  triggerType: string;
+  thresholdJson: Record<string, unknown>;
+  severity: string;
+  recommendation: string;
+  active: boolean;
+}
+
+export interface ApiTodaysPriority {
+  id: string;
+  severity: string;
+  domain: string;
+  title: string;
+  explanation: string;
+  evidence: Record<string, unknown>;
+  entityType: string;
+  entityId: string;
+  recommendation: string;
+  ruleKey: string;
+  detectedAt: string;
+  status: string;
+}
+
+export interface ApiDailyBrief {
+  rangeDays: number;
+  since: string;
+  facts: Record<string, number>;
+  calculatedMetrics: Record<string, number>;
+  ruleBasedSignals: { openByseverity: Record<string, number>; totalOpen: number };
+  generatedAt: string;
+}
+
+export const intelligenceApi = {
+  priorities: () => get<{ priorities: ApiTodaysPriority[] }>("/api/intelligence/priorities"),
+  dailyBrief: (rangeDays = 1) => get<{ brief: ApiDailyBrief }>(`/api/intelligence/daily-brief?rangeDays=${rangeDays}`),
+  signals: (filters?: { domain?: string; severity?: string; status?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.domain) params.set("domain", filters.domain);
+    if (filters?.severity) params.set("severity", filters.severity);
+    if (filters?.status) params.set("status", filters.status);
+    const qs = params.toString();
+    return get<{ signals: ApiIntelligenceSignal[] }>(`/api/intelligence/signals${qs ? `?${qs}` : ""}`);
+  },
+  resolveSignal: (signalId: string, resolution: string) => post<{ signal: ApiIntelligenceSignal }>(`/api/intelligence/signals/${signalId}/resolve`, { resolution }),
+  dismissSignal: (signalId: string, resolution: string) => post<{ signal: ApiIntelligenceSignal }>(`/api/intelligence/signals/${signalId}/dismiss`, { resolution }),
+  rules: () => get<{ rules: ApiIntelligenceRule[] }>("/api/intelligence/rules"),
+  updateRule: (ruleId: string, payload: { active?: boolean; severity?: string; thresholdJson?: Record<string, unknown> }) =>
+    patch<{ rule: ApiIntelligenceRule }>(`/api/intelligence/rules/${ruleId}`, payload),
+  evaluateNow: () => post<{ summaries: Array<{ ruleKey: string; candidatesFound: number; signalsCreated: number; signalsAutoResolved: number }> }>("/api/intelligence/evaluate"),
+  ask: (question: string) =>
+    post<{ answer: string; facts: Record<string, unknown>; source: string; aiPhrased: boolean; matched: boolean }>("/api/intelligence/ask", { question }),
 };

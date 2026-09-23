@@ -55,6 +55,18 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
  * matrix does not apply to Students, matching the frontend's own rule);
  * student-facing endpoints must use requireStudentSelf below instead.
  */
+/**
+ * Reusable permission check for code paths that need a yes/no answer
+ * outside of a route preHandler (e.g. Ask M.A.I.A.'s per-question, dynamic
+ * permission scoping) — same lookup requirePermission's preHandler uses.
+ */
+export async function checkPermission(userId: string, module: PermissionModule, action: PermissionAction): Promise<boolean> {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { roleId: true } });
+  if (!user) return false;
+  const grant = await db.rolePermission.findUnique({ where: { roleId_module_action: { roleId: user.roleId, module, action } } });
+  return grant?.allowed ?? false;
+}
+
 export function requirePermission(module: PermissionModule, action: PermissionAction) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const ctx = request.authContext;
@@ -62,15 +74,8 @@ export function requirePermission(module: PermissionModule, action: PermissionAc
       reply.code(403).send({ error: "Forbidden." });
       return reply;
     }
-    const user = await db.user.findUnique({ where: { id: ctx.userId }, select: { roleId: true } });
-    if (!user) {
-      reply.code(403).send({ error: "Forbidden." });
-      return reply;
-    }
-    const grant = await db.rolePermission.findUnique({
-      where: { roleId_module_action: { roleId: user.roleId, module, action } },
-    });
-    if (!grant?.allowed) {
+    const allowed = await checkPermission(ctx.userId, module, action);
+    if (!allowed) {
       reply.code(403).send({ error: `Forbidden: requires ${module} / ${action}.` });
       return reply;
     }

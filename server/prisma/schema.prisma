@@ -1858,3 +1858,59 @@ model ImportRecord {
   @@index([batchId])
   @@index([status])
 }
+
+// ---------------------------------------------------------------------------
+// PHASE 10 — M.A.I.A. INTELLIGENCE. Deterministic, rule-based signal
+// generation over existing data (spec's Core Principle: DATA -> RULES ->
+// SIGNALS -> optional AI interpretation -> RECOMMENDATION -> human review).
+// This is never the source of truth for anything it reads — it only reads
+// and annotates. No field here ever feeds back into Student/Payment/etc.
+// ---------------------------------------------------------------------------
+
+model IntelligenceRule {
+  id             String   @id @default(cuid())
+  ruleKey        String   @unique // stable code identifier, e.g. "lead-interested-no-followup"
+  name           String
+  domain         String   // Lead | Finance | StudentSuccess | Operations | AiUsage
+  description    String
+  // EVENT_BASED | THRESHOLD | TIME_BASED | STATUS_MISMATCH | MISSING_ACTION | ANOMALY
+  triggerType    String
+  // Rule-specific configurable knobs (e.g. { "hoursThreshold": 48 }) — kept
+  // as JSON so Admin can tune thresholds without a schema change, per spec
+  // section 79's "Admin can configure Thresholds".
+  thresholdJson  Json
+  severity       String   // CRITICAL | HIGH | MEDIUM | LOW
+  recommendation String
+  active         Boolean  @default(true)
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  signals IntelligenceSignal[]
+}
+
+model IntelligenceSignal {
+  id           String           @id @default(cuid())
+  ruleId       String
+  rule         IntelligenceRule @relation(fields: [ruleId], references: [id])
+  domain       String
+  entityType   String           // Lead | PaymentTransaction | CourseAccessGrant | Certificate | IntegrationOutboxEvent | Student
+  entityId     String
+  severity     String           // CRITICAL | HIGH | MEDIUM | LOW
+  title        String
+  explanation  String           // human-readable "why am I seeing this" (spec section 7)
+  evidenceJson Json             // the actual matched field values, for click-through/audit
+  detectedAt   DateTime         @default(now())
+  status       String           @default("NEW") // NEW | REVIEWED | ACTIONED | RESOLVED | DISMISSED
+  assignedToId String?
+  resolvedAt   DateTime?
+  resolvedById String?
+  resolution   String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([status])
+  @@index([domain])
+  @@index([entityType, entityId])
+  @@index([ruleId, entityType, entityId])
+}

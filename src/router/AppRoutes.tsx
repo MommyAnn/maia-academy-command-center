@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "@/layouts/AppLayout";
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
+import { CommandCenter as IntelligenceCommandCenter } from "@/pages/intelligence/CommandCenter";
 import { EnrollmentForm } from "@/pages/EnrollmentForm";
 import { WebinarRegistration } from "@/pages/WebinarRegistration";
 import { NewEnrollments } from "@/pages/students/NewEnrollments";
@@ -112,6 +113,7 @@ import { NAV_SECTIONS } from "@/data/navigation";
 
 const BUILT_PATHS = new Set([
   "/dashboard",
+  "/intelligence/command-center",
   "/students/all",
   "/students/new-enrollments",
   "/students/batches",
@@ -226,6 +228,7 @@ export function AppRoutes() {
         }
       >
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/intelligence/command-center" element={<IntelligenceCommandCenter />} />
         <Route path="/students/all" element={<AllStudents />} />
         <Route path="/students/new-enrollments" element={<NewEnrollments />} />
         <Route path="/students/batches" element={<Batches />} />

@@ -27,6 +27,12 @@ export async function resetDb() {
     // before or after PaymentTransaction. Cleared first regardless, since
     // it must go before Student/Person/Batch below.
     db.importBatch.deleteMany(),
+    // Phase 10 (M.A.I.A. Intelligence) — IntelligenceSignal has a hard FK to
+    // IntelligenceRule, so it must clear first; rules themselves are reset
+    // and reseeded every run too (same "always reset even seed-managed
+    // rows" principle already used for PromptVersion/AiTool above).
+    db.intelligenceSignal.deleteMany(),
+    db.intelligenceRule.deleteMany(),
     db.requirementReview.deleteMany(),
     db.requirement.deleteMany(),
     db.studentNote.deleteMany(),

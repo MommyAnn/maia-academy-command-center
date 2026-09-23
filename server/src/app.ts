@@ -34,6 +34,7 @@ import { aiAdminRoutes } from "./modules/ai/admin-routes.js";
 import { masterBrainRoutes } from "./modules/master-brain/routes.js";
 import { migrationRoutes } from "./modules/migration/routes.js";
 import { healthRoutes } from "./modules/health/routes.js";
+import { intelligenceRoutes } from "./modules/intelligence/routes.js";
 import { aiToolAdminRoutes } from "./modules/ai-tools/admin-routes.js";
 import { aiToolGenerateRoutes } from "./modules/ai-tools/generate-routes.js";
 
@@ -114,6 +115,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(aiToolAdminRoutes);
   await app.register(aiToolGenerateRoutes);
   await app.register(migrationRoutes, { uploadRateLimitPerMinute: options.migrationUploadRateLimitOverride });
+  await app.register(intelligenceRoutes);
 
   // The outbox sweep is a real interval timer in every real environment —
   // skipped only under test, where the test suite drives processing

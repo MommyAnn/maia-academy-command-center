@@ -91,6 +91,13 @@ export const AUDIT_ACTIONS = [
   "Migration Batch Approved",
   "Migration Batch Imported",
   "Migration Batch Rolled Back",
+  // Phase 10 — M.A.I.A. Intelligence (spec sections 47, 81).
+  "Intelligence Rule Created",
+  "Intelligence Rule Changed",
+  "Intelligence Rule Disabled",
+  "Intelligence Signal Resolved",
+  "Intelligence Signal Dismissed",
+  "Intelligence Recommendation Generated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

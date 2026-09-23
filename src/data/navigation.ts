@@ -9,6 +9,10 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [{ label: "Dashboard", path: "/dashboard" }],
   },
   {
+    label: "M.A.I.A. Intelligence",
+    items: [{ label: "Command Center", path: "/intelligence/command-center" }],
+  },
+  {
     label: "Students",
     items: [
       { label: "All Students", path: "/students/all" },

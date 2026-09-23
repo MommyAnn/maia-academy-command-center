@@ -7,6 +7,7 @@ import { db } from "../src/db.js";
 import { hashPassword } from "../src/auth/password.js";
 import { PERMISSION_MODULES, STAFF_ROLES } from "../src/rbac/modules.js";
 import { seedAiToolLibrary } from "../src/modules/ai-tools/seed.js";
+import { seedDefaultRules } from "../src/modules/intelligence/engine.js";
 
 export { main as runDevSeed };
 
@@ -186,6 +187,9 @@ async function main() {
       status: "ACTIVE",
     },
   });
+
+  console.log("Seeding M.A.I.A. Intelligence default rules...");
+  await seedDefaultRules();
 
   console.log("Done.", { studentA: studentA.id, studentB: studentB.id });
 }

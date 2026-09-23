@@ -41,6 +41,7 @@ export const PERMISSION_MODULES = [
   "AI Business Tools - Technical Logs",
   "System Settings",
   "Data Migration",
+  "M.A.I.A. Intelligence",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];
