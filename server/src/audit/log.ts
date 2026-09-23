@@ -127,6 +127,21 @@ export const AUDIT_ACTIONS = [
   "Automation Run Retried",
   "Automation Run Cancelled",
   "Automation Test Run",
+  // Phase 13 — M.A.I.A. Website & Funnel Studio (spec sections 64-66, 116).
+  "Website Project Created",
+  "Website Page Created",
+  "Website Page Status Changed",
+  "Website Published",
+  "Website Unpublished",
+  "Website Rolled Back",
+  "Funnel Created",
+  "Funnel Status Changed",
+  "Offer Created",
+  "Form Created",
+  "Form Destination Changed",
+  "Form Submission Received",
+  "Domain Configuration Changed",
+  "Tracking Configuration Changed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -106,6 +106,27 @@ export async function resetDb() {
     db.automationTestContact.deleteMany(),
     db.automation.deleteMany(),
     db.customerJourney.deleteMany(),
+    // Phase 13 (M.A.I.A. Website & Funnel Studio) — everything with a
+    // RESTRICT FK back to WebsitePage/WebsiteProject/WebForm must clear
+    // first: WebsiteAnalyticsEvent/PageVersion/PageCopyVariant before
+    // WebsitePage, FormSubmission before WebForm, WebForm/WebsiteDomain/
+    // TrackingConfig before WebsiteProject, and WebsitePage itself before
+    // WebsiteProject. Funnel/WebsiteProject/Offer all have a plain RESTRICT
+    // FK to Student/Business, so all three must clear before the
+    // Business/Student cleanup below; Offer's own FK from Funnel/
+    // WebsiteProject is ON DELETE SET NULL, so their relative order among
+    // themselves doesn't matter.
+    db.websiteAnalyticsEvent.deleteMany(),
+    db.formSubmission.deleteMany(),
+    db.pageVersion.deleteMany(),
+    db.pageCopyVariant.deleteMany(),
+    db.webForm.deleteMany(),
+    db.websiteDomain.deleteMany(),
+    db.trackingConfig.deleteMany(),
+    db.websitePage.deleteMany(),
+    db.funnel.deleteMany(),
+    db.websiteProject.deleteMany(),
+    db.offer.deleteMany(),
     db.business.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),

@@ -120,3 +120,33 @@ export async function generateAutomationRunDisplayId(): Promise<string> {
   const n = await nextSequence(`automation-run:${year}`);
   return `RUN-${year}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateOfferDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`offer:${year}`);
+  return `OFFER-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateWebsiteDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`website:${year}`);
+  return `WEB-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateFunnelDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`funnel:${year}`);
+  return `FNL-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generatePageDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`page:${year}`);
+  return `PAGE-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateFormDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`form:${year}`);
+  return `FORM-${year}-${String(n).padStart(6, "0")}`;
+}

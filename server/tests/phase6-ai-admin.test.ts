@@ -89,10 +89,10 @@ describe("Kill switch (spec section 65)", () => {
 });
 
 describe("Tool Library + Prompt Manager (spec sections 25-29)", () => {
-  it("lists all 25 seeded tools (18 original — one, automation-architect, upgraded to a real structured generator in Phase 12 — + 7 Phase 11 Creative Studio) with their model config", async () => {
+  it("lists all 26 seeded tools (18 original — one, automation-architect, upgraded to a real structured generator in Phase 12, another, funnel-builder, upgraded to the real Funnel Architect in Phase 13 — + 7 Phase 11 Creative Studio + 1 Phase 13 website-architect) with their model config", async () => {
     const res = await app.inject({ method: "GET", url: "/api/ai-tools/tools", headers: { cookie: ownerCookie } });
     expect(res.statusCode).toBe(200);
-    expect(res.json().tools.length).toBe(25);
+    expect(res.json().tools.length).toBe(26);
     expect(res.json().tools.every((t: { modelConfig: unknown }) => t.modelConfig)).toBe(true);
   });
 

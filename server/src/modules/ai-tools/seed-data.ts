@@ -250,18 +250,25 @@ export const AI_TOOL_SEED_DEFS: AiToolSeedDef[] = [
     inputFields: [{ key: "product", label: "Product/Service", type: "text", required: false }],
     outputFields: ["Awareness", "Interest", "Consideration", "Conversion", "Onboarding", "Activation", "Retention", "Repeat Purchase", "Advocacy", "Touchpoints", "Messages", "Automation", "Content", "Offers", "KPIs"],
   },
+  // Phase 13 — M.A.I.A. Website & Funnel Studio upgrades this from a
+  // free-text blueprint stub into a real STRUCTURED generator (see
+  // src/modules/website/architect.ts), same toolKey preserved on purpose —
+  // this is the tool becoming real, exactly like automation-architect's own
+  // Phase 12 upgrade. Output matches spec section 10's exact field list.
   {
     toolKey: "funnel-builder",
-    name: "M.A.I.A. Funnel Builder",
-    description: "Blueprints for lead generation, webinar, and product sales funnels.",
+    name: "M.A.I.A. Funnel Architect",
+    description: "Generates a structured DRAFT funnel strategy — stages, required pages, CTAs, forms, follow-up, automation and tracking requirements.",
     category: "Funnels",
     displayOrder: 15,
-    modelConfigKey: "reasoning",
+    modelConfigKey: "structured-analytical",
     inputFields: [
-      { key: "funnelType", label: "Funnel Type", type: "select", required: true, options: ["Lead Generation Funnel", "Webinar Funnel", "Product Sales Funnel", "Course Funnel", "Service Funnel", "Appointment Funnel", "Ecommerce Funnel"] },
-      { key: "product", label: "Product/Service", type: "text", required: false },
+      { key: "funnelType", label: "Funnel Type", type: "select", required: true, options: ["Lead Generation", "Webinar", "Sales", "Enrollment", "Course", "Service Booking", "Product", "E-Commerce", "Waitlist", "Application", "Consultation", "Custom"] },
+      { key: "description", label: "Anything else to describe?", type: "textarea", required: false },
     ],
-    outputFields: ["Funnel Objective", "Traffic Source", "Landing Page Structure", "Lead Capture", "Offer", "Follow-Up", "Checkout/Enrollment", "Upsell/Downsell", "Retention"],
+    outputFields: ["Funnel Goal", "Target Audience", "Traffic Entry", "Awareness Stage", "Offer", "Funnel Stages", "Required Pages", "CTA Per Stage", "Forms", "Follow-Up Requirements", "Automation Requirements", "Tracking Requirements", "Success Metrics", "Risks / Missing Information"],
+    systemInstructionExtra:
+      "This is always a DRAFT for human review — never claim a funnel is live, published, or connected. Only use trigger events, CTA types, and automation concepts from the fixed lists provided in the request — never invent one that doesn't exist.",
   },
   {
     toolKey: "website-copy-builder",
@@ -403,6 +410,25 @@ export const AI_TOOL_SEED_DEFS: AiToolSeedDef[] = [
     outputFields: ["Image Prompt", "Video Prompt"],
     systemInstructionExtra:
       "No real image/video generation provider is connected — this produces a PRODUCTION PROMPT only, never a claim that an image or video was generated. If a character reference is supplied, every prompt must explicitly instruct: use the provided character reference as the same main character, and maintain consistent face, facial features, skin tone, hair, body proportions, age appearance, and identity.",
+  },
+  // Phase 13 — M.A.I.A. Website & Funnel Studio. Generates a structured
+  // DRAFT page/section structure (src/modules/website/architect.ts) — never
+  // the generic free-text engine, never a forced fixed structure (spec
+  // sections 12-14). Real Section Library types only.
+  {
+    toolKey: "website-architect",
+    name: "M.A.I.A. Website Architect",
+    description: "Recommends a structured DRAFT page/section layout based on Brand Master Brain, business type, offer, audience, and objective.",
+    category: "Website",
+    displayOrder: 27,
+    modelConfigKey: "structured-analytical",
+    inputFields: [
+      { key: "websiteType", label: "Website/Page Type", type: "select", required: true, options: ["BUSINESS_WEBSITE", "LANDING_PAGE", "SALES_PAGE", "LEAD_GENERATION_PAGE", "WEBINAR_REGISTRATION_PAGE", "COURSE_SALES_PAGE", "PRODUCT_PAGE", "SERVICE_PAGE", "BOOKING_PAGE", "WAITLIST_PAGE", "COMING_SOON_PAGE", "THANK_YOU_PAGE", "LINK_IN_BIO", "CUSTOM"] },
+      { key: "objective", label: "Primary objective", type: "text", required: false },
+    ],
+    outputFields: ["Sections", "Section Purpose", "Section Order", "CTA Placement", "Form Placement"],
+    systemInstructionExtra:
+      "Only use section types from the fixed Section Library provided in the request — never invent a section type. Do not force a full landing-page structure onto every business/page type; adapt to what the objective actually needs. This is always a DRAFT for human review.",
   },
 ];
 

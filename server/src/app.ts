@@ -39,6 +39,7 @@ import { aiToolAdminRoutes } from "./modules/ai-tools/admin-routes.js";
 import { aiToolGenerateRoutes } from "./modules/ai-tools/generate-routes.js";
 import { creativeStudioRoutes } from "./modules/creative/routes.js";
 import { automationStudioRoutes } from "./modules/automation/routes.js";
+import { websiteFunnelStudioRoutes } from "./modules/website/routes.js";
 import { startAutomationDispatcher } from "./modules/automation/dispatcher.js";
 
 export interface BuildAppOptions {
@@ -121,6 +122,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(intelligenceRoutes);
   await app.register(creativeStudioRoutes);
   await app.register(automationStudioRoutes);
+  await app.register(websiteFunnelStudioRoutes);
 
   // The outbox sweep and automation dispatcher are both real interval
   // timers in every real environment — skipped only under test, where the

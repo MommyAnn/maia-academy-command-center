@@ -384,6 +384,9 @@ model Student {
   campaigns        Campaign[]
   customerJourneys CustomerJourney[]
   automations      Automation[]
+  offers           Offer[]
+  websiteProjects  WebsiteProject[]
+  funnels          Funnel[]
 
   @@index([batchId])
   @@index([packageId])
@@ -454,6 +457,10 @@ model Business {
   customerJourneys       CustomerJourney[]
   automations            Automation[]
   automationTestContacts AutomationTestContact[]
+  offers                 Offer[]
+  websiteProjects        WebsiteProject[]
+  funnels                Funnel[]
+  webForms               WebForm[]
 
   @@index([studentId])
 }
@@ -2462,4 +2469,309 @@ model AutomationTestContact {
   createdAt   DateTime @default(now())
 
   @@index([businessId])
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 13 — M.A.I.A. WEBSITE & FUNNEL STUDIO. A WebsitePage always belongs
+// to exactly one WebsiteProject (never dual-owned by a Funnel too) — a
+// Funnel's stagesJson instead holds ordered { stageName, pageId?,
+// touchpoint, automationId? } entries, a soft reference to the real page,
+// exactly like CampaignCopyVariant.generationId's soft-reference pattern
+// from Phase 11. "PUBLISHED" here means the page is actually servable
+// through this server's own real public read endpoint (see routes.ts's
+// GET /api/public/pages/:slug) — never a claim of deployment to an
+// external host/domain/CDN, since no such provider integration exists in
+// this codebase (spec sections 111, 113 — "do not rebuild the entire
+// application merely to support one host"). A real PageView/CTA-click
+// AnalyticsEvent is recorded on every actual hit to that public endpoint;
+// nothing here ever fabricates a metric.
+// ---------------------------------------------------------------------------
+
+model Offer {
+  id          String   @id @default(cuid())
+  offerDisplayId String @unique // e.g. OFFER-2026-000001
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  name        String
+  description String?
+  price       Decimal? @db.Decimal(12, 2)
+  currency    String?  @default("PHP")
+  // Ordered array of plain strings — what's included / bonuses / guarantee
+  // wording the Student themselves typed in (never AI-invented — spec
+  // section 22 applies to Offer content exactly as it does to page copy).
+  detailsJson Json?
+  status      String   @default("DRAFT") // DRAFT | APPROVED | ARCHIVED
+  version     Int      @default(1)
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  websiteProjects WebsiteProject[]
+  funnels         Funnel[]
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model WebsiteProject {
+  id                String   @id @default(cuid())
+  websiteDisplayId  String   @unique // e.g. WEB-2026-000001
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id])
+  businessId        String
+  business          Business @relation(fields: [businessId], references: [id])
+  name              String
+  purpose           String?
+  // BUSINESS_WEBSITE | LANDING_PAGE | SALES_PAGE | LEAD_GENERATION_PAGE |
+  // WEBINAR_REGISTRATION_PAGE | COURSE_SALES_PAGE | PRODUCT_PAGE |
+  // SERVICE_PAGE | BOOKING_PAGE | WAITLIST_PAGE | COMING_SOON_PAGE |
+  // THANK_YOU_PAGE | LINK_IN_BIO | CUSTOM (spec section 5)
+  type              String
+  primaryAudience   String?
+  primaryCta        String?
+  masterBrainVersionAtCreation Int?
+  // DRAFT | GENERATING | FOR_REVIEW | REVISION_REQUESTED | APPROVED |
+  // READY_TO_PUBLISH | PUBLISHED | UNPUBLISHED | ARCHIVED (spec section 6)
+  status            String   @default("DRAFT")
+  journeyId         String?  // soft reference to a Phase 12 CustomerJourney
+  campaignId        String?  // soft reference to a Phase 11 Campaign
+  offerId           String?
+  offer             Offer?   @relation(fields: [offerId], references: [id])
+  creativePackageId String?  // soft reference to a Phase 11 CreativePackage
+  automationId      String?  // soft reference to a Phase 12 Automation
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  pages             WebsitePage[]
+  domains           WebsiteDomain[]
+  tracking          TrackingConfig?
+  analyticsEvents   WebsiteAnalyticsEvent[]
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model Funnel {
+  id               String   @id @default(cuid())
+  funnelDisplayId  String   @unique // e.g. FNL-2026-000001
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id])
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  name             String
+  objective        String?
+  audience         String?
+  offerId          String?
+  offer            Offer?   @relation(fields: [offerId], references: [id])
+  trafficSource    String?
+  // LEAD_GENERATION | WEBINAR | SALES | ENROLLMENT | COURSE |
+  // SERVICE_BOOKING | PRODUCT | E_COMMERCE | WAITLIST | APPLICATION |
+  // CONSULTATION | CUSTOM (spec section 8)
+  type             String
+  // Ordered array of { stageName, purpose, pageId?, touchpoint, ctaType?,
+  // automationId? } — pageId/automationId are soft references to a real
+  // WebsitePage / Automation, never a second copy of that data (spec
+  // section 11's visual map is this array rendered, click-through by pageId).
+  stagesJson       Json
+  masterBrainVersionAtCreation Int?
+  status           String   @default("DRAFT") // DRAFT | FOR_REVIEW | APPROVED | ACTIVE | PAUSED | ARCHIVED
+  campaignId       String?  // soft reference to a Phase 11 Campaign
+  journeyId        String?  // soft reference to a Phase 12 CustomerJourney
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model WebsitePage {
+  id               String   @id @default(cuid())
+  pageDisplayId    String   @unique // e.g. PAGE-2026-000001
+  websiteProjectId String
+  websiteProject   WebsiteProject @relation(fields: [websiteProjectId], references: [id])
+  name             String
+  slug             String
+  // Ordered array of { id, type, config } — type from the Section Library
+  // (Hero | Problem | Solution | Benefits | Features | HowItWorks | About |
+  // Founder | Products | Services | Offer | Pricing | Comparison | FAQ |
+  // Testimonials | CaseStudies | Gallery | Video | CTA | Form | Booking |
+  // Countdown | LogoStrip | Statistics | Contact | Map | Footer | Custom).
+  // Never a forced fixed structure (spec sections 13-14).
+  sectionsJson     Json
+  // { title, metaDescription, canonicalUrl, ogImage, indexable } (spec 56)
+  seoJson          Json?
+  status           String   @default("DRAFT") // DRAFT | GENERATING | FOR_REVIEW | REVISION_REQUESTED | APPROVED | READY_TO_PUBLISH | PUBLISHED | UNPUBLISHED | ARCHIVED
+  version          Int      @default(1)
+  // The exact sectionsJson/seoJson that went live at last publish — never
+  // silently changed by later draft edits (mirrors Offer/CreativePackage's
+  // own snapshot-never-drift pattern, spec section 27 applied to pages).
+  publishedSnapshotJson Json?
+  publishedAt      DateTime?
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  versions         PageVersion[]
+  forms            WebForm[]
+  analyticsEvents  WebsiteAnalyticsEvent[]
+  copyVariants     PageCopyVariant[]
+
+  @@unique([websiteProjectId, slug])
+  @@index([websiteProjectId])
+}
+
+model PageVersion {
+  id            String   @id @default(cuid())
+  pageId        String
+  page          WebsitePage @relation(fields: [pageId], references: [id])
+  versionNumber Int
+  sectionsJson  Json
+  seoJson       Json?
+  // Real validator result at the time this version was published (spec
+  // section 66) — never faked, never skipped.
+  validationJson Json?
+  publishedAt   DateTime?
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  @@unique([pageId, versionNumber])
+  @@index([pageId])
+}
+
+// Real, traceable per-section copy generation (spec sections 19-21) —
+// mirrors CampaignCopyVariant's soft-reference-to-AiGeneration pattern from
+// Phase 11 exactly, reusing the SAME seeded "copywriter" AiTool rather than
+// a parallel copy engine.
+model PageCopyVariant {
+  id           String   @id @default(cuid())
+  pageId       String
+  page         WebsitePage @relation(fields: [pageId], references: [id])
+  sectionId    String   // the section's own id inside sectionsJson
+  generationId String   // soft reference to the AiGeneration row
+  action       String   // Generate | Regenerate | Shorten | Expand | ChangeTone | Variation
+  isApplied    Boolean  @default(false)
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  @@index([pageId])
+}
+
+model WebForm {
+  id            String   @id @default(cuid())
+  formDisplayId String   @unique // e.g. FORM-2026-000001
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+  pageId        String?
+  page          WebsitePage? @relation(fields: [pageId], references: [id])
+  name          String
+  // LeadForm | WebinarRegistration | Enrollment | Application | Contact |
+  // BookingInquiry | Waitlist | Survey | Custom (spec section 32)
+  type          String
+  // Ordered array of { key, label, fieldType, required, options? } (spec 31)
+  fieldsJson    Json
+  // { privacyPolicyUrl?, termsUrl?, marketingConsentLabel?, channelConsent:
+  // {email,sms,whatsapp} } — never pre-checked (spec sections 35-37)
+  consentConfigJson Json?
+  // { webinarSessionId? } — only meaningful when type = WebinarRegistration
+  // (spec section 33); every other type maps to a plain Lead capture.
+  destinationConfigJson Json?
+  thankYouPageId String?
+  status        String   @default("Draft") // Draft | Active | Archived
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  submissions   FormSubmission[]
+
+  @@index([businessId])
+  @@index([pageId])
+}
+
+model FormSubmission {
+  id             String   @id @default(cuid())
+  formId         String
+  form           WebForm  @relation(fields: [formId], references: [id])
+  // Validated field values only — never a raw arbitrary payload written
+  // straight to storage (spec section 38).
+  dataJson       Json
+  personId       String?
+  leadId         String?
+  // "WebinarRegistration" | null — which real domain entity, if any, this
+  // submission additionally created (spec section 33).
+  resultingEntityType String?
+  resultingEntityId   String?
+  status         String   @default("Processed") // Processed | Rejected | Flagged
+  rejectionReason String?
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  utmContent     String?
+  utmTerm        String?
+  submittedAt    DateTime @default(now())
+
+  @@index([formId])
+  @@index([personId])
+}
+
+model WebsiteDomain {
+  id               String   @id @default(cuid())
+  websiteProjectId String
+  websiteProject   WebsiteProject @relation(fields: [websiteProjectId], references: [id])
+  domain           String
+  // NOT_CONNECTED | PENDING_CONFIGURATION | VERIFYING | VERIFIED | ACTIVE |
+  // ERROR (spec section 59) — this build has no real DNS/registrar API
+  // integration, so this never advances past PENDING_CONFIGURATION on its
+  // own; VERIFIED/ACTIVE are reserved for when a real provider exists
+  // (spec section 60 — never modify DNS automatically).
+  status           String   @default("NOT_CONNECTED")
+  dnsInstructionsJson Json? // exact records a human must configure manually
+  verifiedAt       DateTime?
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([websiteProjectId])
+}
+
+model TrackingConfig {
+  id               String   @id @default(cuid())
+  websiteProjectId String   @unique
+  websiteProject   WebsiteProject @relation(fields: [websiteProjectId], references: [id])
+  metaPixelId      String?
+  // NOT_CONNECTED | CONFIGURED (an id is on file — this build never makes a
+  // real Meta/Google API call to verify it, so "CONNECTED" is never used
+  // here — spec sections 76-77's "do not claim connected until verified").
+  metaPixelStatus  String   @default("NOT_CONNECTED")
+  googleAnalyticsId String?
+  googleAnalyticsStatus String @default("NOT_CONNECTED")
+  consentRequired  Boolean  @default(true)
+  updatedById      String?
+  updatedAt        DateTime @updatedAt
+
+}
+
+// Real events only, from real hits to the public page/CTA/form endpoints —
+// never generated, never estimated (spec sections 79-81).
+model WebsiteAnalyticsEvent {
+  id               String   @id @default(cuid())
+  websiteProjectId String
+  websiteProject   WebsiteProject @relation(fields: [websiteProjectId], references: [id])
+  pageId           String?
+  page             WebsitePage? @relation(fields: [pageId], references: [id])
+  // PAGE_VIEW | CTA_CLICK | FORM_START | FORM_SUBMIT (spec section 73)
+  eventName        String
+  detailsJson      Json? // e.g. { ctaId } — never raw PII (spec section 74)
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  utmContent       String?
+  utmTerm          String?
+  occurredAt       DateTime @default(now())
+
+  @@index([websiteProjectId, eventName])
+  @@index([pageId, eventName])
 }
