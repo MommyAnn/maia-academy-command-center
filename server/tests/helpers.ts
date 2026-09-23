@@ -74,6 +74,23 @@ export async function resetDb() {
     db.masterBrainDocument.deleteMany(),
     db.masterBrainRevisionRequest.deleteMany(),
     db.masterBrainSubmission.deleteMany(),
+    // Phase 11 (M.A.I.A. Creative Studio) — CreativePackage/CreativeTest/
+    // CampaignCopyVariant/CreativeAngle/Hook/Script all have a hard FK to
+    // Campaign, so they clear first; Storyboard.deleteMany cascades its own
+    // StoryboardScene rows, which in turn cascades ScenePrompt (both
+    // declared onDelete: Cascade in schema.prisma), so CharacterProfile
+    // (which ScenePrompt has a plain FK to) is safe to clear right after.
+    // Campaign itself clears last, before the Business/Student cleanup below.
+    db.creativePackage.deleteMany(),
+    db.creativeTest.deleteMany(),
+    db.campaignCopyVariant.deleteMany(),
+    db.storyboard.deleteMany(),
+    db.script.deleteMany(),
+    db.hook.deleteMany(),
+    db.creativeAngle.deleteMany(),
+    db.characterProfile.deleteMany(),
+    db.inspirationReference.deleteMany(),
+    db.campaign.deleteMany(),
     db.business.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),

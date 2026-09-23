@@ -98,6 +98,21 @@ export const AUDIT_ACTIONS = [
   "Intelligence Signal Resolved",
   "Intelligence Signal Dismissed",
   "Intelligence Recommendation Generated",
+  // Phase 11 — M.A.I.A. Creative Studio (spec sections 6, 52-55, 82).
+  "Campaign Created",
+  "Campaign Status Changed",
+  "Creative Angle Generated",
+  "Hook Generated",
+  "Hook Status Changed",
+  "Script Generated",
+  "Script Status Changed",
+  "Storyboard Generated",
+  "Scene Prompt Generated",
+  "Character Profile Created",
+  "Creative Package Assembled",
+  "Creative Package Status Changed",
+  "Creative Test Created",
+  "Creative Test Metrics Updated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

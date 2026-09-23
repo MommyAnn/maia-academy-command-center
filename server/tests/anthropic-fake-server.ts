@@ -15,6 +15,7 @@ export function createFakeAnthropicServer(port: number) {
   let mode: FakeAnthropicMode = "success";
   let responseText = "This is a synthetic AI-generated response for testing.";
   let requestCount = 0;
+  let lastRequestBody: { system?: string; messages?: { role: string; content: string }[] } | null = null;
 
   function errorBody(type: string, message: string) {
     return JSON.stringify({ type: "error", error: { type, message } });
@@ -25,6 +26,11 @@ export function createFakeAnthropicServer(port: number) {
     let body = "";
     req.on("data", (chunk) => (body += chunk));
     req.on("end", () => {
+      try {
+        lastRequestBody = JSON.parse(body);
+      } catch {
+        lastRequestBody = null;
+      }
       res.setHeader("Content-Type", "application/json");
 
       if (mode === "auth_failed") {
@@ -74,6 +80,7 @@ export function createFakeAnthropicServer(port: number) {
       responseText = t;
     },
     getRequestCount: () => requestCount,
+    getLastRequestBody: () => lastRequestBody,
     start: () => new Promise<void>((resolve) => server.listen(port, "127.0.0.1", () => resolve())),
     stop: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };

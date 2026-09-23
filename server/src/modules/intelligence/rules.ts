@@ -216,6 +216,73 @@ const aiUsageNearLimit: RuleDefinition = {
   },
 };
 
+// Phase 11 — M.A.I.A. Creative Studio / Marketing Intelligence (spec
+// sections 93-94). Honestly scoped to 2 of the spec's 5 named Marketing
+// Intelligence signal types — the two that are mechanically checkable from
+// data this build actually persists (a Campaign's creative pipeline
+// progress, a Creative Package's review queue age). The remaining 3
+// (creative fatigue/rotation signals, cross-campaign angle-performance
+// comparison, claim-guardrail violation trend) require either real ad
+// platform performance data or a volume of CreativeTest history this build
+// has no way to generate — not built this phase, disclosed in the
+// completion report rather than faked.
+
+const campaignNoApprovedCreative: RuleDefinition = {
+  ruleKey: "marketing-campaign-no-approved-creative",
+  name: "Campaign Has No Approved Creative",
+  domain: "Marketing",
+  description: "A Campaign past the Creative Development stage still has no Creative Package that has reached Approved or later.",
+  triggerType: "MISSING_ACTION",
+  defaultThreshold: {},
+  defaultSeverity: "MEDIUM",
+  defaultRecommendation: "Review the campaign's creative pipeline and assemble/approve a Creative Package.",
+  async evaluate() {
+    const campaigns = await db.campaign.findMany({
+      where: { status: { in: ["FOR_REVIEW", "APPROVED", "PRODUCTION", "TESTING", "ACTIVE"] } },
+      include: { packages: true },
+    });
+    const out: RuleCandidate[] = [];
+    for (const campaign of campaigns) {
+      const hasApproved = campaign.packages.some((p) => ["APPROVED", "READY_FOR_PRODUCTION", "PRODUCED", "READY_FOR_TESTING"].includes(p.status));
+      if (hasApproved) continue;
+      out.push({
+        entityType: "Campaign",
+        entityId: campaign.id,
+        title: `Campaign "${campaign.name}" (${campaign.campaignDisplayId}) has no approved creative`,
+        explanation: `Campaign.status = ${campaign.status} AND no Creative Package has reached Approved or later.`,
+        evidence: { campaignDisplayId: campaign.campaignDisplayId, status: campaign.status, packageCount: campaign.packages.length },
+      });
+    }
+    return out;
+  },
+};
+
+const creativePackageAwaitingReview: RuleDefinition = {
+  ruleKey: "marketing-creative-package-awaiting-review",
+  name: "Creative Package Awaiting Review",
+  domain: "Marketing",
+  description: "A Creative Package has been in FOR_REVIEW status longer than the configured window without a reviewer decision.",
+  triggerType: "TIME_BASED",
+  defaultThreshold: { hoursThreshold: 48 },
+  defaultSeverity: "MEDIUM",
+  defaultRecommendation: "Review the creative package (approve, request revision, or reject) — never auto-publish.",
+  async evaluate(thresholds) {
+    const hoursThreshold = Number(thresholds.hoursThreshold ?? 48);
+    const cutoff = hoursAgo(hoursThreshold);
+    const packages = await db.creativePackage.findMany({
+      where: { status: "FOR_REVIEW", updatedAt: { lte: cutoff } },
+      include: { campaign: true },
+    });
+    return packages.map((p) => ({
+      entityType: "CreativePackage",
+      entityId: p.id,
+      title: `Creative package for "${p.campaign.name}" (${p.packageDisplayId}) awaiting review`,
+      explanation: `Status = FOR_REVIEW AND last updated more than ${hoursThreshold} hours ago.`,
+      evidence: { packageDisplayId: p.packageDisplayId, campaignDisplayId: p.campaign.campaignDisplayId, hoursThreshold, updatedAt: p.updatedAt },
+    }));
+  },
+};
+
 export const RULE_DEFINITIONS: RuleDefinition[] = [
   leadInterestedNoFollowUp,
   financePaymentPendingOverdue,
@@ -223,4 +290,6 @@ export const RULE_DEFINITIONS: RuleDefinition[] = [
   certificateEligibleNotIssued,
   ghlSyncFailures,
   aiUsageNearLimit,
+  campaignNoApprovedCreative,
+  creativePackageAwaitingReview,
 ];

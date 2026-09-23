@@ -381,6 +381,7 @@ model Student {
   activityLogs     ActivityLog[] @relation("ActorStudent")
   requirements     Requirement[]
   notes            StudentNote[]
+  campaigns        Campaign[]
 
   @@index([batchId])
   @@index([packageId])
@@ -445,6 +446,9 @@ model Business {
   aiProjects             AiProject[]
   aiGenerations          AiGeneration[]
   documents              Document[]
+  campaigns              Campaign[]
+  characterProfiles      CharacterProfile[]
+  inspirationReferences  InspirationReference[]
 
   @@index([studentId])
 }
@@ -1913,4 +1917,331 @@ model IntelligenceSignal {
   @@index([domain])
   @@index([entityType, entityId])
   @@index([ruleId, entityType, entityId])
+}
+
+// ---------------------------------------------------------------------------
+// PHASE 11 — M.A.I.A. CREATIVE STUDIO. Every entity below carries both
+// studentId and businessId (matching AiProject's own convention) so
+// ownership is a direct column check, never a join — the same pattern that
+// keeps Business A's data from ever leaking into Business B's requests
+// (spec section 5/99). Nothing here generates real images or video: no
+// real image/video provider is connected anywhere in this codebase (only
+// the Anthropic TEXT adapter is real), so every "prompt studio" below only
+// ever produces a PRODUCTION PROMPT, never a claimed generated asset (spec
+// sections 43, 104).
+// ---------------------------------------------------------------------------
+
+model Campaign {
+  id               String    @id @default(cuid())
+  campaignDisplayId String   @unique // e.g. CAMP-2026-000001
+  studentId        String
+  student          Student   @relation(fields: [studentId], references: [id])
+  businessId       String
+  business         Business  @relation(fields: [businessId], references: [id])
+  name             String
+  objective        String    // Awareness | Engagement | Lead Generation | Messages | Webinar Registration | Sales | Enrollment | Product Launch | Retargeting | Customer Retention | Other
+  product          String?
+  offer            String?
+  audience         String?
+  platform         String?
+  funnelStage      String?   // COLD | PROBLEM_AWARE | SOLUTION_AWARE | PRODUCT_AWARE | WARM | RETARGETING | CUSTOMER
+  // DRAFT | STRATEGY | CREATIVE_DEVELOPMENT | FOR_REVIEW | APPROVED | PRODUCTION | TESTING | ACTIVE | PAUSED | COMPLETED | ARCHIVED
+  // ACTIVE here is never a claim that a real ad platform campaign is live —
+  // only that Academy-side creative production for it is active (spec 7).
+  status           String    @default("DRAFT")
+  masterBrainVersionAtCreation Int?
+  startDate        DateTime?
+  endDate          DateTime?
+  createdById      String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  angles           CreativeAngle[]
+  hooks            Hook[]
+  scripts          Script[]
+  storyboards      Storyboard[]
+  packages         CreativePackage[]
+  tests            CreativeTest[]
+  copyVariants     CampaignCopyVariant[]
+
+  @@index([studentId])
+  @@index([businessId])
+}
+
+model CreativeAngle {
+  id             String   @id @default(cuid())
+  campaignId     String
+  campaign       Campaign @relation(fields: [campaignId], references: [id])
+  studentId      String
+  businessId     String
+  angleName      String
+  // Pain | Desire | Problem | Transformation | Education | Demonstration |
+  // Comparison | Objection | Founder Story | Social Proof | UGC | Authority
+  // | Curiosity | Opportunity | Lifestyle | Before/After
+  angleType      String
+  audience       String?
+  awarenessStage String?
+  coreMessage    String
+  painOrDesire   String?
+  offerConnection String?
+  status         String   @default("Generated") // Generated | Saved | Selected | Rejected
+  sourceGenerationId String? // soft reference to the AiGeneration audit row that produced it
+  createdAt      DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([businessId])
+}
+
+model Hook {
+  id            String   @id @default(cuid())
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id])
+  angleId       String?
+  studentId     String
+  businessId    String
+  // PAIN | QUESTION | CURIOSITY | PROBLEM | DESIRE | CONTRARIAN | STORY |
+  // DEMONSTRATION | OBJECTION | PATTERN_INTERRUPT
+  category      String
+  text          String
+  status        String   @default("Generated") // Generated | Saved | Favorited | Rejected | SentToScript
+  sourceGenerationId String?
+  createdAt     DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([businessId])
+}
+
+model Script {
+  id            String   @id @default(cuid())
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id])
+  angleId       String?
+  hookId        String?
+  studentId     String
+  businessId    String
+  // UGC | Talking Head | AI Digital Twin | Product Demo | Storytelling |
+  // Problem-Solution | Testimonial-Style | Educational | Founder Story |
+  // Direct Response | Reel | Short-Form Ad | Webinar Promo
+  scriptType    String
+  platform      String?
+  durationSeconds Int?
+  presenterType String?
+  cta           String?
+  // Ordered array of { type, content } — type is one of HOOK | PROBLEM |
+  // AGITATION | INSIGHT | SOLUTION | OFFER | PROOF | OBJECTION_HANDLING |
+  // CTA; the generator adapts which sections are present to the objective
+  // rather than forcing all of them (spec section 25).
+  sectionsJson  Json
+  status        String   @default("Draft") // Draft | Approved | Revision Requested
+  version       Int      @default(1)
+  // Claim-safety flags from validateGeneratedOutput — never silently
+  // dropped, always surfaced before approval (spec section 26).
+  validationJson Json?
+  sourceGenerationId String?
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  storyboards   Storyboard[]
+
+  @@index([campaignId])
+  @@index([businessId])
+}
+
+model Storyboard {
+  id            String   @id @default(cuid())
+  scriptId      String
+  script        Script   @relation(fields: [scriptId], references: [id])
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id])
+  studentId     String
+  businessId    String
+  visualStyle   String?  // Premium | Cinematic | UGC | Clean Commercial | Editorial | Corporate | Lifestyle | Documentary | Social Native | Other
+  status        String   @default("Draft")
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+
+  scenes        StoryboardScene[]
+
+  @@index([scriptId])
+  @@index([campaignId])
+}
+
+model StoryboardScene {
+  id                String     @id @default(cuid())
+  storyboardId      String
+  storyboard        Storyboard @relation(fields: [storyboardId], references: [id], onDelete: Cascade)
+  sceneNumber       Int
+  durationSeconds   Int?
+  dialogue          String?
+  character         String?
+  characterAction   String?
+  facialExpression  String?
+  location          String?
+  cameraShot        String?
+  cameraMovement    String?
+  composition       String?
+  lighting          String?
+  props             String?
+  bRoll             String?
+  onScreenText      String?
+  graphicElements   String?
+  transition        String?
+  soundDirection    String?
+  continuityNotes   String?
+  createdAt         DateTime   @default(now())
+
+  prompts           ScenePrompt[]
+
+  @@unique([storyboardId, sceneNumber])
+}
+
+model CharacterProfile {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+  studentId     String
+  name          String
+  role          String?
+  referenceImageDocumentId String? // secure Document row (documentType "AiAsset"), never a public link
+  appearanceNotes String?
+  defaultWardrobe String?
+  accessories   String?
+  brandRole     String?
+  // Auto-injected into every scene prompt referencing this character (spec
+  // sections 31-32) — never left to the model to guess consistency.
+  continuityInstructions String?
+  createdAt     DateTime @default(now())
+
+  scenePrompts  ScenePrompt[]
+
+  @@index([businessId])
+}
+
+model ScenePrompt {
+  id            String   @id @default(cuid())
+  sceneId       String
+  scene         StoryboardScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  characterProfileId String?
+  characterProfile CharacterProfile? @relation(fields: [characterProfileId], references: [id])
+  studentId     String
+  businessId    String
+  // A label only — no adapter for any of these actually calls a real
+  // image/video provider yet (spec section 40). GOOGLE_VIDEO | KLING |
+  // GENERIC are placeholder targets for a future real integration.
+  targetProvider String  @default("GENERIC")
+  imagePromptText String
+  imagePromptStructuredJson Json
+  videoPromptText String
+  videoPromptStructuredJson Json
+  // Always PROMPT_READY in this build — QUEUED/PROCESSING/COMPLETED/FAILED/
+  // CANCELLED are reserved for when a real generation provider exists and
+  // are intentionally unused rather than faked (spec sections 43-44, 104).
+  status        String   @default("PROMPT_READY")
+  sourceGenerationId String?
+  createdAt     DateTime @default(now())
+
+  @@index([sceneId])
+  @@index([businessId])
+}
+
+model CampaignCopyVariant {
+  id            String   @id @default(cuid())
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id])
+  studentId     String
+  businessId    String
+  platform      String?  // Facebook | Instagram | TikTok | YouTube Shorts | Website | Landing Page | Messenger | WhatsApp | Email
+  copyType      String   // Primary Text | Headline | Description | Caption | CTA | Short Copy | Long Copy | Retargeting Copy | Organic Caption
+  generationId  String   // soft reference to the AiGeneration row (reuses the existing "copywriter" tool, never a parallel copy engine)
+  createdAt     DateTime @default(now())
+
+  @@index([campaignId])
+}
+
+model CreativePackage {
+  id                String   @id @default(cuid())
+  packageDisplayId  String   @unique // e.g. CRPKG-2026-000001
+  campaignId        String
+  campaign          Campaign @relation(fields: [campaignId], references: [id])
+  studentId         String
+  businessId        String
+  angleId           String?
+  hookId            String?
+  scriptId          String?
+  storyboardId      String?
+  characterProfileId String?
+  copyVariantIdsJson Json    // array of CampaignCopyVariant ids included in this package
+  // DRAFT | FOR_REVIEW | REVISION_REQUESTED | APPROVED | READY_FOR_PRODUCTION | PRODUCED | READY_FOR_TESTING
+  status            String   @default("DRAFT")
+  reviewNotes       String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  version           Int      @default(1)
+  // A revised package is a NEW row referencing the one it supersedes —
+  // never an in-place overwrite of an approved package (spec section 55).
+  supersedesId      String?
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([campaignId])
+  @@index([businessId])
+}
+
+model CreativeTest {
+  id              String    @id @default(cuid())
+  campaignId      String
+  campaign        Campaign  @relation(fields: [campaignId], references: [id])
+  studentId       String
+  businessId      String
+  creativePackageId String?
+  angleLabel      String?
+  hookLabel       String?
+  format          String?
+  platform        String?
+  startDate       DateTime?
+  status          String    @default("Planned") // Planned | Running | Completed | Paused
+  // Every metric below is NULL ("UNKNOWN") unless a human actually entered
+  // it — never fabricated, never inferred (spec sections 57-58).
+  spend           Decimal?  @db.Decimal(12, 2)
+  impressions     Int?
+  reach           Int?
+  ctr             Decimal?  @db.Decimal(6, 4)
+  cpc             Decimal?  @db.Decimal(10, 2)
+  cpm             Decimal?  @db.Decimal(10, 2)
+  leads           Int?
+  costPerLead     Decimal?  @db.Decimal(10, 2)
+  messages        Int?
+  costPerConversation Decimal? @db.Decimal(10, 2)
+  purchases       Int?
+  revenue         Decimal?  @db.Decimal(12, 2)
+  roas            Decimal?  @db.Decimal(8, 2)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([businessId])
+}
+
+model InspirationReference {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+  studentId     String
+  referenceType String   // Image | Video | Ad | UGC | Screenshot | Text | Link
+  title         String?
+  url           String?
+  documentId    String?  // an uploaded reference file, if any (secure Document row)
+  notes         String?
+  // Always null in this build — no multimodal (image/video) input is wired
+  // into the AI provider adapter yet, so real reference analysis never
+  // happens; this field exists for when that capability is added, and is
+  // never faked in the meantime (spec sections 21-22, 104).
+  analysisJson  Json?
+  createdById   String
+  createdAt     DateTime @default(now())
+
+  @@index([businessId])
 }

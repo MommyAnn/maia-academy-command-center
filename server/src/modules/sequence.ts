@@ -90,3 +90,15 @@ export async function generateLegacyPaymentDisplayId(batchCode: string): Promise
   const n = await nextSequence(`legacy-payment:${batchCode}`);
   return `LEGACY-B${batchCode}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateCampaignDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`campaign:${year}`);
+  return `CAMP-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateCreativePackageDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`creative-package:${year}`);
+  return `CRPKG-${year}-${String(n).padStart(6, "0")}`;
+}

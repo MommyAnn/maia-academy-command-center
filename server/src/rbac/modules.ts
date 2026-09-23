@@ -42,6 +42,7 @@ export const PERMISSION_MODULES = [
   "System Settings",
   "Data Migration",
   "M.A.I.A. Intelligence",
+  "Creative Studio",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

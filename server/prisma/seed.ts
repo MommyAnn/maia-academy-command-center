@@ -107,7 +107,7 @@ async function main() {
     },
   });
 
-  console.log("Seeding the AI Tool Library (18 tools) + model configs + provider rows...");
+  console.log("Seeding the AI Tool Library (25 tools) + model configs + provider rows...");
   await seedAiToolLibrary(ownerUser.id);
 
   console.log("Seeding a dev Finance Officer account (for RBAC-denial tests)...");

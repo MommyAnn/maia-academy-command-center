@@ -105,6 +105,45 @@ const HANDLERS: QuestionHandler[] = [
       return { facts: brief.facts, factualAnswer: `This week: ${brief.facts.newLeads} new leads, ${brief.facts.webinarRegistrations} webinar registrations, ${brief.facts.newEnrollments} new enrollments, ${brief.calculatedMetrics.verifiedCollections} verified collections.` };
     },
   },
+  // Phase 11 — M.A.I.A. Creative Studio (spec sections 93-94's named
+  // example questions). Every answer below counts real Campaign/
+  // CreativePackage rows — never an AI guess at campaign performance.
+  {
+    match: /campaigns?.*(no|without).*(approved )?creative|which campaigns?.*need creative/i,
+    requiredPermission: "Creative Studio",
+    async retrieve() {
+      const signals = await db.intelligenceSignal.findMany({
+        where: { domain: "Marketing", rule: { ruleKey: "marketing-campaign-no-approved-creative" }, status: { in: ["NEW", "REVIEWED", "ACTIONED"] } },
+        take: 20,
+      });
+      return {
+        facts: { count: signals.length, campaigns: signals.map((s) => s.evidenceJson) },
+        factualAnswer: signals.length === 0 ? "Every active campaign past the Creative Development stage has at least one approved Creative Package." : `${signals.length} campaign(s) have no approved creative yet.`,
+      };
+    },
+  },
+  {
+    match: /creative packages?.*(awaiting|pending|need).*review|pending creative review/i,
+    requiredPermission: "Creative Studio",
+    async retrieve() {
+      const packages = await db.creativePackage.findMany({ where: { status: "FOR_REVIEW" }, include: { campaign: true } });
+      return {
+        facts: { count: packages.length, packages: packages.map((p) => ({ packageDisplayId: p.packageDisplayId, campaignName: p.campaign.name, updatedAt: p.updatedAt })) },
+        factualAnswer: packages.length === 0 ? "No creative packages are currently awaiting review." : `${packages.length} creative package(s) are awaiting review.`,
+      };
+    },
+  },
+  {
+    match: /how many (campaigns? are )?active campaigns?|active campaigns?/i,
+    requiredPermission: "Creative Studio",
+    async retrieve() {
+      const count = await db.campaign.count({ where: { status: "ACTIVE" } });
+      return {
+        facts: { count },
+        factualAnswer: `${count} campaign(s) are currently at ACTIVE status. This reflects Academy-side creative production status only — it is never a claim that a real ad platform campaign is live.`,
+      };
+    },
+  },
 ];
 
 export type AskResult =
