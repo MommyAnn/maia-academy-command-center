@@ -84,3 +84,9 @@ export async function generateAiGenerationDisplayId(): Promise<string> {
   const n = await nextSequence(`ai-generation:${year}`);
   return `GEN-${year}-${String(n).padStart(6, "0")}`;
 }
+
+/** Distinct prefix from generatePaymentDisplayId — a legacy-imported payment must never look like a normally-recorded one. */
+export async function generateLegacyPaymentDisplayId(batchCode: string): Promise<string> {
+  const n = await nextSequence(`legacy-payment:${batchCode}`);
+  return `LEGACY-B${batchCode}-${String(n).padStart(6, "0")}`;
+}

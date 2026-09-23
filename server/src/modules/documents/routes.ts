@@ -29,7 +29,7 @@ const CLASSIFICATION_BY_TYPE: Record<string, string> = {
 export async function documentRoutes(app: FastifyInstance) {
   app.post(
     "/api/students/:studentId/documents",
-    { preHandler: [requireAuth, requireStudentSelf("studentId")] },
+    { preHandler: [requireAuth, requireStudentSelf("studentId")], config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
     async (request, reply) => {
       const parsed = uploadSchema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ error: "Invalid upload.", details: parsed.error.flatten() });

@@ -21,6 +21,12 @@ const FIXED_STUDENT_DISPLAY_IDS = ["MAIA-B14-DEV-A", "MAIA-B14-DEV-B"];
  */
 export async function resetDb() {
   await db.$transaction([
+    // Phase 7 (Data Migration Framework) — ImportRecord cascades from
+    // ImportBatch, but PaymentTransaction.importBatchId has no hard FK
+    // (it's a soft provenance reference), so clearing ImportBatch is safe
+    // before or after PaymentTransaction. Cleared first regardless, since
+    // it must go before Student/Person/Batch below.
+    db.importBatch.deleteMany(),
     db.requirementReview.deleteMany(),
     db.requirement.deleteMany(),
     db.studentNote.deleteMany(),

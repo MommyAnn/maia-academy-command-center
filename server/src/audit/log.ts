@@ -84,6 +84,13 @@ export const AUDIT_ACTIONS = [
   "AI Generation Failed",
   "AI Access Granted",
   "AI Access Revoked",
+  // Phase 7 — Data Migration Framework (spec sections 6-8, 18).
+  "Migration Batch Uploaded",
+  "Migration Batch Validated",
+  "Migration Dry Run Completed",
+  "Migration Batch Approved",
+  "Migration Batch Imported",
+  "Migration Batch Rolled Back",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

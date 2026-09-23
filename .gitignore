@@ -33,3 +33,7 @@ server/.env.*
 server/uploads-dev
 server/uploads-test
 server/generated
+# Real pg_dump backup files (spec sections 43-46) — never committed, since a
+# dump can contain real Person/Payment data once run against a real
+# environment; scripts/backup.sh writes here by default.
+server/backups

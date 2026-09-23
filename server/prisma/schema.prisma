@@ -472,7 +472,12 @@ model PaymentTransaction {
   batch            Batch    @relation(fields: [batchId], references: [id])
   packageId        String
   package          Package  @relation(fields: [packageId], references: [id])
-  paymentDate      DateTime
+  // Nullable ONLY for a legacy import whose source spreadsheet has no
+  // reliable date (spec section 16: "Do NOT fake payment dates" — a normal,
+  // non-imported submission always sets this at creation, enforced at the
+  // service layer, not the DB, so this stays legitimately required for the
+  // live payment flow while still allowing NULL for honest historical gaps).
+  paymentDate      DateTime?
   type             String
   amount           Decimal  @db.Decimal(12, 2)
   method            String
@@ -485,15 +490,26 @@ model PaymentTransaction {
   verifiedById      String?
   verifiedAt        DateTime?
   rejectedReason    String?
+  // Phase 7 legacy-import provenance (spec sections 14-15) — NEVER set by
+  // the normal payment-submission flow, only by the migration importer.
+  source                  String  @default("NORMAL") // NORMAL | LEGACY_IMPORT
+  importBatchId           String?
+  originalRecordReference String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([studentId])
   @@index([status])
+  @@index([importBatchId])
 }
 
 enum PaymentTransactionStatus {
   PENDING_VERIFICATION
+  // A migrated historical amount that has NOT been through real
+  // verification (spec section 14) — deliberately distinct from
+  // PENDING_VERIFICATION so it never inflates the live staff review queue,
+  // and can never be mistaken for a genuinely VERIFIED payment.
+  LEGACY_UNVERIFIED
   VERIFIED
   REJECTED
   CANCELLED
@@ -1768,4 +1784,77 @@ model Announcement {
   isImportant Boolean @default(false)
   publishedById String
   createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// DATA MIGRATION FRAMEWORK (Phase 7, spec sections 5-21) — the ONLY path by
+// which any external spreadsheet ever reaches live tables. Every import is
+// staged (upload -> parse -> preview -> field mapping -> validation ->
+// duplicate analysis -> error review -> dry run -> approval -> import ->
+// verification -> report); nothing here ever inserts directly from an
+// upload. ImportRecord keeps the raw source row forever (audit trail) even
+// after a successful import, and records exactly which entity it created
+// so a rollback can reverse ONLY what this batch itself created.
+// ---------------------------------------------------------------------------
+
+model ImportBatch {
+  id               String   @id @default(cuid())
+  importType       String   // LEADS | STUDENTS | WEBINAR_REGISTRATIONS | PAYMENTS
+  sourceFileName   String
+  uploadedById     String
+  uploadedAt       DateTime @default(now())
+  fieldMappingJson Json?    // { sourceColumn: targetField }
+  recordCount      Int      @default(0)
+  validCount       Int      @default(0)
+  invalidCount     Int      @default(0)
+  duplicateCount   Int      @default(0)
+  importedCount    Int      @default(0)
+  skippedCount     Int      @default(0)
+  failedCount      Int      @default(0)
+  // UPLOADED | VALIDATING | NEEDS_REVIEW | READY_FOR_DRY_RUN |
+  // DRY_RUN_COMPLETE | APPROVED | IMPORTING | COMPLETED |
+  // PARTIALLY_COMPLETED | FAILED | ROLLED_BACK (spec section 8)
+  status           String   @default("UPLOADED")
+  dryRunResultJson Json?
+  // Source/Imported-Verified/Pending-Review/Skipped totals + difference
+  // (spec section 17) — populated only for PAYMENTS-type batches.
+  financialImpactJson Json?
+  approvedById     String?
+  approvedAt       DateTime?
+  importedAt       DateTime?
+  rolledBackById   String?
+  rolledBackAt     DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  records ImportRecord[]
+
+  @@index([status])
+  @@index([importType])
+}
+
+model ImportRecord {
+  id            String      @id @default(cuid())
+  batchId       String
+  batch         ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rowNumber     Int
+  // The exact original row, byte-for-byte — preserved even after a
+  // successful import, and never overwritten by normalization (spec
+  // section 10: "preserve original source values for audit/review").
+  rawDataJson   Json
+  normalizedDataJson   Json?
+  validationErrorsJson Json?
+  // HIGH_CONFIDENCE_MATCH | POSSIBLE_MATCH | NO_MATCH (spec section 13)
+  duplicateConfidence  String?
+  duplicateMatchesJson Json?
+  // PENDING | VALID | INVALID | DUPLICATE_HIGH | DUPLICATE_POSSIBLE |
+  // IMPORTED | SKIPPED | FAILED
+  status        String   @default("PENDING")
+  createdEntityType String? // Person | Lead | Student | WebinarRegistration | PaymentTransaction
+  createdEntityId   String?
+  failureReason String?
+  createdAt     DateTime @default(now())
+
+  @@index([batchId])
+  @@index([status])
 }

@@ -40,6 +40,7 @@ export const PERMISSION_MODULES = [
   "AI Business Tools - Student Outputs",
   "AI Business Tools - Technical Logs",
   "System Settings",
+  "Data Migration",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];
