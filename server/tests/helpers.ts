@@ -158,6 +158,29 @@ export async function resetDb() {
     // plain (RESTRICT) FK to both Student and Business, so it must clear
     // before either cleanup below.
     db.videoGenerationJob.deleteMany(),
+    // Production Phase 15 (M.A.I.A. Business OS) — BusinessRevenueRecord/
+    // BusinessExpenseRecord/Product/SopDocument/ContentCalendarItem/Goal/
+    // BusinessPipeline/BusinessRoleGrant all have a plain RESTRICT FK to
+    // Business, so all clear before the Business cleanup below.
+    // Opportunity has a RESTRICT FK to BusinessContact, so it clears first;
+    // BusinessContact itself has a RESTRICT FK to Person, so it must also
+    // clear before the Person cleanup further below. BusinessPlan and
+    // BusinessPlanVersion have the same real two-way FK cycle as
+    // Automation/AutomationVersion above — currentVersionId is nulled out
+    // first to break it before either side is deleted.
+    db.businessRevenueRecord.deleteMany(),
+    db.businessExpenseRecord.deleteMany(),
+    db.opportunity.deleteMany(),
+    db.businessContact.deleteMany(),
+    db.product.deleteMany(),
+    db.sopDocument.deleteMany(),
+    db.contentCalendarItem.deleteMany(),
+    db.goal.deleteMany(),
+    db.businessPlan.updateMany({ where: {}, data: { currentVersionId: null } }),
+    db.businessPlanVersion.deleteMany(),
+    db.businessPlan.deleteMany(),
+    db.businessPipeline.deleteMany(),
+    db.businessRoleGrant.deleteMany(),
     db.business.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),

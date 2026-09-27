@@ -114,6 +114,36 @@ export async function assertBusinessOwnedByStudent(businessId: string, studentId
   return business?.studentId === studentId;
 }
 
+export type BusinessAccessLevel = "VIEW" | "EDIT";
+
+// OWNER/MANAGER may edit; MARKETING/SALES/SUPPORT/OPERATIONS/CUSTOM are
+// VIEW-only by default (spec section 67-68) — a real, minimal per-Business
+// team RBAC layer, distinct from the global Staff RolePermission matrix.
+const BUSINESS_ROLE_EDIT_ALLOWED = new Set(["OWNER", "MANAGER"]);
+
+/**
+ * M.A.I.A. Business OS access (spec sections 67-69): the owning Student
+ * always has full access; an invited team member (BusinessRoleGrant) gets
+ * VIEW always, and EDIT only when their per-Business role is OWNER/MANAGER;
+ * staff holding the "Business OS" platform permission get oversight access.
+ * Never leaks Academy/Student data beyond what Business OS itself needs
+ * (spec section 69).
+ */
+export async function assertBusinessAccess(businessId: string, ctx: AuthContext, level: BusinessAccessLevel): Promise<boolean> {
+  if (ctx.kind === "student" && ctx.studentId && (await assertBusinessOwnedByStudent(businessId, ctx.studentId))) {
+    return true;
+  }
+  const grant = await db.businessRoleGrant.findUnique({ where: { businessId_userId: { businessId, userId: ctx.userId } } });
+  if (grant) {
+    if (level === "VIEW") return true;
+    if (level === "EDIT" && BUSINESS_ROLE_EDIT_ALLOWED.has(grant.role)) return true;
+  }
+  if (ctx.kind === "staff") {
+    return checkPermission(ctx.userId, "Business OS", level === "VIEW" ? "VIEW" : "EDIT");
+  }
+  return false;
+}
+
 /**
  * Allows either the owning student, or staff holding the given permission —
  * the common shape for every read endpoint scoped by :studentId across

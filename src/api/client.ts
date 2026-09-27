@@ -254,3 +254,107 @@ export const intelligenceApi = {
   ask: (question: string) =>
     post<{ answer: string; facts: Record<string, unknown>; source: string; aiPhrased: boolean; matched: boolean }>("/api/intelligence/ask", { question }),
 };
+
+// ---------------------------------------------------------------------------
+// M.A.I.A. Business OS (Production Phase 15) — same self-authenticating
+// pattern as intelligenceApi above. Every figure is real and DB-derived;
+// this client only reads/writes the real backend's own Business OS routes,
+// never fabricates a value client-side.
+// ---------------------------------------------------------------------------
+
+export interface ApiBusiness {
+  id: string;
+  name: string;
+  stage: string | null;
+  uiExperienceLevel: string;
+  createdAt: string;
+}
+
+export interface ApiHealthCategory {
+  category: string;
+  status: "SETUP_REQUIRED" | "NEEDS_ATTENTION" | "OPERATIONAL" | "INSUFFICIENT_DATA";
+  reason: string;
+}
+
+export interface ApiActionItem {
+  type: string;
+  title: string;
+  entityType: string;
+  entityId: string;
+}
+
+export interface ApiGoal {
+  id: string;
+  goalDisplayId: string;
+  name: string;
+  type: string;
+  target: string;
+  unit: string;
+  currentValue: string;
+  dataSource: string;
+  status: string;
+  statusReason?: string;
+  startDate: string;
+  targetDate: string;
+}
+
+export interface ApiBusinessHome {
+  business: { id: string; name: string; stage: string | null; uiExperienceLevel: string };
+  health: ApiHealthCategory[];
+  actionItems: ApiActionItem[];
+  goals: ApiGoal[];
+  salesSnapshot: { openOpportunityCount: number };
+  marketingSnapshot: { activeCampaignCount: number };
+}
+
+export interface ApiBusinessContact {
+  id: string;
+  contactDisplayId: string;
+  pipelineStageKey: string;
+  status: string;
+  person: { fullName: string; email: string | null };
+}
+
+export interface ApiOpportunity {
+  id: string;
+  opportunityDisplayId: string;
+  pipelineStageKey: string;
+  estimatedValue: string | null;
+  status: string;
+  contact?: { person: { fullName: string } };
+}
+
+export type ApiAskBusinessResult =
+  | { ok: true; kind: "FACT"; answer: string; facts: Record<string, unknown>; aiPhrased: boolean }
+  | { ok: true; kind: "ROUTE"; module: string; guidance: string };
+
+export const businessOsApi = {
+  // Reuses the existing Phase 6 Master Brain endpoint — Business OS does
+  // not duplicate business listing.
+  listBusinesses: (studentId: string) => get<{ businesses: ApiBusiness[] }>(`/api/students/${studentId}/businesses`),
+  setStage: (businessId: string, stage: string | null) => patch<{ business: ApiBusiness }>(`/api/businesses/${businessId}/stage`, { stage }),
+  setUiExperienceLevel: (businessId: string, uiExperienceLevel: "GUIDED" | "ADVANCED") =>
+    patch<{ business: ApiBusiness }>(`/api/businesses/${businessId}/ui-experience-level`, { uiExperienceLevel }),
+
+  home: (businessId: string) => get<ApiBusinessHome>(`/api/businesses/${businessId}/home`),
+  health: (businessId: string) => get<{ categories: ApiHealthCategory[] }>(`/api/businesses/${businessId}/health`),
+  actionCenter: (businessId: string) => get<{ items: ApiActionItem[] }>(`/api/businesses/${businessId}/action-center`),
+  dailyBrief: (businessId: string) => get<Record<string, unknown>>(`/api/businesses/${businessId}/daily-brief`),
+
+  contacts: (businessId: string) => get<{ contacts: ApiBusinessContact[] }>(`/api/businesses/${businessId}/business-contacts`),
+  createContact: (studentId: string, payload: { businessId: string; fullName: string; email?: string; contactNumber?: string; source?: string }) =>
+    post<{ contact: ApiBusinessContact }>(`/api/students/${studentId}/business-contacts`, payload),
+
+  opportunities: (businessId: string) => get<{ opportunities: ApiOpportunity[] }>(`/api/businesses/${businessId}/opportunities`),
+  createOpportunity: (studentId: string, payload: { businessId: string; contactId: string; estimatedValue?: number; nextAction?: string }) =>
+    post<{ opportunity: ApiOpportunity }>(`/api/students/${studentId}/opportunities`, payload),
+
+  goals: (businessId: string) => get<{ goals: ApiGoal[] }>(`/api/businesses/${businessId}/goals`),
+  createGoal: (studentId: string, payload: { businessId: string; name: string; type: string; target: number; unit: string; startDate: string; targetDate: string; dataSource?: string }) =>
+    post<{ goal: ApiGoal }>(`/api/students/${studentId}/goals`, payload),
+  updateGoalProgress: (goalId: string, currentValue: number) => patch<{ goal: ApiGoal }>(`/api/goals/${goalId}/progress`, { currentValue }),
+
+  financeSummary: (businessId: string) => get<{ totalRevenue: number; totalExpenses: number; netCash: number; label: string }>(`/api/businesses/${businessId}/finance-summary`),
+
+  ask: (businessId: string, question: string) => post<ApiAskBusinessResult>(`/api/businesses/${businessId}/ask`, { question }),
+};

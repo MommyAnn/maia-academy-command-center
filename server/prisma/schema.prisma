@@ -42,6 +42,7 @@ model Person {
   user    User?
   communicationLogs CommunicationLog[]
   ghlContactMap     GhlContactMap?
+  businessContacts  BusinessContact[]
 
   @@index([email])
 }
@@ -67,6 +68,7 @@ model User {
   sessions        Session[]
   passwordResets  PasswordResetToken[]
   activityLogs    ActivityLog[]         @relation("ActorUser")
+  businessRoleGrants BusinessRoleGrant[]
 
   @@index([roleId])
 }
@@ -449,6 +451,15 @@ model Business {
   student   Student  @relation(fields: [studentId], references: [id])
   name      String
   createdAt DateTime @default(now())
+  // FOUNDATION | BUILDING | LAUNCHING | OPERATING | GROWING | SCALING (spec
+  // section 7) — set only via explicit user/admin confirmation, never
+  // auto-assigned by AI without explainable criteria.
+  stage         String?
+  stageSetById  String?
+  stageSetAt    DateTime?
+  // GUIDED | ADVANCED (spec section 109) — changes interface complexity
+  // only, never data access/security.
+  uiExperienceLevel String @default("GUIDED")
 
   masterBrainSubmissions MasterBrainSubmission[]
   aiProjects             AiProject[]
@@ -466,6 +477,17 @@ model Business {
   webForms               WebForm[]
   adConnections          AdConnection[]
   videoGenerationJobs    VideoGenerationJob[]
+  businessPipeline       BusinessPipeline?
+  businessContacts       BusinessContact[]
+  opportunities          Opportunity[]
+  goals                  Goal[]
+  businessPlan           BusinessPlan?
+  revenueRecords         BusinessRevenueRecord[]
+  expenseRecords         BusinessExpenseRecord[]
+  products               Product[]
+  sopDocuments           SopDocument[]
+  contentCalendarItems   ContentCalendarItem[]
+  roleGrants             BusinessRoleGrant[]
 
   @@index([studentId])
 }
@@ -2515,6 +2537,7 @@ model Offer {
 
   websiteProjects WebsiteProject[]
   funnels         Funnel[]
+  products        Product[]
 
   @@index([studentId])
   @@index([businessId])
@@ -3250,4 +3273,263 @@ model VideoGenerationJob {
   @@index([studentId])
   @@index([businessId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// M.A.I.A. BUSINESS OS (Production Phase 15) — the business-first unification
+// layer. Person remains the single identity anchor (spec section 26): a
+// BusinessContact never duplicates a Person, it is a new relationship row
+// linking an existing or newly-created Person to ONE Business. This is
+// deliberately separate from the Academy's own Lead model (spec section 25
+// — "Pipeline != Academy Pipeline"): Lead is the Academy's own acquisition
+// funnel for turning people into Students; BusinessContact is a Student's
+// OWN business's customer/lead relationship, with its own configurable
+// pipeline. Every model below carries businessId and is isolated exactly
+// like every other Business-scoped resource (assertBusinessOwnedByStudent).
+// ---------------------------------------------------------------------------
+
+model BusinessPipeline {
+  id          String   @id @default(cuid())
+  businessId  String   @unique
+  business    Business @relation(fields: [businessId], references: [id])
+  // Ordered array of {"key": "NEW_LEAD", "label": "New Lead"} objects —
+  // configurable per business (spec section 24), never the Academy's own
+  // LeadStage enum forced onto a business.
+  stagesJson  Json
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BusinessContact {
+  id               String   @id @default(cuid())
+  contactDisplayId String   @unique // e.g. BCON-2026-000001
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  personId         String
+  person           Person   @relation(fields: [personId], references: [id])
+  source           String?
+  campaignId       String?  // soft ref to a Phase 11 Campaign — first-touch attribution, set once at creation
+  pipelineStageKey String   // validated server-side against this Business's own BusinessPipeline.stagesJson
+  // Active | Customer | Lost — lightweight lifecycle marker, distinct from
+  // pipeline position, mirroring Lead.status's own pattern.
+  status           String   @default("Active")
+  ownerId          String?  // soft ref to a User (the owning Student, or an invited team member)
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  opportunities Opportunity[]
+
+  @@index([businessId])
+  @@index([personId])
+  @@index([pipelineStageKey])
+}
+
+model Opportunity {
+  id                   String          @id @default(cuid())
+  opportunityDisplayId String          @unique // e.g. OPP-2026-000001
+  businessId           String
+  business             Business        @relation(fields: [businessId], references: [id])
+  contactId            String
+  contact              BusinessContact @relation(fields: [contactId], references: [id])
+  pipelineStageKey     String
+  // Explicitly labeled ESTIMATED everywhere in the UI (spec section 30) —
+  // never presented as verified revenue. A real sale is a
+  // BusinessRevenueRecord instead, created separately.
+  estimatedValue       Decimal?        @db.Decimal(12, 2)
+  status               String          @default("OPEN") // OPEN | WON | LOST
+  ownerId              String?
+  nextAction           String?
+  createdById          String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  revenueRecords BusinessRevenueRecord[]
+
+  @@index([businessId])
+  @@index([contactId])
+  @@index([status])
+}
+
+model Goal {
+  id            String   @id @default(cuid())
+  goalDisplayId String   @unique // e.g. GOAL-2026-000001
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id])
+  name          String
+  // Revenue | Lead | Enrollment | Sales | Content | Campaign | Website |
+  // Automation | Operational | Custom (spec section 10)
+  type          String
+  target        Decimal  @db.Decimal(14, 2)
+  unit          String
+  startDate     DateTime
+  targetDate    DateTime
+  currentValue  Decimal  @default(0) @db.Decimal(14, 2)
+  // MANUAL | COMPUTED_CONTACTS | COMPUTED_OPPORTUNITIES_WON |
+  // COMPUTED_REVENUE — a COMPUTED source is only ever set when a real
+  // query actually backs it (spec section 13: "no fake goal progress");
+  // anything else requires the owner to update currentValue by hand.
+  dataSource    String   @default("MANUAL")
+  status        String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | ON_TRACK | NEEDS_ATTENTION | COMPLETED | PAUSED
+  ownerId       String?
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model BusinessPlan {
+  id               String   @id @default(cuid())
+  businessId       String   @unique
+  business         Business @relation(fields: [businessId], references: [id])
+  currentVersionId String?  @unique
+  currentVersion   BusinessPlanVersion? @relation("CurrentPlanVersion", fields: [currentVersionId], references: [id])
+  createdAt        DateTime @default(now())
+
+  versions BusinessPlanVersion[] @relation("BusinessPlanVersions")
+}
+
+model BusinessPlanVersion {
+  id             String       @id @default(cuid())
+  businessPlanId String
+  businessPlan   BusinessPlan @relation("BusinessPlanVersions", fields: [businessPlanId], references: [id])
+  versionNumber  Int
+  // { brandFoundation, businessModel, products, audience, positioning,
+  // offer, marketing, sales, operations, goalNotes } — free-text sections
+  // the Student writes/edits; never AI-overwritten silently once APPROVED
+  // (spec section 15) — editing an approved plan creates a new version.
+  sectionsJson   Json
+  status         String       @default("DRAFT") // DRAFT | APPROVED
+  createdById    String
+  createdAt      DateTime     @default(now())
+
+  currentVersionOf BusinessPlan? @relation("CurrentPlanVersion")
+
+  @@unique([businessPlanId, versionNumber])
+}
+
+model BusinessRevenueRecord {
+  id                   String   @id @default(cuid())
+  businessId           String
+  business             Business @relation(fields: [businessId], references: [id])
+  amount               Decimal  @db.Decimal(12, 2)
+  // MANUAL | CONNECTED_STORE | CONNECTED_PAYMENT_PROVIDER | CRM_SALE |
+  // VERIFIED_TRANSACTION | OTHER (spec section 36) — always labeled in the
+  // UI; never merged with M.A.I.A. Academy's own PaymentTransaction ledger
+  // (spec sections 32-33: strict domain separation between Academy finance
+  // and a Student's own business finance).
+  source               String
+  description          String?
+  occurredAt           DateTime
+  relatedOpportunityId String?
+  opportunity          Opportunity? @relation(fields: [relatedOpportunityId], references: [id])
+  createdById          String
+  createdAt            DateTime @default(now())
+
+  @@index([businessId])
+  @@index([occurredAt])
+}
+
+model BusinessExpenseRecord {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  amount      Decimal  @db.Decimal(12, 2)
+  category    String
+  description String?
+  occurredAt  DateTime
+  createdById String
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+  @@index([occurredAt])
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  productDisplayId String   @unique // e.g. PROD-2026-000001
+  businessId       String
+  business         Business @relation(fields: [businessId], references: [id])
+  name             String
+  // PRODUCT | SERVICE | COURSE | PACKAGE | SUBSCRIPTION | CUSTOM (spec 56)
+  type             String
+  description      String?
+  price            Decimal? @db.Decimal(12, 2)
+  cost             Decimal? @db.Decimal(12, 2)
+  category         String?
+  status           String   @default("DRAFT") // DRAFT | ACTIVE | INACTIVE | ARCHIVED
+  offerId          String?
+  offer            Offer?   @relation(fields: [offerId], references: [id])
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([businessId])
+}
+
+model SopDocument {
+  id             String   @id @default(cuid())
+  sopDisplayId   String   @unique // e.g. SOP-2026-000001
+  businessId     String
+  business       Business @relation(fields: [businessId], references: [id])
+  title          String
+  purpose        String?
+  // Ordered array of plain strings the Student wrote (or M.A.I.A. drafted
+  // from a Student-provided process description) — same never-invent-
+  // content discipline as Offer.detailsJson. A draft is always DRAFT.
+  stepsJson      Json
+  ownerId        String?
+  version        Int      @default(1)
+  status         String   @default("DRAFT") // DRAFT | ACTIVE | ARCHIVED
+  relatedProcess String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([businessId])
+}
+
+model ContentCalendarItem {
+  id              String    @id @default(cuid())
+  businessId      String
+  business        Business  @relation(fields: [businessId], references: [id])
+  title           String
+  // ORGANIC | PAID | EDUCATIONAL | SALES | COMMUNITY (spec section 50)
+  contentType     String
+  // IDEA | DRAFT | FOR_REVIEW | APPROVED | SCHEDULED | PUBLISHED | ARCHIVED
+  // — PUBLISHED is only ever set when a real publishing integration
+  // confirms it; otherwise this stays at APPROVED/SCHEDULED, surfaced as
+  // "READY TO PUBLISH" (spec section 53: never fake publishing).
+  stage           String    @default("IDEA")
+  scheduledDate   DateTime?
+  relatedHookId   String? // soft ref to a Phase 11 Hook
+  relatedScriptId String? // soft ref to a Phase 11 Script
+  campaignId      String? // soft ref to a Phase 11 Campaign
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([businessId])
+  @@index([stage])
+}
+
+model BusinessRoleGrant {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  // OWNER | MANAGER | MARKETING | SALES | SUPPORT | OPERATIONS | CUSTOM
+  // (spec section 67) — distinct from the global Staff RolePermission
+  // matrix; this is per-Business, per-User (spec section 68): the same
+  // User may hold a different role on a different Business.
+  role        String
+  grantedById String
+  createdAt   DateTime @default(now())
+
+  @@unique([businessId, userId])
+  @@index([businessId])
 }

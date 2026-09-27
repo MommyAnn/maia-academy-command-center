@@ -162,6 +162,27 @@ export const AUDIT_ACTIONS = [
   "Video Generation Job Submitted",
   "Video Generation Job Failed",
   "Video Generation Job Completed",
+  // Production Phase 15 — M.A.I.A. Business OS.
+  "Business Stage Set",
+  "Business Contact Created",
+  "Business Contact Pipeline Stage Changed",
+  "Opportunity Created",
+  "Opportunity Status Changed",
+  "Goal Created",
+  "Goal Progress Updated",
+  "Goal Status Changed",
+  "Business Plan Version Created",
+  "Business Plan Version Approved",
+  "Business Revenue Recorded",
+  "Business Expense Recorded",
+  "Product Created",
+  "Product Status Changed",
+  "SOP Created",
+  "SOP Status Changed",
+  "Content Calendar Item Created",
+  "Content Calendar Item Stage Changed",
+  "Business Role Granted",
+  "Business Role Revoked",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

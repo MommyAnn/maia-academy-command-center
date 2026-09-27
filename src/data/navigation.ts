@@ -13,6 +13,10 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [{ label: "Command Center", path: "/intelligence/command-center" }],
   },
   {
+    label: "M.A.I.A. Business OS",
+    items: [{ label: "Business Home", path: "/business-os/home" }],
+  },
+  {
     label: "Students",
     items: [
       { label: "All Students", path: "/students/all" },

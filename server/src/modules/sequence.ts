@@ -216,3 +216,35 @@ export async function generateVideoJobDisplayId(): Promise<string> {
   const n = await nextSequence(`video-job:${year}`);
   return `VIDJOB-${year}-${String(n).padStart(6, "0")}`;
 }
+
+// --- M.A.I.A. Business OS (Production Phase 15) ---------------------------
+
+export async function generateBusinessContactDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`business-contact:${year}`);
+  return `BCON-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateOpportunityDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`opportunity:${year}`);
+  return `OPP-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateGoalDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`goal:${year}`);
+  return `GOAL-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateProductDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`product:${year}`);
+  return `PROD-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateSopDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`sop:${year}`);
+  return `SOP-${year}-${String(n).padStart(6, "0")}`;
+}
