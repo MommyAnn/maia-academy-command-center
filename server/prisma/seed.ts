@@ -8,6 +8,8 @@ import { hashPassword } from "../src/auth/password.js";
 import { PERMISSION_MODULES, STAFF_ROLES } from "../src/rbac/modules.js";
 import { seedAiToolLibrary } from "../src/modules/ai-tools/seed.js";
 import { seedDefaultRules } from "../src/modules/intelligence/engine.js";
+import { seedEntitlementCatalog } from "../src/entitlements/seed.js";
+import { grantProductEntitlements, grantOverride } from "../src/entitlements/grant.js";
 
 export { main as runDevSeed };
 
@@ -190,6 +192,26 @@ async function main() {
 
   console.log("Seeding M.A.I.A. Intelligence default rules...");
   await seedDefaultRules();
+
+  console.log("Seeding Product Catalog + Feature Catalog + legacy Package mapping (unconfirmed)...");
+  const { level1 } = await seedEntitlementCatalog(ownerUser.id);
+  // Dev-seed fixtures only (spec section 100 governs REAL students, not
+  // these synthetic test accounts already used throughout every prior
+  // phase's test suite) — grants Level 1 so existing Business OS
+  // capability tests keep passing under the new Phase 16 feature gate.
+  await grantProductEntitlements({ studentId: studentA.id, product: level1, source: "ADMIN_GRANT", createdById: ownerUser.id });
+  await grantProductEntitlements({ studentId: studentB.id, product: level1, source: "ADMIN_GRANT", createdById: ownerUser.id });
+  // Level 1's own MULTIPLE_BUSINESSES grant is capped (usageLimit: 1) —
+  // realistic for a real base-tier product. These two shared dev/test
+  // fixtures are used across every prior phase's extensive test suites,
+  // many of which create several businesses per student as ordinary test
+  // fixtures unrelated to this phase's own business-limit tests (which use
+  // their own synthetic student instead, per spec section 109). This
+  // explicit, audited Admin override — the exact mechanism spec sections
+  // 86-87 describe — keeps those existing suites working; the resolver
+  // always prefers the more generous of two active grants.
+  await grantOverride({ studentId: studentA.id, featureKey: "MULTIPLE_BUSINESSES", reason: "Dev/test fixture used by many existing test suites — see prisma/seed.ts", createdById: ownerUser.id });
+  await grantOverride({ studentId: studentB.id, featureKey: "MULTIPLE_BUSINESSES", reason: "Dev/test fixture used by many existing test suites — see prisma/seed.ts", createdById: ownerUser.id });
 
   console.log("Done.", { studentA: studentA.id, studentB: studentB.id });
 }

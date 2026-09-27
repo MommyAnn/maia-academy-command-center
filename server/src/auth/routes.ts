@@ -53,8 +53,9 @@ export async function authRoutes(app: FastifyInstance, opts: { loginRateLimitPer
       await writeAuditLog({ action: "Login", summary: `${user.person.fullName} logged in`, actorUserId: user.id });
 
       reply.setCookie(sessionCookieOptions.name, token, { ...sessionCookieOptions, expires: expiresAt });
+      const student = await db.student.findUnique({ where: { personId: user.personId } });
       return reply.send({
-        user: { id: user.id, email: user.email, fullName: user.person.fullName, role: user.role.name },
+        user: { id: user.id, email: user.email, fullName: user.person.fullName, role: user.role.name, studentId: student?.id },
       });
     },
   );
@@ -75,8 +76,9 @@ export async function authRoutes(app: FastifyInstance, opts: { loginRateLimitPer
     if (!token) return reply.code(401).send({ error: "Not authenticated." });
     const session = await validateSession(token);
     if (!session) return reply.code(401).send({ error: "Session expired or revoked." });
+    const student = await db.student.findUnique({ where: { personId: session.user.personId } });
     return reply.send({
-      user: { id: session.user.id, email: session.user.email, fullName: session.user.person.fullName, role: session.user.role.name },
+      user: { id: session.user.id, email: session.user.email, fullName: session.user.person.fullName, role: session.user.role.name, studentId: student?.id },
     });
   });
 

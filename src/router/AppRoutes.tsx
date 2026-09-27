@@ -4,6 +4,8 @@ import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { CommandCenter as IntelligenceCommandCenter } from "@/pages/intelligence/CommandCenter";
 import { BusinessOS } from "@/pages/business-os/BusinessOS";
+import { MyAccess } from "@/pages/entitlements/MyAccess";
+import { ProductCatalog } from "@/pages/entitlements/ProductCatalog";
 import { EnrollmentForm } from "@/pages/EnrollmentForm";
 import { WebinarRegistration } from "@/pages/WebinarRegistration";
 import { NewEnrollments } from "@/pages/students/NewEnrollments";
@@ -116,6 +118,8 @@ const BUILT_PATHS = new Set([
   "/dashboard",
   "/intelligence/command-center",
   "/business-os/home",
+  "/access/my-access",
+  "/access/product-catalog",
   "/students/all",
   "/students/new-enrollments",
   "/students/batches",
@@ -232,6 +236,8 @@ export function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/intelligence/command-center" element={<IntelligenceCommandCenter />} />
         <Route path="/business-os/home" element={<BusinessOS />} />
+        <Route path="/access/my-access" element={<MyAccess />} />
+        <Route path="/access/product-catalog" element={<ProductCatalog />} />
         <Route path="/students/all" element={<AllStudents />} />
         <Route path="/students/new-enrollments" element={<NewEnrollments />} />
         <Route path="/students/batches" element={<Batches />} />

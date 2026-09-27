@@ -125,7 +125,8 @@ export async function businessHomeRoutes(app: FastifyInstance) {
   app.get("/api/businesses/:businessId/snapshot", { preHandler: [requireAuth] }, async (request, reply) => {
     const { businessId } = request.params as { businessId: string };
     if (!(await authorize(request, businessId))) return reply.code(403).send({ error: "Forbidden: this business does not belong to you." });
-    const business = await db.business.findUniqueOrThrow({ where: { id: businessId } });
+    const business = await db.business.findUnique({ where: { id: businessId } });
+    if (!business) return reply.code(404).send({ error: "Business not found." });
     const masterBrainDoc = await db.masterBrainDocument.findFirst({ where: { businessId }, orderBy: { generatedAt: "desc" } });
     const masterBrainStatus = !masterBrainDoc ? "NOT_STARTED" : masterBrainDoc.isCurrentPublished ? "PUBLISHED" : "DRAFT";
     return reply.send({
@@ -170,7 +171,8 @@ export async function businessHomeRoutes(app: FastifyInstance) {
   app.get("/api/businesses/:businessId/home", { preHandler: [requireAuth] }, async (request, reply) => {
     const { businessId } = request.params as { businessId: string };
     if (!(await authorize(request, businessId))) return reply.code(403).send({ error: "Forbidden: this business does not belong to you." });
-    const business = await db.business.findUniqueOrThrow({ where: { id: businessId } });
+    const business = await db.business.findUnique({ where: { id: businessId } });
+    if (!business) return reply.code(404).send({ error: "Business not found." });
     const [health, actionItems, goals, openOpportunityCount, activeCampaignCount] = await Promise.all([
       computeBusinessHealth(businessId),
       computeActionCenter(businessId),

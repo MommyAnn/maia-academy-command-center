@@ -358,3 +358,200 @@ export const businessOsApi = {
 
   ask: (businessId: string, question: string) => post<ApiAskBusinessResult>(`/api/businesses/${businessId}/ask`, { question }),
 };
+
+// ---------------------------------------------------------------------------
+// M.A.I.A. Productization / Entitlements (Production Phase 16)
+// ---------------------------------------------------------------------------
+
+export interface ApiFeature {
+  id: string;
+  featureKey: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+}
+
+export interface ApiFeatureGrant {
+  featureKey: string;
+  usageLimit?: number;
+  usagePeriod?: string;
+  businessLimit?: number;
+  teamSeatLimit?: number;
+}
+
+export interface ApiCommerceProduct {
+  id: string;
+  productDisplayId: string;
+  name: string;
+  description: string | null;
+  type: string;
+  status: string;
+  billingType: string;
+  basePrice: string | null;
+  currency: string;
+  accessDurationDays: number | null;
+  visibility: string;
+  includesProductIds: string[];
+  entitlementsJson: ApiFeatureGrant[];
+  createdAt: string;
+}
+
+export interface ApiEntitlement {
+  id: string;
+  entitlementDisplayId: string;
+  studentId: string;
+  businessId: string | null;
+  featureKey: string;
+  source: string;
+  sourceProductId: string | null;
+  product?: ApiCommerceProduct | null;
+  sourceRecordId: string | null;
+  startDate: string;
+  endDate: string | null;
+  status: string;
+  usageLimit: number | null;
+  usagePeriod: string | null;
+  overrideReason: string | null;
+  createdAt: string;
+}
+
+export interface ApiEntitlementWithStatus extends ApiEntitlement {
+  resolvedDecision: string;
+  usage?: { used: number; limit: number; periodKey: string } | null;
+}
+
+export interface ApiPurchase {
+  id: string;
+  purchaseDisplayId: string;
+  studentId: string;
+  productId: string;
+  product?: ApiCommerceProduct;
+  priceAtPurchase: string;
+  currency: string;
+  checkoutMode: string;
+  paymentMethod: string | null;
+  referenceNumber: string | null;
+  status: string;
+  activatedAt: string | null;
+  createdAt: string;
+}
+
+export interface ApiSubscription {
+  id: string;
+  subscriptionDisplayId: string;
+  studentId: string;
+  productId: string;
+  product?: ApiCommerceProduct;
+  provider: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+  gracePeriodEndsAt: string | null;
+}
+
+export interface ApiPromotion {
+  id: string;
+  code: string | null;
+  name: string;
+  type: string;
+  valueJson: { amount?: number; percent?: number };
+  usageLimit: number | null;
+  redeemedCount: number;
+}
+
+export interface ApiMyAccessView {
+  entitlements: ApiEntitlementWithStatus[];
+  purchases: ApiPurchase[];
+  subscriptions: ApiSubscription[];
+}
+
+export interface ApiResolveResult {
+  decision: string;
+  reason: string;
+  entitlementId?: string;
+  usage?: { used: number; limit: number; periodKey: string } | null;
+}
+
+export const entitlementsApi = {
+  // --- Catalog (admin) ---------------------------------------------------
+  features: () => get<{ features: ApiFeature[] }>("/api/entitlements/features"),
+  products: (filters?: { type?: string; status?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.type) params.set("type", filters.type);
+    if (filters?.status) params.set("status", filters.status);
+    const qs = params.toString();
+    return get<{ products: ApiCommerceProduct[] }>(`/api/entitlements/products${qs ? `?${qs}` : ""}`);
+  },
+  product: (id: string) => get<{ product: ApiCommerceProduct }>(`/api/entitlements/products/${id}`),
+  // Student Marketplace — any authenticated Student or staff member may
+  // call this; it is hard-scoped server-side to ACTIVE + PUBLIC products,
+  // unlike `products` above which requires the admin "Product Catalog" permission.
+  catalog: () => get<{ products: ApiCommerceProduct[] }>("/api/entitlements/catalog"),
+  productComparison: (id: string) => get<{ product: Pick<ApiCommerceProduct, "id" | "name" | "basePrice" | "currency" | "type">; features: ApiFeatureGrant[] }>(`/api/entitlements/products/${id}/comparison`),
+  createProduct: (payload: {
+    name: string;
+    description?: string;
+    type: string;
+    billingType?: string;
+    basePrice?: number;
+    currency?: string;
+    accessDurationDays?: number;
+    visibility?: string;
+    includesProductIds?: string[];
+    entitlementsJson?: ApiFeatureGrant[];
+  }) => post<{ product: ApiCommerceProduct }>("/api/entitlements/products", payload),
+  updateProduct: (id: string, payload: { status?: string; basePrice?: number; description?: string; entitlementsJson?: ApiFeatureGrant[]; includesProductIds?: string[] }) =>
+    patch<{ product: ApiCommerceProduct }>(`/api/entitlements/products/${id}`, payload),
+
+  promotions: () => get<{ promotions: ApiPromotion[] }>("/api/entitlements/promotions"),
+  createPromotion: (payload: { code?: string; name: string; type: string; valueJson: Record<string, unknown>; startAt?: string; endAt?: string; usageLimit?: number; productScopeJson?: string[] }) =>
+    post<{ promotion: ApiPromotion }>("/api/entitlements/promotions", payload),
+
+  upgradeRules: () => get<{ rules: unknown[] }>("/api/entitlements/upgrade-rules"),
+
+  billingStatus: () => get<{ provider: string; connected: boolean; realCheckoutModes: string[]; architectureOnlyModes: string[]; message: string }>("/api/entitlements/billing-status"),
+
+  // --- Student Access Center ----------------------------------------------
+  myAccess: (studentId: string) => get<ApiMyAccessView>(`/api/students/${studentId}/my-access`),
+  resolve: (studentId: string, featureKey: string, businessId?: string) =>
+    get<ApiResolveResult>(`/api/students/${studentId}/my-access/${featureKey}${businessId ? `?businessId=${businessId}` : ""}`),
+
+  // --- Admin Customer Access ----------------------------------------------
+  adminAccess: (studentId: string) => get<ApiMyAccessView>(`/api/admin/students/${studentId}/access`),
+  accessHealth: () => get<{ active: number; expiringSoon: number; expired: number; suspended: number; overrides: number; subscriptionsPastDue: number; generatedAt: string }>("/api/admin/entitlements/access-health"),
+  grantOverride: (payload: { studentId: string; businessId?: string; featureKey: string; reason: string; endDate?: string; usageLimit?: number; usagePeriod?: string }) =>
+    post<{ entitlement: ApiEntitlement }>("/api/admin/entitlements/grant", payload),
+  revokeEntitlement: (id: string, reason: string) => post<{ entitlement: ApiEntitlement }>(`/api/admin/entitlements/${id}/revoke`, { reason }),
+  suspendEntitlement: (id: string, reason: string) => post<{ entitlement: ApiEntitlement }>(`/api/admin/entitlements/${id}/suspend`, { reason }),
+
+  // --- Checkout ------------------------------------------------------------
+  purchases: (studentId: string) => get<{ purchases: ApiPurchase[] }>(`/api/students/${studentId}/purchases`),
+  createPurchase: (studentId: string, payload: { productId: string; businessId?: string; promotionCode?: string; checkoutMode?: string }) =>
+    post<{ purchase: ApiPurchase }>(`/api/students/${studentId}/purchases`, payload),
+  submitPayment: (purchaseId: string, payload: { paymentMethod: string; referenceNumber?: string; proofDocumentId?: string }) =>
+    post<{ purchase: ApiPurchase }>(`/api/purchases/${purchaseId}/submit-payment`, payload),
+  verifyPurchase: (purchaseId: string) => post<{ purchase: ApiPurchase }>(`/api/purchases/${purchaseId}/verify`),
+  activatePurchase: (purchaseId: string) => post<{ purchase: ApiPurchase; entitlements: ApiEntitlement[]; alreadyActivated: boolean }>(`/api/purchases/${purchaseId}/activate`),
+  cancelPurchase: (purchaseId: string, reason: string) => post<{ purchase: ApiPurchase }>(`/api/purchases/${purchaseId}/cancel`, { reason }),
+
+  subscriptions: (studentId: string) => get<{ subscriptions: ApiSubscription[] }>(`/api/students/${studentId}/subscriptions`),
+
+  // --- Upgrade / Downgrade -------------------------------------------------
+  upgradePreview: (studentId: string, toProductId: string, fromProductId?: string) =>
+    get<{ currentProduct: ApiCommerceProduct | null; newProduct: ApiCommerceProduct; addedFeatures: ApiFeatureGrant[]; retainedFeatures: ApiFeatureGrant[]; upgradePrice: number; priceNote: string }>(
+      `/api/students/${studentId}/upgrade-preview?toProductId=${toProductId}${fromProductId ? `&fromProductId=${fromProductId}` : ""}`,
+    ),
+  upgrade: (studentId: string, payload: { toProductId: string; fromProductId?: string }) => post<{ purchase: ApiPurchase; priceNote: string }>(`/api/students/${studentId}/upgrade`, payload),
+  downgradePreview: (studentId: string, toProductId: string) =>
+    get<{ newProduct: ApiCommerceProduct; currentBusinessCount: number; newBusinessLimit: number | null; warnings: string[]; safeToApply: boolean }>(`/api/students/${studentId}/downgrade-preview?toProductId=${toProductId}`),
+  downgrade: (studentId: string, payload: { fromProductId: string; toProductId: string; acknowledgeDataRetained: true }) =>
+    post<{ revokedCount: number; newEntitlements: ApiEntitlement[] }>(`/api/students/${studentId}/downgrade`, payload),
+  packageHistory: (studentId: string) => get<{ events: unknown[] }>(`/api/students/${studentId}/package-history`),
+
+  // --- Legacy migration + reconciliation (admin) ---------------------------
+  migrationDryRun: () => get<{ studentsScanned: number; rows: unknown[] }>("/api/admin/entitlements/migration-dry-run"),
+  confirmPackageMapping: (id: string) => post<{ mapping: unknown }>(`/api/admin/package-mappings/${id}/confirm`),
+  applyPackageMapping: (id: string, studentId: string) => post<{ entitlements: ApiEntitlement[] }>(`/api/admin/package-mappings/${id}/apply-to-student`, { studentId, confirm: true }),
+  reconciliation: () => get<{ generatedAt: string; flaggedCount: number; results: { category: string; detail: string; entityType: string; entityId: string }[] }>("/api/admin/entitlements/reconciliation"),
+};

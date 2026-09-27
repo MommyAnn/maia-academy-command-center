@@ -17,6 +17,13 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [{ label: "Business Home", path: "/business-os/home" }],
   },
   {
+    label: "Access & Billing",
+    items: [
+      { label: "My Access", path: "/access/my-access" },
+      { label: "Product Catalog", path: "/access/product-catalog" },
+    ],
+  },
+  {
     label: "Students",
     items: [
       { label: "All Students", path: "/students/all" },

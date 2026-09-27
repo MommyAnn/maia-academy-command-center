@@ -16,6 +16,7 @@ import { businessCatalogRoutes } from "./catalog.js";
 import { businessOperationsRoutes } from "./operations.js";
 import { businessHomeRoutes, computeBusinessHealth, computeActionCenter } from "./home.js";
 import { askMaiaBusiness } from "./copilot.js";
+import { requireFeatureEntitlement } from "../../entitlements/middleware.js";
 
 async function authorize(request: { authContext?: AuthContext }, businessId: string): Promise<boolean> {
   const ctx = request.authContext;
@@ -23,7 +24,25 @@ async function authorize(request: { authContext?: AuthContext }, businessId: str
   return assertBusinessAccess(businessId, ctx, "VIEW");
 }
 
+function getBusinessIdFromRequest(request: { params: unknown; body: unknown }): string | undefined {
+  const params = request.params as { businessId?: string };
+  if (params?.businessId) return params.businessId;
+  const body = request.body as { businessId?: string } | undefined;
+  return body?.businessId;
+}
+
 export async function businessOsRoutes(app: FastifyInstance) {
+  // Production Phase 16 backend feature gate (spec section 101) — every
+  // route in this plugin (including every nested sub-plugin registered
+  // below) requires the real BUSINESS_OS entitlement server-side, not just
+  // a hidden nav link. requireAuth runs again here even though every route
+  // below also lists it individually — idempotent, and necessary because a
+  // plugin-level preHandler added via addHook runs BEFORE route-specific
+  // preHandlers in Fastify's lifecycle, so this hook cannot rely on a
+  // route's own requireAuth having already populated request.authContext.
+  app.addHook("preHandler", requireAuth);
+  app.addHook("preHandler", requireFeatureEntitlement("BUSINESS_OS", getBusinessIdFromRequest));
+
   await app.register(businessTeamRoutes);
   await app.register(businessCrmRoutes);
   await app.register(businessGoalsRoutes);

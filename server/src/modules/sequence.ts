@@ -248,3 +248,29 @@ export async function generateSopDisplayId(): Promise<string> {
   const n = await nextSequence(`sop:${year}`);
   return `SOP-${year}-${String(n).padStart(6, "0")}`;
 }
+
+// --- M.A.I.A. Productization / Entitlements (Production Phase 16) --------
+
+export async function generateCommerceProductDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`commerce-product:${year}`);
+  return `PRODUCT-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateEntitlementDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`entitlement:${year}`);
+  return `ENT-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generatePurchaseDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`purchase:${year}`);
+  return `PUR-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateSubscriptionDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`subscription:${year}`);
+  return `SUB-${year}-${String(n).padStart(6, "0")}`;
+}

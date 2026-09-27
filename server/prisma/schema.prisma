@@ -349,6 +349,7 @@ model Package {
   aiAccess    AiPackageAccess[]
   aiUsageLimits AiUsageLimit[]
   courseAccess PackageCourseAccess[]
+  productMappings PackageMapping[]
 }
 
 model Student {
@@ -392,6 +393,10 @@ model Student {
   funnels          Funnel[]
   adConnections    AdConnection[]
   videoGenerationJobs VideoGenerationJob[]
+  entitlements     Entitlement[]
+  purchases        Purchase[]
+  subscriptions    Subscription[]
+  usageReservations UsageReservation[]
 
   @@index([batchId])
   @@index([packageId])
@@ -604,6 +609,7 @@ model Document {
   feedbackVideoOf  FeedbackSubmission[]
   incentiveResourceOf Incentive[]
   expenseReceiptOf Expense[]
+  purchaseProofOf Purchase[]
 
   @@index([ownerStudentId])
   @@index([ownerBusinessId])
@@ -3532,4 +3538,267 @@ model BusinessRoleGrant {
 
   @@unique([businessId, userId])
   @@index([businessId])
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCTIZATION + ENTITLEMENTS (Production Phase 16) — the commercial
+// access layer. This deliberately does NOT replace two proven, working
+// systems (spec sections 26, 81): the existing Course/CourseAccessGrant
+// entitlement flow, and the existing AiTool/AiManualGrant/AiUsageLimit
+// access-and-usage flow. Both keep working exactly as before. This layer's
+// real job is the software features Phases 6/10-15 shipped with ZERO
+// commercial gating (Business OS, Creative Studio, Automation Studio,
+// Website/Funnel Studio, Ads Intelligence, Build With You) plus the
+// unifying catalog/resolver/checkout/subscription architecture around
+// them all. Feature keys are stable machine identifiers (spec section 9),
+// never a UI label, and never a scattered `if (package === "VIP")` check
+// anywhere in the app (spec section 16) — every check goes through the
+// resolver in src/entitlements/resolver.ts.
+// ---------------------------------------------------------------------------
+
+model Feature {
+  id          String   @id @default(cuid())
+  featureKey  String   @unique // e.g. "BUSINESS_OS" — stable, machine-readable (spec section 9)
+  name        String
+  description String?
+  category    String? // Learning | AI | Marketing | Automation | Website | Service | etc.
+  createdAt   DateTime @default(now())
+}
+
+model CommerceProduct {
+  id               String   @id @default(cuid())
+  productDisplayId String   @unique // e.g. PRODUCT-2026-000001
+  name             String
+  description      String?
+  // COURSE | PROGRAM | PACKAGE | BUNDLE | MEMBERSHIP | SUBSCRIPTION |
+  // SERVICE | BUILD_WITH_YOU | ADD_ON | AI_ACCESS | BUSINESS_OS_ACCESS |
+  // CUSTOM (spec section 4)
+  type             String
+  status           String   @default("DRAFT") // DRAFT | ACTIVE | INACTIVE | ARCHIVED (spec section 5)
+  // ONE_TIME | RECURRING | INSTALLMENT | MANUAL | CUSTOM (spec section 6) —
+  // RECURRING is architecture-only until a real payment provider is
+  // connected (spec section 6: "Do not claim recurring billing works
+  // until a real payment provider supports it") — see Subscription.provider.
+  billingType      String   @default("ONE_TIME")
+  basePrice        Decimal? @db.Decimal(12, 2)
+  currency         String   @default("PHP")
+  accessDurationDays Int?   // null = no fixed expiration
+  visibility       String   @default("PUBLIC") // PUBLIC | HIDDEN | INTERNAL
+  // Ordered array of other Product ids this Product includes (spec
+  // sections 19-21 — Level inheritance: LEVEL_3 includes LEVEL_1 + LEVEL_2).
+  // Expanded ONCE at grant time into deduplicated Entitlement rows — never
+  // walked recursively by the resolver, so there is never entitlement
+  // duplication or a runtime graph walk per request.
+  includesProductIds Json   @default("[]")
+  // Array of { featureKey, usageLimit?, usagePeriod?, businessLimit?,
+  // teamSeatLimit? } — the Package Builder's configured grants (spec
+  // section 17). Plain JSON, matching this codebase's established
+  // convention for admin-configured content (Offer.detailsJson etc.) —
+  // never a hard-coded feature list in application code.
+  entitlementsJson Json     @default("[]")
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  entitlements     Entitlement[]
+  purchases        Purchase[]
+  subscriptions    Subscription[]
+  upgradeRulesFrom UpgradeRule[] @relation("UpgradeFromProduct")
+  upgradeRulesTo   UpgradeRule[] @relation("UpgradeToProduct")
+  packageMappings  PackageMapping[]
+
+  @@index([type])
+  @@index([status])
+}
+
+model Entitlement {
+  id                 String   @id @default(cuid())
+  entitlementDisplayId String @unique // e.g. ENT-2026-000001
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id])
+  // Null = account-wide (e.g. AI tool access); set = scoped to one Business
+  // (e.g. a per-Business feature), matching Phase 15's own isolation model.
+  businessId         String?
+  featureKey         String
+  // PACKAGE | COURSE_PURCHASE | PROGRAM | SUBSCRIPTION | PROMOTION | BONUS |
+  // FEEDBACK_INCENTIVE | BUILD_WITH_YOU | ADMIN_GRANT | LEGACY |
+  // SPECIAL_ACCESS (spec section 11)
+  source             String
+  sourceProductId    String?
+  product            CommerceProduct? @relation(fields: [sourceProductId], references: [id])
+  sourceRecordId     String? // e.g. the Purchase id, Subscription id, or IncentiveRedemption id
+  startDate          DateTime @default(now())
+  endDate            DateTime?
+  // PENDING | ACTIVE | EXPIRED | SUSPENDED | REVOKED | CANCELLED (spec 12)
+  status             String   @default("ACTIVE")
+  usageLimit         Int?
+  // NEVER | DAILY | WEEKLY | MONTHLY | BILLING_CYCLE | CUSTOM (spec 33)
+  usagePeriod        String?
+  // Set only for an Owner/Admin manual override (spec sections 86-87) —
+  // never silently bypasses billing/entitlement history; the grant itself
+  // is still a normal, audited Entitlement row with source ADMIN_GRANT.
+  overrideReason     String?
+  createdById        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([studentId, featureKey])
+  @@index([businessId])
+  @@index([status])
+}
+
+// Reserve-then-finalize usage tracking for expensive/concurrency-sensitive
+// operations (spec sections 34-36) — e.g. a real Veo video generation.
+// RESERVED rows count toward the limit immediately (before the job even
+// runs), closing the multi-tab/concurrent-request bypass spec section 105
+// tests for; FINALIZED_FAILURE/RELEASED rows no longer count.
+model UsageReservation {
+  id           String   @id @default(cuid())
+  featureKey   String
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id])
+  businessId   String?
+  // RESERVED | FINALIZED_SUCCESS | FINALIZED_FAILURE | RELEASED
+  status       String   @default("RESERVED")
+  periodKey    String   // e.g. "2026-09" for MONTHLY, "ALL" for NEVER — matches the owning Entitlement.usagePeriod
+  reservedAt   DateTime @default(now())
+  finalizedAt  DateTime?
+  createdById  String
+
+  @@index([studentId, featureKey, periodKey])
+}
+
+// A NEW, additive commercial-purchase ledger — deliberately separate from
+// PaymentTransaction (spec section 50's "existing Finance ledger" is the
+// Academy's own tuition ledger, hard-tied to a Batch+Package that a
+// Product purchase does not have). Academy tuition truth stays exclusively
+// in PaymentTransaction, never touched or duplicated by this model; this
+// is the first and only truth for a Product purchase's payment state,
+// mirroring PaymentTransaction's own honest status semantics (spec 47-48).
+model Purchase {
+  id               String   @id @default(cuid())
+  purchaseDisplayId String  @unique // e.g. PUR-2026-000001
+  studentId        String
+  student          Student  @relation(fields: [studentId], references: [id])
+  productId        String
+  product          CommerceProduct  @relation(fields: [productId], references: [id])
+  // Snapshotted at purchase time (spec section 7) — never re-read from the
+  // live catalog price later.
+  priceAtPurchase  Decimal  @db.Decimal(12, 2)
+  currency         String   @default("PHP")
+  promotionId      String?
+  promotion        Promotion? @relation(fields: [promotionId], references: [id])
+  discountAmount   Decimal? @db.Decimal(12, 2)
+  // MANUAL_PAYMENT | PAYMENT_LINK | CONNECTED_GATEWAY | INVOICE |
+  // ADMIN_ASSISTED (spec section 45) — only MANUAL_PAYMENT/ADMIN_ASSISTED
+  // are real in this build; the others exist in the enum for architecture
+  // readiness and are rejected honestly if selected (spec section 46).
+  checkoutMode     String   @default("MANUAL_PAYMENT")
+  paymentMethod    String?
+  referenceNumber  String?
+  proofDocumentId  String?
+  proofDocument    Document? @relation(fields: [proofDocumentId], references: [id])
+  // PENDING_PAYMENT | AWAITING_VERIFICATION | PAID | FAILED | CANCELLED |
+  // REFUNDED | PARTIALLY_REFUNDED (spec section 47)
+  status           String   @default("PENDING_PAYMENT")
+  verifiedById     String?
+  verifiedAt       DateTime?
+  rejectedReason   String?
+  // Set only once /activate has actually granted real Entitlement rows —
+  // never before (spec sections 49, 115-116: a failed/pending checkout
+  // never grants access).
+  activatedAt      DateTime?
+  createdById      String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([productId])
+  @@index([status])
+}
+
+// Subscription architecture (spec sections 52-59) — provider defaults to
+// MANUAL (staff-tracked renewal) since no real recurring-billing gateway
+// is connected in this environment; providerSubscriptionId/status stay
+// ready for a real provider's webhook-confirmed events to drive, per spec
+// section 54 ("provider-confirmed events determine... state" — never AI).
+model Subscription {
+  id                 String   @id @default(cuid())
+  subscriptionDisplayId String @unique // e.g. SUB-2026-000001
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id])
+  productId          String
+  product            CommerceProduct  @relation(fields: [productId], references: [id])
+  provider           String   @default("MANUAL")
+  providerSubscriptionId String?
+  // TRIALING | ACTIVE | PAST_DUE | PAUSED | CANCELLED | EXPIRED |
+  // INCOMPLETE (spec section 53)
+  status             String   @default("ACTIVE")
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+  nextBillingDate    DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+  gracePeriodEndsAt  DateTime? // set on PAST_DUE (spec section 57)
+  createdById        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+}
+
+model UpgradeRule {
+  id               String   @id @default(cuid())
+  fromProductId    String
+  fromProduct      CommerceProduct  @relation("UpgradeFromProduct", fields: [fromProductId], references: [id])
+  toProductId      String
+  toProduct        CommerceProduct  @relation("UpgradeToProduct", fields: [toProductId], references: [id])
+  // { mode: "FIXED" | "DIFFERENCE" | "CUSTOM", amount?, note? } — spec
+  // sections 62-64: never assumed to be (newPrice - oldPrice) unless this
+  // rule explicitly says mode "DIFFERENCE".
+  upgradePriceRuleJson Json
+  eligibilityJson  Json?
+  // NONE | FIXED_CREDIT | FULL_ELIGIBLE_CREDIT | PERCENTAGE | CUSTOM (65)
+  creditRuleJson   Json?
+  effectiveDate    DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@unique([fromProductId, toProductId])
+}
+
+model Promotion {
+  id               String   @id @default(cuid())
+  code             String?  @unique // null = non-coupon promotion applied by admin/eligibility only
+  name             String
+  // FIXED_DISCOUNT | PERCENTAGE_DISCOUNT | BONUS_COURSE | BONUS_FEATURE |
+  // EXTENDED_ACCESS | SPECIAL_UPGRADE (spec section 70)
+  type             String
+  valueJson        Json // { amount? } | { percent? } | { courseId? } | { featureKey?, days? }
+  startAt          DateTime?
+  endAt            DateTime?
+  usageLimit       Int? // real tracked capacity (spec section 72) — never a fake "slots remaining"
+  redeemedCount    Int      @default(0)
+  productScopeJson Json? // array of Product ids this promotion applies to; null = all
+  createdById      String
+  createdAt        DateTime @default(now())
+
+  purchases        Purchase[]
+}
+
+// Admin-confirmable legacy Package -> Product mapping (spec section 22) —
+// never auto-applied. Existing Premium/VIP/Dual VIP students keep whatever
+// access they already have (CourseAccessGrant, AiPackageAccess, etc.)
+// completely untouched until an Owner/Admin explicitly reviews and confirms
+// this mapping via the Migration Dry Run (spec sections 99-100).
+model PackageMapping {
+  id              String   @id @default(cuid())
+  legacyPackageId String   @unique
+  legacyPackage   Package  @relation(fields: [legacyPackageId], references: [id])
+  mappedProductId String
+  mappedProduct   CommerceProduct  @relation(fields: [mappedProductId], references: [id])
+  confirmed       Boolean  @default(false)
+  confirmedById   String?
+  confirmedAt     DateTime?
+  createdById     String
+  createdAt       DateTime @default(now())
 }

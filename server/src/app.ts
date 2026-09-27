@@ -43,6 +43,7 @@ import { websiteFunnelStudioRoutes } from "./modules/website/routes.js";
 import { adsCommandCenterRoutes } from "./modules/ads/routes.js";
 import { videoGenerationRoutes } from "./modules/video/routes.js";
 import { businessOsRoutes } from "./modules/business-os/routes.js";
+import { entitlementRoutes } from "./modules/entitlements/routes.js";
 import { startAutomationDispatcher } from "./modules/automation/dispatcher.js";
 
 export interface BuildAppOptions {
@@ -131,6 +132,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(adsCommandCenterRoutes);
   await app.register(videoGenerationRoutes, { createJobRateLimitPerMinute: options.videoJobRateLimitOverride });
   await app.register(businessOsRoutes);
+  await app.register(entitlementRoutes);
 
   // The outbox sweep and automation dispatcher are both real interval
   // timers in every real environment — skipped only under test, where the

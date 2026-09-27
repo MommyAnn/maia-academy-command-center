@@ -6,6 +6,7 @@ import { requireAuth, requirePermission, requireStudentSelfOrPermission, assertB
 import { writeAuditLog } from "../../audit/log.js";
 import { generateMasterBrainDraft } from "./generation.js";
 import { MASTER_BRAIN_SECTION_DEFS, type MasterBrainDocumentSection } from "../ai/validation.js";
+import { resolveEntitlement } from "../../entitlements/resolver.js";
 
 const businessSchema = z.object({ name: z.string().min(1) });
 
@@ -55,6 +56,19 @@ export async function masterBrainRoutes(app: FastifyInstance) {
     const { studentId } = request.params as { studentId: string };
     const parsed = businessSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid business.", details: parsed.error.flatten() });
+
+    // Production Phase 16 (spec sections 30, 37, 119) — a Student's FIRST
+    // business is always allowed even with no MULTIPLE_BUSINESSES
+    // entitlement configured yet; every business beyond the first is
+    // gated by the real entitlement, never a hard-coded package check.
+    const existingCount = await db.business.count({ where: { studentId } });
+    if (existingCount > 0) {
+      const resolved = await resolveEntitlement({ studentId, featureKey: "MULTIPLE_BUSINESSES" });
+      if (resolved.decision !== "ALLOWED") {
+        return reply.code(402).send({ error: resolved.reason, decision: resolved.decision, featureKey: "MULTIPLE_BUSINESSES" });
+      }
+    }
+
     const business = await db.business.create({ data: { studentId, name: parsed.data.name } });
     return reply.code(201).send({ business });
   });

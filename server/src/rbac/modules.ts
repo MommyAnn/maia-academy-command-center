@@ -47,6 +47,7 @@ export const PERMISSION_MODULES = [
   "Website & Funnel Studio",
   "Ads Command Center",
   "Business OS",
+  "Product Catalog",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

@@ -158,6 +158,26 @@ export async function resetDb() {
     // plain (RESTRICT) FK to both Student and Business, so it must clear
     // before either cleanup below.
     db.videoGenerationJob.deleteMany(),
+    // Production Phase 16 (Productization/Entitlements) — Purchase/
+    // Subscription/UsageReservation/Entitlement all have a plain RESTRICT
+    // FK to Student, so all clear before the Student cleanup below.
+    // UpgradeRule/PackageMapping/Purchase/Subscription have a RESTRICT FK
+    // to CommerceProduct, so they clear before CommerceProduct itself;
+    // PackageMapping also has a RESTRICT FK to Package, so it must clear
+    // before the Package cleanup further below too. CommerceProduct/
+    // Feature/Promotion are reset and reseeded every run (same "always
+    // reset even what's normally durable config" principle used
+    // throughout this file) so a re-seeded Product never collides with a
+    // stale id a test file cached earlier in the same run.
+    db.purchase.deleteMany(),
+    db.subscription.deleteMany(),
+    db.usageReservation.deleteMany(),
+    db.entitlement.deleteMany(),
+    db.upgradeRule.deleteMany(),
+    db.packageMapping.deleteMany(),
+    db.promotion.deleteMany(),
+    db.commerceProduct.deleteMany(),
+    db.feature.deleteMany(),
     // Production Phase 15 (M.A.I.A. Business OS) — BusinessRevenueRecord/
     // BusinessExpenseRecord/Product/SopDocument/ContentCalendarItem/Goal/
     // BusinessPipeline/BusinessRoleGrant all have a plain RESTRICT FK to
