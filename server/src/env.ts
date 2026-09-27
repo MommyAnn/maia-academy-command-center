@@ -84,6 +84,22 @@ const schema = z.object({
   // developer documentation before any real connection is configured.
   META_GRAPH_API_BASE_URL: z.string().default("https://graph.facebook.com"),
   META_GRAPH_API_VERSION: z.string().default("v21.0"),
+
+  // Real Google Veo video generation (M.A.I.A. Video Director backend).
+  // Reuses the SAME GOOGLE_AI_API_KEY slot above — Veo is served through
+  // the Gemini Developer API (generativelanguage.googleapis.com), the same
+  // API surface/key type as Google's text models, so no separate
+  // credential variable is introduced. Optional: the server must boot and
+  // every non-video feature must keep working with it unset — a
+  // VideoGenerationJob honestly stays FAILED/NotConfigured until a real key
+  // is supplied and a real request to GOOGLE_VEO_BASE_URL succeeds. Never
+  // read anywhere outside src/ai/veo.ts and the admin connection-status
+  // routes; never returned by any API response or persisted to the
+  // database. Centralized here (never scattered through the codebase) —
+  // reverify GOOGLE_VEO_MODEL and GOOGLE_VEO_BASE_URL against Google's
+  // current Gemini API documentation before relying on this in production.
+  GOOGLE_VEO_BASE_URL: z.string().default("https://generativelanguage.googleapis.com/v1beta"),
+  GOOGLE_VEO_MODEL: z.string().default("veo-3.1-generate-preview"),
 });
 
 const parsed = schema.safeParse(process.env);

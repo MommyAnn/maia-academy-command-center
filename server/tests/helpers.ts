@@ -154,6 +154,10 @@ export async function resetDb() {
     db.adCampaign.deleteMany(),
     db.adAccount.deleteMany(),
     db.adConnection.deleteMany(),
+    // M.A.I.A. Video Director real Veo backend — VideoGenerationJob has a
+    // plain (RESTRICT) FK to both Student and Business, so it must clear
+    // before either cleanup below.
+    db.videoGenerationJob.deleteMany(),
     db.business.deleteMany(),
     db.domainEvent.deleteMany(),
     db.activityLog.deleteMany(),

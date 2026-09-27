@@ -210,3 +210,9 @@ export async function generateAdImportBatchDisplayId(): Promise<string> {
   const n = await nextSequence(`ad-import-batch:${year}`);
   return `ADIMP-${year}-${String(n).padStart(6, "0")}`;
 }
+
+export async function generateVideoJobDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`video-job:${year}`);
+  return `VIDJOB-${year}-${String(n).padStart(6, "0")}`;
+}

@@ -157,6 +157,11 @@ export const AUDIT_ACTIONS = [
   "Ad Campaign Created",
   "Ad Test Plan Created",
   "Ad Test Plan Status Changed",
+  // M.A.I.A. Video Director — real Google Veo generation backend.
+  "Video Generation Job Requested",
+  "Video Generation Job Submitted",
+  "Video Generation Job Failed",
+  "Video Generation Job Completed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

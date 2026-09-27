@@ -41,6 +41,7 @@ import { creativeStudioRoutes } from "./modules/creative/routes.js";
 import { automationStudioRoutes } from "./modules/automation/routes.js";
 import { websiteFunnelStudioRoutes } from "./modules/website/routes.js";
 import { adsCommandCenterRoutes } from "./modules/ads/routes.js";
+import { videoGenerationRoutes } from "./modules/video/routes.js";
 import { startAutomationDispatcher } from "./modules/automation/dispatcher.js";
 
 export interface BuildAppOptions {
@@ -48,6 +49,8 @@ export interface BuildAppOptions {
   loginRateLimitOverride?: number;
   /** Overrides the migration upload rate limit (default 10/minute) for this instance only — the staged-pipeline test suite legitimately uploads more than 10 batches in a single run. */
   migrationUploadRateLimitOverride?: number;
+  /** Overrides the video generation job creation rate limit (default 10/minute) for this instance only — the Phase 15 test suite legitimately creates more than 10 jobs across its many success/failure/validation scenarios in a single run. */
+  videoJobRateLimitOverride?: number;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -125,6 +128,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(automationStudioRoutes);
   await app.register(websiteFunnelStudioRoutes);
   await app.register(adsCommandCenterRoutes);
+  await app.register(videoGenerationRoutes, { createJobRateLimitPerMinute: options.videoJobRateLimitOverride });
 
   // The outbox sweep and automation dispatcher are both real interval
   // timers in every real environment — skipped only under test, where the
