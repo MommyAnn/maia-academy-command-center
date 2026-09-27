@@ -183,6 +183,10 @@ export async function productCatalogRoutes(app: FastifyInstance) {
     endAt: z.string().datetime().optional(),
     usageLimit: z.number().int().positive().optional(),
     productScopeJson: z.array(z.string()).optional(),
+    // Phase 17 additions (spec sections 51, 53).
+    perCustomerLimit: z.number().int().positive().optional(),
+    minimumPurchaseAmount: z.number().nonnegative().optional(),
+    stackable: z.boolean().default(false),
   });
 
   app.post("/api/entitlements/promotions", { preHandler: [requireAuth, requirePermission("Product Catalog", "CREATE")] }, async (request, reply) => {
@@ -199,6 +203,9 @@ export async function productCatalogRoutes(app: FastifyInstance) {
         endAt: parsed.data.endAt ? new Date(parsed.data.endAt) : undefined,
         usageLimit: parsed.data.usageLimit,
         productScopeJson: parsed.data.productScopeJson as Prisma.InputJsonValue | undefined,
+        perCustomerLimit: parsed.data.perCustomerLimit,
+        minimumPurchaseAmount: parsed.data.minimumPurchaseAmount,
+        stackable: parsed.data.stackable,
         createdById: ctx.userId,
       },
     });

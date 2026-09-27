@@ -12,8 +12,10 @@ import { z } from "zod";
 import { db } from "../../db.js";
 import { requireAuth, requireStudentSelfOrPermission, requirePermission } from "../../rbac/middleware.js";
 import { writeAuditLog } from "../../audit/log.js";
-import { generatePurchaseDisplayId, generateSubscriptionDisplayId } from "../sequence.js";
+import { generateSubscriptionDisplayId } from "../sequence.js";
 import { grantProductEntitlements } from "../../entitlements/grant.js";
+import { computeOrderPrice } from "../../commerce/pricing.js";
+import { createOrder, setFulfillmentStatus } from "../../commerce/order.js";
 
 const REAL_CHECKOUT_MODES = ["MANUAL_PAYMENT", "ADMIN_ASSISTED"] as const;
 const ARCHITECTURE_ONLY_CHECKOUT_MODES = ["PAYMENT_LINK", "CONNECTED_GATEWAY", "INVOICE"] as const;
@@ -31,6 +33,12 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
   const createPurchaseSchema = z.object({ businessId: z.string().optional(), productId: z.string().min(1), promotionCode: z.string().optional(), checkoutMode: z.enum([...REAL_CHECKOUT_MODES, ...ARCHITECTURE_ONLY_CHECKOUT_MODES]).default("MANUAL_PAYMENT") });
 
+  // Direct (non-session) checkout — a simpler path than
+  // POST .../checkout-sessions for callers that don't need a lockable,
+  // shareable, expiring session. Price is still computed ENTIRELY
+  // server-side via computeOrderPrice (spec sections 11-13): nothing in
+  // createPurchaseSchema accepts a price/total/amount field, so a
+  // tampered browser value simply has no field to travel in.
   app.post("/api/students/:studentId/purchases", { preHandler: [requireAuth, requireStudentSelfOrPermission("Product Catalog", "CREATE")] }, async (request, reply) => {
     const { studentId } = request.params as { studentId: string };
     const parsed = createPurchaseSchema.safeParse(request.body);
@@ -40,44 +48,19 @@ export async function checkoutRoutes(app: FastifyInstance) {
       return reply.code(422).send({ error: `Checkout mode ${parsed.data.checkoutMode} is architecture-ready but not connected to a real provider yet. Use MANUAL_PAYMENT or ADMIN_ASSISTED.` });
     }
 
-    const product = await db.commerceProduct.findUnique({ where: { id: parsed.data.productId } });
-    if (!product || product.status !== "ACTIVE") return reply.code(404).send({ error: "Product not found or not currently available." });
-
-    let discountAmount: number | undefined;
-    let promotionId: string | undefined;
-    if (parsed.data.promotionCode) {
-      const promo = await db.promotion.findUnique({ where: { code: parsed.data.promotionCode } });
-      const now = new Date();
-      if (!promo) return reply.code(400).send({ error: "Invalid promotion code." });
-      if (promo.startAt && promo.startAt > now) return reply.code(400).send({ error: "This promotion is not active yet." });
-      if (promo.endAt && promo.endAt < now) return reply.code(400).send({ error: "This promotion has expired." });
-      // Real tracked capacity — never a fabricated "slots remaining" (spec 72).
-      if (promo.usageLimit != null && promo.redeemedCount >= promo.usageLimit) return reply.code(400).send({ error: "This promotion has reached its redemption limit." });
-      const scope = promo.productScopeJson as string[] | null;
-      if (scope && !scope.includes(product.id)) return reply.code(400).send({ error: "This promotion does not apply to this product." });
-      const value = promo.valueJson as { amount?: number; percent?: number };
-      const basePrice = Number(product.basePrice ?? 0);
-      discountAmount = value.percent != null ? basePrice * (value.percent / 100) : value.amount != null ? value.amount : 0;
-      promotionId = promo.id;
-    }
+    const priceResult = await computeOrderPrice({ productId: parsed.data.productId, studentId, promotionCode: parsed.data.promotionCode });
+    if (!priceResult.ok) return reply.code(priceResult.error.includes("not found") ? 404 : 400).send({ error: priceResult.error });
 
     const ctx = request.authContext!;
-    const priceAtPurchase = Math.max(0, Number(product.basePrice ?? 0) - (discountAmount ?? 0));
-    const purchase = await db.purchase.create({
-      data: {
-        purchaseDisplayId: await generatePurchaseDisplayId(),
-        studentId,
-        productId: product.id,
-        priceAtPurchase,
-        currency: product.currency,
-        promotionId,
-        discountAmount,
-        checkoutMode: parsed.data.checkoutMode,
-        createdById: ctx.userId,
-      },
+    const purchase = await createOrder({
+      studentId,
+      businessId: parsed.data.businessId,
+      product: priceResult.product,
+      price: priceResult.price,
+      checkoutMode: parsed.data.checkoutMode,
+      source: "CHECKOUT",
+      createdById: ctx.userId,
     });
-    if (promotionId) await db.promotion.update({ where: { id: promotionId }, data: { redeemedCount: { increment: 1 } } });
-    await writeAuditLog({ action: "Purchase Created", summary: `Purchase ${purchase.purchaseDisplayId} for "${product.name}" created (₱${priceAtPurchase})`, actorUserId: ctx.userId, entityType: "Purchase", entityId: purchase.id });
     return reply.code(201).send({ purchase });
   });
 
@@ -102,6 +85,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
     const parsed = submitPaymentSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request." });
     const updated = await db.purchase.update({ where: { id }, data: { ...parsed.data, status: "AWAITING_VERIFICATION" } });
+    await setFulfillmentStatus(id, "PENDING_VERIFICATION", ctx.userId);
     await writeAuditLog({ action: "Purchase Payment Submitted", summary: `Payment submitted for purchase ${purchase.purchaseDisplayId}`, actorUserId: ctx.userId, entityType: "Purchase", entityId: id });
     return reply.send({ purchase: updated });
   });
@@ -114,6 +98,11 @@ export async function checkoutRoutes(app: FastifyInstance) {
 
     const ctx = request.authContext!;
     const updated = await db.purchase.update({ where: { id }, data: { status: "PAID", verifiedById: ctx.userId, verifiedAt: new Date() } });
+    await setFulfillmentStatus(id, "READY", ctx.userId);
+    if (purchase.affiliateId) {
+      const { calculateCommissionForPurchase } = await import("../../commerce/affiliate.js");
+      await calculateCommissionForPurchase(id, ctx.userId);
+    }
     await writeAuditLog({ action: "Purchase Payment Verified", summary: `Purchase ${purchase.purchaseDisplayId} payment verified`, actorUserId: ctx.userId, entityType: "Purchase", entityId: id });
     return reply.send({ purchase: updated });
   });
@@ -138,6 +127,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
     const purchaseSource = purchase.product.type === "COURSE" ? "COURSE_PURCHASE" : purchase.product.type === "BUILD_WITH_YOU" ? "BUILD_WITH_YOU" : "PACKAGE";
     const entitlements = await grantProductEntitlements({ studentId: purchase.studentId, businessId: undefined, product: purchase.product, source: purchaseSource, sourceRecordId: purchase.id, createdById: ctx.userId });
     const updated = await db.purchase.update({ where: { id }, data: { activatedAt: new Date() } });
+    await setFulfillmentStatus(id, "FULFILLED", ctx.userId);
     await writeAuditLog({ action: "Purchase Activated", summary: `Purchase ${purchase.purchaseDisplayId} activated — ${entitlements.length} entitlement(s) granted`, actorUserId: ctx.userId, entityType: "Purchase", entityId: id });
     return reply.send({ purchase: updated, entitlements, alreadyActivated: false });
   });
@@ -155,6 +145,7 @@ export async function checkoutRoutes(app: FastifyInstance) {
     const parsed = cancelSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "A reason is required." });
     const updated = await db.purchase.update({ where: { id }, data: { status: "CANCELLED", rejectedReason: parsed.data.reason } });
+    if (purchase.fulfillmentStatus !== "NOT_READY") await setFulfillmentStatus(id, "SUSPENDED", ctx.userId);
     await writeAuditLog({ action: "Purchase Cancelled", summary: `Purchase ${purchase.purchaseDisplayId} cancelled: ${parsed.data.reason}`, actorUserId: ctx.userId, entityType: "Purchase", entityId: id });
     return reply.send({ purchase: updated });
   });
@@ -210,6 +201,33 @@ export async function checkoutRoutes(app: FastifyInstance) {
     const updated = await db.subscription.update({ where: { id }, data: { status: "PAST_DUE", gracePeriodEndsAt } });
     await writeAuditLog({ action: "Subscription Past Due", summary: `Subscription ${subscription.subscriptionDisplayId} marked PAST_DUE — grace period until ${gracePeriodEndsAt.toISOString()}`, actorUserId: request.authContext!.userId, entityType: "Subscription", entityId: id });
     return reply.send({ subscription: updated });
+  });
+
+  // Dunning readiness (spec sections 38-39) — staff-triggered, never an
+  // automatic spam loop: each call requires an explicit, already-approved
+  // MessageTemplate and is frequency-capped (spec 39: "no harassing
+  // collection") to at most one dunning notice per 48 hours for the same
+  // Subscription, regardless of how many times staff click the button.
+  const dunningSchema = z.object({ noticeStage: z.enum(["FIRST", "SECOND", "FINAL"]), templateId: z.string().min(1), channel: z.enum(["Email", "SMS", "WhatsApp"]) });
+
+  app.post("/api/admin/subscriptions/:id/send-dunning-notice", { preHandler: [requireAuth, requirePermission("Communications", "CREATE")] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const subscription = await db.subscription.findUnique({ where: { id }, include: { student: { include: { person: true } } } });
+    if (!subscription) return reply.code(404).send({ error: "Subscription not found." });
+    if (subscription.status !== "PAST_DUE") return reply.code(409).send({ error: "Dunning notices can only be sent for a PAST_DUE subscription." });
+
+    const parsed = dunningSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Invalid request." });
+
+    const recentNotice = await db.communicationLog.findFirst({
+      where: { studentId: subscription.studentId, triggerEvent: { startsWith: "Dunning:" }, queuedAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) } },
+      orderBy: { queuedAt: "desc" },
+    });
+    if (recentNotice) return reply.code(429).send({ error: "A dunning notice was already sent to this Student within the last 48 hours. Wait before sending another." });
+
+    const { executeSend } = await import("../communications/routes.js");
+    const log = await executeSend(subscription.student.personId, parsed.data.channel, parsed.data.templateId, request.authContext!.userId, `Dunning:${parsed.data.noticeStage}`);
+    return reply.code(201).send({ communicationLog: log });
   });
 
   const cancelSubscriptionSchema = z.object({ atPeriodEnd: z.boolean().default(true) });

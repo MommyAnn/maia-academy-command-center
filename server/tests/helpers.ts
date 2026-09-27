@@ -169,7 +169,24 @@ export async function resetDb() {
     // reset even what's normally durable config" principle used
     // throughout this file) so a re-seeded Product never collides with a
     // stale id a test file cached earlier in the same run.
+    // Production Phase 17 (Commerce & Growth Engine) — Commission/
+    // RefundRequest/ReferralEvent/PaymentWebhookEvent all have a FK to
+    // Purchase (RESTRICT or SET NULL), so all clear before Purchase
+    // itself. CheckoutSession/SponsoredAccess have a RESTRICT FK to
+    // CommerceProduct, so they clear before the CommerceProduct cleanup
+    // below. Affiliate has a RESTRICT FK to Person and is referenced by
+    // Commission/ReferralEvent above, so it clears after those but still
+    // well before the Person cleanup further below.
+    db.commission.deleteMany(),
+    db.refundRequest.deleteMany(),
+    db.referralEvent.deleteMany(),
+    db.paymentWebhookEvent.deleteMany(),
     db.purchase.deleteMany(),
+    db.checkoutSession.deleteMany(),
+    db.sponsoredAccess.deleteMany(),
+    db.affiliate.deleteMany(),
+    db.commissionPlan.deleteMany(),
+    db.payoutBatch.deleteMany(),
     db.subscription.deleteMany(),
     db.usageReservation.deleteMany(),
     db.entitlement.deleteMany(),

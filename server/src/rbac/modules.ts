@@ -48,6 +48,8 @@ export const PERMISSION_MODULES = [
   "Ads Command Center",
   "Business OS",
   "Product Catalog",
+  "Commerce",
+  "Affiliate Program",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

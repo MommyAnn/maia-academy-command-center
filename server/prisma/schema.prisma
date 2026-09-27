@@ -43,6 +43,7 @@ model Person {
   communicationLogs CommunicationLog[]
   ghlContactMap     GhlContactMap?
   businessContacts  BusinessContact[]
+  affiliate         Affiliate?
 
   @@index([email])
 }
@@ -397,6 +398,10 @@ model Student {
   purchases        Purchase[]
   subscriptions    Subscription[]
   usageReservations UsageReservation[]
+  checkoutSessions CheckoutSession[]
+  refundRequests   RefundRequest[]
+  sponsoredAccesses SponsoredAccess[]
+  commissionsEarnedFor Commission[]
 
   @@index([batchId])
   @@index([packageId])
@@ -493,6 +498,7 @@ model Business {
   sopDocuments           SopDocument[]
   contentCalendarItems   ContentCalendarItem[]
   roleGrants             BusinessRoleGrant[]
+  orders                 Purchase[]
 
   @@index([studentId])
 }
@@ -3606,6 +3612,8 @@ model CommerceProduct {
   upgradeRulesFrom UpgradeRule[] @relation("UpgradeFromProduct")
   upgradeRulesTo   UpgradeRule[] @relation("UpgradeToProduct")
   packageMappings  PackageMapping[]
+  checkoutSessions CheckoutSession[]
+  sponsoredAccesses SponsoredAccess[]
 
   @@index([type])
   @@index([status])
@@ -3675,20 +3683,51 @@ model UsageReservation {
 // in PaymentTransaction, never touched or duplicated by this model; this
 // is the first and only truth for a Product purchase's payment state,
 // mirroring PaymentTransaction's own honest status semantics (spec 47-48).
+// Production Phase 17 note: this model IS the "Order" entity the Commerce
+// spec calls for — Phase 16 already built the real purchase-truth ledger
+// here, and Phase 17 extends it in place rather than standing up a second,
+// competing commerce-truth table (the spec's own instruction: reuse, never
+// duplicate, the Phase 16 architecture). Everywhere Commerce-facing
+// code/UI says "Order", it means this row.
 model Purchase {
   id               String   @id @default(cuid())
   purchaseDisplayId String  @unique // e.g. PUR-2026-000001
   studentId        String
   student          Student  @relation(fields: [studentId], references: [id])
+  // Set only when this Order is scoped to one of the Student's Businesses
+  // (spec: "Business ID where applicable") — most Academy-level Products
+  // (Levels, Build With You) are Student-scoped and leave this null.
+  businessId       String?
+  business         Business? @relation(fields: [businessId], references: [id])
   productId        String
   product          CommerceProduct  @relation(fields: [productId], references: [id])
+  quantity         Int      @default(1)
+  // Pre-discount/credit snapshot of the catalog price at Order-creation
+  // time (spec section 4: "do not rely only on current Product Catalog
+  // state"). Null only for legacy rows created before this field existed.
+  subtotal         Decimal? @db.Decimal(12, 2)
+  creditsApplied   Decimal? @db.Decimal(12, 2)
+  // Product Name / Type / configured price / expected entitlements at the
+  // moment this Order was created — read back for display/audit even if
+  // the live CommerceProduct is later edited or archived (spec section 4).
+  productSnapshotJson Json?
   // Snapshotted at purchase time (spec section 7) — never re-read from the
-  // live catalog price later.
+  // live catalog price later. This is the Order's real Total.
   priceAtPurchase  Decimal  @db.Decimal(12, 2)
   currency         String   @default("PHP")
   promotionId      String?
   promotion        Promotion? @relation(fields: [promotionId], references: [id])
   discountAmount   Decimal? @db.Decimal(12, 2)
+  // CHECKOUT | ADMIN_ASSISTED | UPGRADE_FLOW | AFFILIATE_LINK (spec section
+  // 3's commercial-journey origin) — distinct from checkoutMode (HOW paid).
+  source           String   @default("CHECKOUT")
+  affiliateId      String?
+  affiliate        Affiliate? @relation(fields: [affiliateId], references: [id])
+  // { method, windowDays, referralEventId } snapshot of which attribution
+  // rule actually applied (spec sections 67-68) — never recomputed later.
+  affiliateAttributionJson Json?
+  checkoutSessionId String? @unique
+  checkoutSession  CheckoutSession? @relation(fields: [checkoutSessionId], references: [id])
   // MANUAL_PAYMENT | PAYMENT_LINK | CONNECTED_GATEWAY | INVOICE |
   // ADMIN_ASSISTED (spec section 45) — only MANUAL_PAYMENT/ADMIN_ASSISTED
   // are real in this build; the others exist in the enum for architecture
@@ -3698,9 +3737,14 @@ model Purchase {
   referenceNumber  String?
   proofDocumentId  String?
   proofDocument    Document? @relation(fields: [proofDocumentId], references: [id])
-  // PENDING_PAYMENT | AWAITING_VERIFICATION | PAID | FAILED | CANCELLED |
-  // REFUNDED | PARTIALLY_REFUNDED (spec section 47)
+  // PAYMENT status (spec section 5) — PENDING_PAYMENT | AWAITING_VERIFICATION
+  // (= "payment processing") | PAID | PARTIALLY_PAID | FAILED | CANCELLED |
+  // REFUNDED | PARTIALLY_REFUNDED. Kept deliberately separate from
+  // fulfillmentStatus below (spec sections 6-7: payment != fulfillment).
   status           String   @default("PENDING_PAYMENT")
+  // FULFILLMENT status (spec section 6) — NOT_READY | PENDING_VERIFICATION |
+  // READY | FULFILLED | PARTIALLY_FULFILLED | SUSPENDED | REVOKED.
+  fulfillmentStatus String  @default("NOT_READY")
   verifiedById     String?
   verifiedAt       DateTime?
   rejectedReason   String?
@@ -3712,9 +3756,16 @@ model Purchase {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  refundRequests   RefundRequest[]
+  commissions      Commission[]
+  referralEvents   ReferralEvent[]
+  webhookEvents    PaymentWebhookEvent[]
+
   @@index([studentId])
   @@index([productId])
   @@index([status])
+  @@index([fulfillmentStatus])
+  @@index([affiliateId])
 }
 
 // Subscription architecture (spec sections 52-59) — provider defaults to
@@ -3779,6 +3830,14 @@ model Promotion {
   usageLimit       Int? // real tracked capacity (spec section 72) — never a fake "slots remaining"
   redeemedCount    Int      @default(0)
   productScopeJson Json? // array of Product ids this promotion applies to; null = all
+  // Phase 17 additions (spec sections 51, 53):
+  perCustomerLimit Int?     // max redemptions by the SAME Student; null = unlimited-per-customer
+  minimumPurchaseAmount Decimal? @db.Decimal(12, 2)
+  // A coupon defaults to NOT stackable (spec section 53: "do not
+  // accidentally stack promotions") — an Order may carry at most one
+  // Promotion unless this is explicitly true AND the checkout path is
+  // extended later to accept more than one.
+  stackable        Boolean  @default(false)
   createdById      String
   createdAt        DateTime @default(now())
 
@@ -3801,4 +3860,246 @@ model PackageMapping {
   confirmedAt     DateTime?
   createdById     String
   createdAt       DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// PRODUCTION PHASE 17 — M.A.I.A. Commerce & Growth Engine. Builds ON TOP of
+// Phase 16's Product Catalog / Entitlement / Purchase / Subscription /
+// Promotion architecture (extended above) — nothing here is a second
+// product catalog, entitlement system, subscription model, or finance
+// ledger. New models below cover only the genuinely new concerns Phase 16
+// didn't have: a secure server-side Checkout Session, a payment Webhook
+// Inbox, a Refund workflow, Scholarship/Sponsored Access, and the
+// Affiliate/Referral/Commission/Payout system.
+// ---------------------------------------------------------------------------
+
+// Server-side Checkout Session (spec sections 10-13) — the anti-tampering
+// mechanism. Price/discount/credits/total are computed and locked in here
+// the moment the session is created; the client never gets to supply its
+// own price, and consuming the session (creating the real Order/Purchase)
+// re-validates against this snapshot rather than trusting anything the
+// browser sends at submit time.
+model CheckoutSession {
+  id             String   @id @default(cuid())
+  sessionToken   String   @unique
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id])
+  businessId     String?
+  productId      String
+  product        CommerceProduct @relation(fields: [productId], references: [id])
+  quantity       Int      @default(1)
+  promotionCode  String?
+  affiliateReferralCode String?
+  // Server-computed at creation — { subtotal, discountAmount, creditsApplied,
+  // total, currency, promotionId?, affiliateId? } (spec section 11: never
+  // trust a frontend-supplied price).
+  computedPriceJson Json
+  // OPEN | CONSUMED | EXPIRED | CANCELLED
+  status         String   @default("OPEN")
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  purchase       Purchase?
+
+  @@index([studentId])
+  @@index([status])
+}
+
+// Payment Webhook Inbox (spec sections 26-28) — every inbound provider
+// event lands here first. (provider, providerEventId) is unique so a
+// replayed/duplicated delivery can never be processed twice (spec section
+// 25: idempotency), regardless of how many times the provider retries it.
+model PaymentWebhookEvent {
+  id              String   @id @default(cuid())
+  provider        String   // e.g. "MANUAL", "TEST_PROVIDER" — see payment-providers.ts
+  providerEventId String
+  eventType       String
+  payloadJson     Json
+  signatureValid  Boolean
+  // RECEIVED | VERIFIED | PROCESSING | PROCESSED | FAILED | IGNORED_DUPLICATE
+  status          String   @default("RECEIVED")
+  purchaseId      String?
+  purchase        Purchase? @relation(fields: [purchaseId], references: [id])
+  errorMessage    String?
+  receivedAt      DateTime @default(now())
+  processedAt     DateTime?
+
+  @@unique([provider, providerEventId])
+  @@index([status])
+}
+
+// Refund workflow (spec sections 108-113) — a refund is never AI-decided;
+// this table exists purely to give an authorized human a controlled,
+// audited path from request to processed refund.
+model RefundRequest {
+  id              String   @id @default(cuid())
+  refundDisplayId String   @unique // e.g. REFUND-2026-000001
+  purchaseId      String
+  purchase        Purchase @relation(fields: [purchaseId], references: [id])
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id])
+  amount          Decimal  @db.Decimal(12, 2)
+  reason          String
+  // REQUESTED | UNDER_REVIEW | APPROVED | REJECTED | PROCESSING | REFUNDED | FAILED
+  status          String   @default("REQUESTED")
+  requestedById   String
+  reviewedById    String?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  providerRefundRef String?
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([studentId])
+  @@index([status])
+}
+
+// Scholarship / Sponsored Access (spec sections 56-60) — explicitly NOT a
+// Purchase (no payment ever occurs), so it is deliberately its own model
+// rather than a zero-price Order, keeping "how did this Student get this
+// access" honest and unambiguous everywhere it's displayed.
+model SponsoredAccess {
+  id                String   @id @default(cuid())
+  sponsoredAccessDisplayId String @unique // e.g. SPONSOR-2026-000001
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id])
+  sponsorSource     String   // free text — donor/company/program name
+  productId         String
+  product           CommerceProduct @relation(fields: [productId], references: [id])
+  startDate         DateTime?
+  endDate           DateTime?
+  requirementsText  String?
+  // NOMINATED | UNDER_REVIEW | APPROVED | ACTIVE | COMPLETED | REVOKED | EXPIRED
+  status            String   @default("NOMINATED")
+  notes             String?
+  createdById       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+}
+
+// --- Affiliate Center (spec sections 61-89) ---------------------------------
+
+model Affiliate {
+  id               String   @id @default(cuid())
+  affiliateDisplayId String @unique // e.g. AFF-2026-000001
+  personId         String   @unique
+  person           Person   @relation(fields: [personId], references: [id])
+  // APPLIED | PENDING_REVIEW | ACTIVE | SUSPENDED | REJECTED | INACTIVE
+  status           String   @default("APPLIED")
+  referralCode     String   @unique
+  commissionPlanId String?
+  commissionPlan   CommissionPlan? @relation(fields: [commissionPlanId], references: [id])
+  // NOT_PROVIDED | PROVIDED | VERIFIED — deliberately simple; a real payout
+  // provider integration would replace this with verified bank/e-wallet
+  // details, not yet connected in this environment.
+  payoutDetailsStatus String @default("NOT_PROVIDED")
+  approvedById     String?
+  approvedAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  referralEvents   ReferralEvent[]
+  commissions      Commission[]
+  orders           Purchase[]
+
+  @@index([status])
+}
+
+model CommissionPlan {
+  id               String   @id @default(cuid())
+  name             String
+  // PERCENTAGE | FIXED_AMOUNT (spec section 73)
+  type             String
+  rate             Decimal? @db.Decimal(5, 2) // percentage, e.g. 10.00 = 10%
+  fixedAmount      Decimal? @db.Decimal(12, 2)
+  productScopeJson Json?    // array of Product ids; null = all products
+  createdById      String
+  createdAt        DateTime @default(now())
+
+  affiliates       Affiliate[]
+  commissions      Commission[]
+}
+
+// Referral funnel tracking (spec sections 65-66) — every step from a raw
+// click through a verified purchase is its own row, so attribution and
+// the affiliate's own dashboard are built from real, queryable events,
+// never an inferred/estimated count.
+model ReferralEvent {
+  id           String   @id @default(cuid())
+  affiliateId  String
+  affiliate    Affiliate @relation(fields: [affiliateId], references: [id])
+  // CLICK | LANDING | LEAD | REGISTRATION | ORDER | VERIFIED_PURCHASE
+  kind         String
+  personId     String?
+  purchaseId   String?
+  purchase     Purchase? @relation(fields: [purchaseId], references: [id])
+  metadataJson Json?
+  occurredAt   DateTime @default(now())
+
+  @@index([affiliateId])
+  @@index([kind])
+  @@index([purchaseId])
+}
+
+// Commission (spec sections 70-77) — created only once a qualifying,
+// verified payment exists (never at the click/lead stage). The rule used
+// to compute it is snapshotted so a later CommissionPlan edit can never
+// silently rewrite historical commission amounts.
+model Commission {
+  id                String   @id @default(cuid())
+  commissionDisplayId String @unique // e.g. COMM-2026-000001
+  affiliateId       String
+  affiliate         Affiliate @relation(fields: [affiliateId], references: [id])
+  purchaseId        String
+  purchase          Purchase @relation(fields: [purchaseId], references: [id])
+  studentId         String   // the referred customer
+  student           Student  @relation(fields: [studentId], references: [id])
+  commissionPlanId  String
+  commissionPlan    CommissionPlan @relation(fields: [commissionPlanId], references: [id])
+  basisAmount       Decimal  @db.Decimal(12, 2) // the Order amount commission is computed from
+  ruleSnapshotJson  Json     // { type, rate? , fixedAmount? } at calculation time
+  commissionAmount  Decimal  @db.Decimal(12, 2)
+  // PENDING | QUALIFYING | APPROVED | PAYABLE | PAID | VOIDED | REVERSED | DISPUTED
+  status            String   @default("PENDING")
+  eligibleDate      DateTime?
+  payoutBatchId     String?
+  payoutBatch       PayoutBatch? @relation(fields: [payoutBatchId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([affiliateId])
+  @@index([purchaseId])
+  @@index([status])
+  @@index([payoutBatchId])
+}
+
+// Payout Batch (spec sections 84-88) — a real, auditable grouping of
+// payable commissions. Reaching PAID here records that a human Finance/
+// Admin authorized and executed payment OUTSIDE this system (bank
+// transfer, e-wallet, etc.) — no real payout provider is connected, and
+// this table never itself moves money (spec section 84: "do not
+// automatically send money").
+model PayoutBatch {
+  id                  String   @id @default(cuid())
+  payoutBatchDisplayId String  @unique // e.g. PAYOUT-2026-000001
+  periodStart         DateTime
+  periodEnd           DateTime
+  // DRAFT | FOR_REVIEW | APPROVED | PROCESSING | PAID | FAILED | CANCELLED
+  status              String   @default("DRAFT")
+  totalAmount         Decimal  @db.Decimal(12, 2) @default(0)
+  approvedById        String?
+  approvedAt          DateTime?
+  paidAt              DateTime?
+  referenceNote       String?
+  createdById         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  commissions         Commission[]
+
+  @@index([status])
 }

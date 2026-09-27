@@ -20,10 +20,14 @@ export class ApiError extends Error {
 }
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  // Only set Content-Type when a body is actually being sent — a bodyless
+  // POST (e.g. logout, apply-as-affiliate) with this header still present
+  // makes Fastify's JSON body parser reject the empty body with a 400,
+  // even though no JSON was ever intended.
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}), ...init?.headers },
   });
 
   if (!res.ok) {
@@ -554,4 +558,124 @@ export const entitlementsApi = {
   confirmPackageMapping: (id: string) => post<{ mapping: unknown }>(`/api/admin/package-mappings/${id}/confirm`),
   applyPackageMapping: (id: string, studentId: string) => post<{ entitlements: ApiEntitlement[] }>(`/api/admin/package-mappings/${id}/apply-to-student`, { studentId, confirm: true }),
   reconciliation: () => get<{ generatedAt: string; flaggedCount: number; results: { category: string; detail: string; entityType: string; entityId: string }[] }>("/api/admin/entitlements/reconciliation"),
+};
+
+// ---------------------------------------------------------------------------
+// M.A.I.A. Commerce & Growth Engine (Production Phase 17)
+// ---------------------------------------------------------------------------
+
+export interface ApiAffiliate {
+  id: string;
+  affiliateDisplayId: string;
+  personId: string;
+  status: string;
+  referralCode: string;
+  commissionPlanId: string | null;
+  payoutDetailsStatus: string;
+  createdAt: string;
+}
+
+export interface ApiCommissionPlan {
+  id: string;
+  name: string;
+  type: string;
+  rate: string | null;
+  fixedAmount: string | null;
+}
+
+export interface ApiCommission {
+  id: string;
+  commissionDisplayId: string;
+  affiliateId: string;
+  purchaseId: string;
+  status: string;
+  commissionAmount: string;
+  createdAt: string;
+}
+
+export interface ApiPayoutBatch {
+  id: string;
+  payoutBatchDisplayId: string;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+  totalAmount: string;
+}
+
+export interface ApiRefundRequest {
+  id: string;
+  refundDisplayId: string;
+  purchaseId: string;
+  studentId: string;
+  amount: string;
+  reason: string;
+  status: string;
+  createdAt: string;
+  purchase?: { purchaseDisplayId: string; product: { name: string } };
+  student?: { studentDisplayId: string };
+}
+
+export interface ApiCommerceDashboard {
+  generatedAt: string;
+  currency: string;
+  todaysOrders: number;
+  pendingPayments: number;
+  verifiedRevenueToday: number;
+  activeSubscriptions: number;
+  pastDueSubscriptions: number;
+  upgradesToday: number;
+  refundsAwaitingReview: number;
+  payableCommissions: number;
+  checkoutIssues: { expiredUnusedSessions: number };
+}
+
+export interface ApiAffiliateMe {
+  affiliate: ApiAffiliate;
+  referralLink: string;
+  stats: { clicks: number; leads: number; orders: number; verifiedPurchases: number };
+  commissions: { pending: number; payable: number; paid: number };
+}
+
+export const commerceApi = {
+  // --- Admin dashboard / reconciliation / analytics -------------------------
+  dashboard: () => get<ApiCommerceDashboard>("/api/admin/commerce/dashboard"),
+  reconciliation: () => get<{ generatedAt: string; flaggedCount: number; results: { category: string; detail: string; entityType: string; entityId: string }[] }>("/api/admin/commerce/reconciliation"),
+  growth: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+    const qs = params.toString();
+    return get<Record<string, unknown>>(`/api/admin/commerce/growth${qs ? `?${qs}` : ""}`);
+  },
+  customer360: (studentId: string) => get<Record<string, unknown>>(`/api/admin/students/${studentId}/commerce-360`),
+
+  // --- Refunds ---------------------------------------------------------------
+  createRefundRequest: (studentId: string, payload: { purchaseId: string; amount: number; reason: string }) => post<{ refundRequest: ApiRefundRequest }>(`/api/students/${studentId}/refund-requests`, payload),
+  refundRequests: (status?: string) => get<{ refundRequests: ApiRefundRequest[] }>(`/api/admin/refund-requests${status ? `?status=${status}` : ""}`),
+  reviewRefund: (id: string, decision: "APPROVED" | "REJECTED", reviewNotes?: string) => post<{ refundRequest: ApiRefundRequest }>(`/api/admin/refund-requests/${id}/review`, { decision, reviewNotes }),
+  processRefund: (id: string, accessPolicy: "REVOKE_ACCESS" | "RETAIN_ACCESS", providerRefundRef?: string) => post<{ refundRequest: ApiRefundRequest }>(`/api/admin/refund-requests/${id}/process`, { accessPolicy, providerRefundRef }),
+
+  // --- Affiliates --------------------------------------------------------------
+  applyAsAffiliate: () => post<{ affiliate: ApiAffiliate }>("/api/affiliates/apply"),
+  myAffiliateDashboard: () => get<ApiAffiliateMe>("/api/affiliates/me"),
+  adminAffiliates: (status?: string) => get<{ affiliates: (ApiAffiliate & { person: { fullName: string } })[] }>(`/api/admin/affiliates${status ? `?status=${status}` : ""}`),
+  setAffiliateStatus: (id: string, status: string, commissionPlanId?: string) => post<{ affiliate: ApiAffiliate }>(`/api/admin/affiliates/${id}/status`, { status, commissionPlanId }),
+  affiliateReport: () => get<{ activeAffiliates: number; totalClicks: number; attributedLeads: number; verifiedSales: number; pendingCommissions: number; payableCommissions: number; paidCommissions: number }>("/api/admin/affiliates/report"),
+
+  commissionPlans: () => get<{ plans: ApiCommissionPlan[] }>("/api/admin/commission-plans"),
+  createCommissionPlan: (payload: { name: string; type: "PERCENTAGE" | "FIXED_AMOUNT"; rate?: number; fixedAmount?: number }) => post<{ plan: ApiCommissionPlan }>("/api/admin/commission-plans", payload),
+
+  commissions: (status?: string) => get<{ commissions: ApiCommission[] }>(`/api/admin/commissions${status ? `?status=${status}` : ""}`),
+  approveCommission: (id: string) => post<{ commission: ApiCommission }>(`/api/admin/commissions/${id}/approve`),
+  voidCommission: (id: string, reason: string) => post<{ commission: ApiCommission }>(`/api/admin/commissions/${id}/void`, { reason }),
+
+  payoutBatches: () => get<{ batches: ApiPayoutBatch[] }>("/api/admin/payout-batches"),
+  createPayoutBatch: (periodStart: string, periodEnd: string) => post<{ batch: ApiPayoutBatch }>("/api/admin/payout-batches", { periodStart, periodEnd }),
+  addCommissionsToBatch: (batchId: string, commissionIds: string[]) => post<{ addedCount: number }>(`/api/admin/payout-batches/${batchId}/add-commissions`, { commissionIds }),
+  submitBatchForReview: (batchId: string) => post<{ batch: ApiPayoutBatch }>(`/api/admin/payout-batches/${batchId}/submit-for-review`),
+  approveBatch: (batchId: string) => post<{ batch: ApiPayoutBatch }>(`/api/admin/payout-batches/${batchId}/approve`),
+  markBatchPaid: (batchId: string, referenceNote: string) => post<{ batch: ApiPayoutBatch }>(`/api/admin/payout-batches/${batchId}/mark-paid`, { referenceNote }),
+
+  // --- Sponsored Access / Scholarship -----------------------------------------
+  adminSponsoredAccess: (status?: string) => get<{ sponsoredAccesses: unknown[] }>(`/api/admin/sponsored-access${status ? `?status=${status}` : ""}`),
 };

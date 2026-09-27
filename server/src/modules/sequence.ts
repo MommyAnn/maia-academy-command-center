@@ -274,3 +274,35 @@ export async function generateSubscriptionDisplayId(): Promise<string> {
   const n = await nextSequence(`subscription:${year}`);
   return `SUB-${year}-${String(n).padStart(6, "0")}`;
 }
+
+// --- Production Phase 17: M.A.I.A. Commerce & Growth Engine ----------------
+
+export async function generateRefundDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`refund:${year}`);
+  return `REFUND-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateSponsoredAccessDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`sponsored-access:${year}`);
+  return `SPONSOR-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateAffiliateDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`affiliate:${year}`);
+  return `AFF-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generateCommissionDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`commission:${year}`);
+  return `COMM-${year}-${String(n).padStart(6, "0")}`;
+}
+
+export async function generatePayoutBatchDisplayId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const n = await nextSequence(`payout-batch:${year}`);
+  return `PAYOUT-${year}-${String(n).padStart(6, "0")}`;
+}

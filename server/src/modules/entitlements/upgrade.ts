@@ -10,8 +10,8 @@ import { z } from "zod";
 import { db } from "../../db.js";
 import { requireAuth, requireStudentSelfOrPermission } from "../../rbac/middleware.js";
 import { writeAuditLog } from "../../audit/log.js";
-import { generatePurchaseDisplayId } from "../sequence.js";
 import { expandProductFeatures } from "../../entitlements/grant.js";
+import { createOrder } from "../../commerce/order.js";
 
 type CommerceProductRow = Awaited<ReturnType<typeof db.commerceProduct.findUniqueOrThrow>>;
 type UpgradeRuleRow = Awaited<ReturnType<typeof db.upgradeRule.findUniqueOrThrow>>;
@@ -79,8 +79,16 @@ export async function upgradeRoutes(app: FastifyInstance) {
     const pricing = computeUpgradePrice(fromProduct, toProduct, rule);
 
     const ctx = request.authContext!;
-    const purchase = await db.purchase.create({
-      data: { purchaseDisplayId: await generatePurchaseDisplayId(), studentId, productId: toProduct.id, priceAtPurchase: pricing.price, currency: toProduct.currency, createdById: ctx.userId },
+    // Routed through the same createOrder() every other checkout path
+    // uses (spec section 44) — source: "UPGRADE_FLOW" is the only thing
+    // that distinguishes this Order's origin from a fresh purchase.
+    const purchase = await createOrder({
+      studentId,
+      product: toProduct,
+      price: { subtotal: Number(toProduct.basePrice ?? 0), discountAmount: Math.max(0, Number(toProduct.basePrice ?? 0) - pricing.price), creditsApplied: 0, total: pricing.price, currency: toProduct.currency },
+      checkoutMode: "MANUAL_PAYMENT",
+      source: "UPGRADE_FLOW",
+      createdById: ctx.userId,
     });
     await writeAuditLog({ action: "Upgrade Completed", summary: `Upgrade purchase ${purchase.purchaseDisplayId} created for "${toProduct.name}" at ₱${pricing.price} (${pricing.note})`, actorUserId: ctx.userId, entityType: "Purchase", entityId: purchase.id });
     return reply.code(201).send({ purchase, priceNote: pricing.note });

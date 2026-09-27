@@ -24,6 +24,13 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "Commerce & Growth",
+    items: [
+      { label: "Commerce Dashboard", path: "/commerce/dashboard" },
+      { label: "Affiliate Dashboard", path: "/commerce/affiliate" },
+    ],
+  },
+  {
     label: "Students",
     items: [
       { label: "All Students", path: "/students/all" },
