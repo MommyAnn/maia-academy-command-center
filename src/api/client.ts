@@ -679,3 +679,34 @@ export const commerceApi = {
   // --- Sponsored Access / Scholarship -----------------------------------------
   adminSponsoredAccess: (status?: string) => get<{ sponsoredAccesses: unknown[] }>(`/api/admin/sponsored-access${status ? `?status=${status}` : ""}`),
 };
+
+// ---------------------------------------------------------------------------
+// Pre-Pilot Safety Hardening — Emergency Control Center
+// ---------------------------------------------------------------------------
+
+export type SafetyControlKey = "CHECKOUT" | "GHL_SYNC" | "ADS_SYNC" | "AUTOMATIONS_GLOBAL" | "MAINTENANCE_MODE";
+export type SyncDisplayStatus = "NOT_CONFIGURED" | "CONFIGURED_BUT_PAUSED" | "CONNECTED_AND_ACTIVE" | "DEGRADED" | "ERROR";
+
+export interface ApiSafetyControl {
+  key: SafetyControlKey;
+  state: string;
+  reason: string | null;
+  updatedById: string | null;
+  updatedByName: string | null;
+  updatedAt: string;
+  displayStatus?: SyncDisplayStatus;
+}
+
+const SAFETY_ROUTE_SEGMENT: Record<SafetyControlKey, string> = {
+  CHECKOUT: "checkout",
+  GHL_SYNC: "ghl-sync",
+  ADS_SYNC: "ads-sync",
+  AUTOMATIONS_GLOBAL: "automations-global",
+  MAINTENANCE_MODE: "maintenance-mode",
+};
+
+export const safetyApi = {
+  status: () => get<{ controls: ApiSafetyControl[] }>("/api/admin/safety/status"),
+  setControl: (key: SafetyControlKey, state: string, reason: string) =>
+    post<{ control: ApiSafetyControl }>(`/api/admin/safety/${SAFETY_ROUTE_SEGMENT[key]}`, { state, confirm: true, reason }),
+};

@@ -10,6 +10,7 @@
 import { db } from "../../db.js";
 import type { Prisma } from "@prisma/client";
 import * as ghl from "./client.js";
+import { isGhlSyncEnabled } from "../../safety/control.js";
 
 const MAX_ATTEMPTS = 5;
 
@@ -218,6 +219,18 @@ export async function processOutboxEvent(outboxEventId: string): Promise<Process
 /** Processes every row currently due (QUEUED, or RETRYING with nextRetryAt in the past), up to `limit` rows per sweep. */
 export async function runOutboxSweep(limit = 50): Promise<{ enqueued: number; processed: number }> {
   const enqueued = await enqueuePendingDomainEvents();
+
+  // Pre-Pilot Safety Hardening Task 2 — the global GHL sync pause. Enqueuing
+  // (above) is left running even while paused: it is purely internal
+  // bookkeeping (never an outbound GHL call), and per spec Task 2 pausing
+  // must never destroy or stop growing the queued/history record — an
+  // admin who resumes later should find every event that occurred during
+  // the pause still queued, not lost. What is actually blocked is the loop
+  // below, which is the only place this module makes a real outbound
+  // request to GHL.
+  if (!(await isGhlSyncEnabled())) {
+    return { enqueued, processed: 0 };
+  }
 
   const due = await db.integrationOutboxEvent.findMany({
     where: {

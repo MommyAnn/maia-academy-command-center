@@ -46,6 +46,8 @@ import { businessOsRoutes } from "./modules/business-os/routes.js";
 import { entitlementRoutes } from "./modules/entitlements/routes.js";
 import { commerceRoutes } from "./commerce/routes.js";
 import { startAutomationDispatcher } from "./modules/automation/dispatcher.js";
+import { safetyControlRoutes } from "./safety/routes.js";
+import { registerMaintenanceModeHook } from "./safety/maintenance.js";
 
 export interface BuildAppOptions {
   /** Overrides env.LOGIN_RATE_LIMIT_PER_MINUTE for this instance only — used by the brute-force test to prove the limiter actually blocks, without lowering the shared limit every other test's logins run against. */
@@ -94,6 +96,11 @@ export async function buildApp(options: BuildAppOptions = {}) {
     return reply.code(status).send({ error: error.message });
   });
 
+  // Pre-Pilot Safety Hardening Task 3 — real backend Maintenance Mode.
+  // Registered before every route below so a blocked request never even
+  // reaches a route's own auth/RBAC check while maintenance is ON.
+  registerMaintenanceModeHook(app);
+
   await app.register(healthRoutes);
 
   await app.register(authRoutes, { loginRateLimitPerMinute: options.loginRateLimitOverride ?? env.LOGIN_RATE_LIMIT_PER_MINUTE });
@@ -135,6 +142,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(businessOsRoutes);
   await app.register(entitlementRoutes);
   await app.register(commerceRoutes);
+  await app.register(safetyControlRoutes);
 
   // The outbox sweep and automation dispatcher are both real interval
   // timers in every real environment — skipped only under test, where the

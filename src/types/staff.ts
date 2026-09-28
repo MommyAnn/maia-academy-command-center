@@ -76,6 +76,7 @@ export const PERMISSION_MODULES = [
   "System Settings",
   "Commerce",
   "Affiliate Program",
+  "Emergency Controls",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

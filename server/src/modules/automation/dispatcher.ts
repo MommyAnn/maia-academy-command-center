@@ -17,6 +17,7 @@
 
 import { db } from "../../db.js";
 import { startRun, advanceRun } from "./executor.js";
+import { areAutomationsGloballyPaused } from "../../safety/control.js";
 
 function isUniqueConstraintError(err: unknown): boolean {
   return !!(err && typeof err === "object" && "code" in err && (err as { code?: string }).code === "P2002");
@@ -80,6 +81,19 @@ export async function matchNewDomainEvents(windowHours = 24 * 7, limit = 500): P
 }
 
 export async function runDispatcherSweep(limit = 100): Promise<{ matched: number; advanced: number }> {
+  // Pre-Pilot Safety Hardening Task 4 — the global automation pause. This
+  // is a veto layered on top of, and separate from, each individual
+  // Automation's own ACTIVE/PAUSED status (Phase 12). Documented safe
+  // policy while globally paused: the ENTIRE sweep is skipped — no new run
+  // is started (matchNewDomainEvents never runs) AND no already-QUEUED/
+  // WAITING run is advanced further. Nothing is deleted: every
+  // AutomationRun, Automation definition, and audit record is left exactly
+  // as it was, so resuming (setting AUTOMATIONS_GLOBAL back to ACTIVE)
+  // picks up cleanly on the next sweep with no lost or corrupted state.
+  if (await areAutomationsGloballyPaused()) {
+    return { matched: 0, advanced: 0 };
+  }
+
   const matched = await matchNewDomainEvents();
 
   const due = await db.automationRun.findMany({

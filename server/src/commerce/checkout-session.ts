@@ -14,6 +14,7 @@ import { requireAuth, requireStudentSelfOrPermission } from "../rbac/middleware.
 import { writeAuditLog } from "../audit/log.js";
 import { computeOrderPrice } from "./pricing.js";
 import { createOrder } from "./order.js";
+import { isCheckoutEnabled } from "../safety/control.js";
 
 const SESSION_TTL_MINUTES = 30;
 
@@ -27,6 +28,19 @@ const createSessionSchema = z.object({
 export async function checkoutSessionRoutes(app: FastifyInstance) {
   app.post("/api/students/:studentId/checkout-sessions", { preHandler: [requireAuth, requireStudentSelfOrPermission("Commerce", "CREATE")] }, async (request, reply) => {
     const { studentId } = request.params as { studentId: string };
+
+    // Pre-Pilot Safety Hardening Task 1 — the global Commerce checkout
+    // kill switch. Checked first, before anything else, so a DISABLED
+    // state blocks a new CheckoutSession from ever being created — no
+    // price is computed, no row is written. This gates ONLY this
+    // self-service Commerce flow; it never touches the separate, older
+    // Finance/Enrollment manual-payment path (Phase 2), so existing
+    // financial history and manual Finance records are entirely
+    // unaffected by this switch either way.
+    if (!(await isCheckoutEnabled())) {
+      return reply.code(503).send({ error: "Checkout is currently disabled by an administrator. No new checkout session can be created." });
+    }
+
     const parsed = createSessionSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request." });
 

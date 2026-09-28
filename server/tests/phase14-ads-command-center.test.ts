@@ -26,6 +26,13 @@ beforeAll(async () => {
   studentACookie = await loginAs(app, DEV_USERS.studentA.email, DEV_USERS.studentA.password);
   studentBCookie = await loginAs(app, DEV_USERS.studentB.email, DEV_USERS.studentB.password);
   studentAId = (await db.student.findUniqueOrThrow({ where: { studentDisplayId: "MAIA-B14-DEV-A" } })).id;
+  // Pre-Pilot Safety Hardening's global live-Ads-API-sync pause defaults to
+  // PAUSED (safe-by-default) — this suite predates that control and tests
+  // sync's OWN failure paths (non-CONNECTED account, MANUAL provider), so
+  // it explicitly enables sync here to reach those paths, exactly as a
+  // real Owner would before connecting a live ad account.
+  const ownerUserId = (await db.user.findFirstOrThrow({ where: { email: DEV_USERS.owner.email } })).id;
+  await db.safetyControl.upsert({ where: { key: "ADS_SYNC" }, update: { state: "ENABLED" }, create: { key: "ADS_SYNC", state: "ENABLED", updatedById: ownerUserId } });
 });
 
 afterAll(async () => {

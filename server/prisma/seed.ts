@@ -213,6 +213,26 @@ async function main() {
   await grantOverride({ studentId: studentA.id, featureKey: "MULTIPLE_BUSINESSES", reason: "Dev/test fixture used by many existing test suites — see prisma/seed.ts", createdById: ownerUser.id });
   await grantOverride({ studentId: studentB.id, featureKey: "MULTIPLE_BUSINESSES", reason: "Dev/test fixture used by many existing test suites — see prisma/seed.ts", createdById: ownerUser.id });
 
+  console.log("Seeding Emergency Control Center safe pre-pilot defaults...");
+  // Explicit rows matching SAFE_DEFAULT_STATE in src/safety/control.ts —
+  // the resolver already falls back to these same values with no row at
+  // all, so this is purely so the Emergency Control Center shows real,
+  // visible rows (with a reason and an attributed actor) immediately,
+  // rather than an implied default an Admin has never actually seen.
+  for (const [key, state, reason] of [
+    ["CHECKOUT", "DISABLED", "Pre-pilot safe default — online checkout disabled until the Owner explicitly enables it."],
+    ["GHL_SYNC", "PAUSED", "Pre-pilot safe default — GHL disabled for first pilot per Owner decision."],
+    ["ADS_SYNC", "PAUSED", "Pre-pilot safe default — live Ads API disabled for first pilot per Owner decision; CSV/manual data remains allowed."],
+    ["AUTOMATIONS_GLOBAL", "ACTIVE", "Pre-pilot safe default — no global veto in effect; individual Automation status still governs."],
+    ["MAINTENANCE_MODE", "OFF", "Pre-pilot safe default — normal operation during testing."],
+  ] as const) {
+    await db.safetyControl.upsert({
+      where: { key },
+      update: {},
+      create: { key, state, reason, updatedById: ownerUser.id },
+    });
+  }
+
   console.log("Done.", { studentA: studentA.id, studentB: studentB.id });
 }
 

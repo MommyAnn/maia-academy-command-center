@@ -18,6 +18,7 @@ import { writeAuditLog } from "../../audit/log.js";
 import { hasCapability, type AdsProvider } from "./provider.js";
 import { fetchMetaCampaigns, fetchMetaAdSets, fetchMetaAds, fetchMetaInsights, type MetaInsightRow } from "./meta-client.js";
 import { generateAdCampaignDisplayId, generateAdSetDisplayId, generateAdDisplayId } from "../sequence.js";
+import { isAdsSyncEnabled } from "../../safety/control.js";
 
 export interface SyncSummary {
   status: "SYNCED" | "PARTIAL" | "FAILED";
@@ -107,6 +108,17 @@ async function upsertSnapshot(input: {
 }
 
 export async function syncAdAccount(adAccountId: string, actorUserId: string, dateFrom: Date, dateTo: Date): Promise<SyncSummary> {
+  // Pre-Pilot Safety Hardening Task 2 — the global live-Ads-API sync
+  // pause. This gates ONLY this function, which is the sole path that
+  // makes a real outbound call to Meta's API (see the provider !== "META"
+  // check just below). CSV import (import.ts) and manual/direct entry are
+  // completely separate code paths and are never affected by this switch
+  // — matching the Owner's pilot decision that CSV/manual Ads data stays
+  // allowed even while live API sync is disabled.
+  if (!(await isAdsSyncEnabled())) {
+    return { status: "FAILED", campaignsSynced: 0, adSetsSynced: 0, adsSynced: 0, snapshotsSynced: 0, errors: ["Live Ads API sync is currently paused by an administrator. CSV import and manual entry are unaffected."] };
+  }
+
   const account = await db.adAccount.findUnique({ where: { id: adAccountId }, include: { connection: true } });
   if (!account) return { status: "FAILED", campaignsSynced: 0, adSetsSynced: 0, adsSynced: 0, snapshotsSynced: 0, errors: ["Ad account not found."] };
 

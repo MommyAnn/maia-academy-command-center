@@ -50,6 +50,7 @@ export const PERMISSION_MODULES = [
   "Product Catalog",
   "Commerce",
   "Affiliate Program",
+  "Emergency Controls",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

@@ -9,6 +9,16 @@
 // gets signed, so this module installs its own content-type parser (scoped
 // to this plugin only, via Fastify's encapsulation) that captures the raw
 // buffer before Fastify's default parser ever touches it.
+//
+// Pre-Pilot Safety Hardening Task 2's GHL_SYNC pause is deliberately NOT
+// checked here. Documented safe behavior: inbound deliveries are still
+// accepted and recorded while sync is paused, because (a) this handler
+// only ever writes to our own DB — it never itself makes an outbound GHL
+// call, so pausing it gains nothing safety-wise, and (b) rejecting
+// deliveries would make HighLevel retry-storm this endpoint and could
+// cause it to eventually disable the webhook subscription entirely. The
+// control that actually stops all outbound traffic to GHL is the outbox
+// sweep gate in outbox.ts's runOutboxSweep.
 
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { createPublicKey, verify as verifyEd25519 } from "node:crypto";

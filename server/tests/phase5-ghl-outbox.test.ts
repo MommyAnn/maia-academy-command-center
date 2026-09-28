@@ -16,6 +16,13 @@ beforeAll(async () => {
   await resetDb();
   app = await buildApp();
   ownerCookie = await loginAs(app, DEV_USERS.owner.email, DEV_USERS.owner.password);
+  // Pre-Pilot Safety Hardening's global GHL sync pause defaults to PAUSED
+  // (safe-by-default) — this suite predates that control and exercises
+  // real outbound sends against the fake GHL server throughout, so it
+  // explicitly enables it here, exactly as a real Owner would before
+  // connecting GHL for real use.
+  const ownerUserId = (await db.user.findFirstOrThrow({ where: { email: DEV_USERS.owner.email } })).id;
+  await db.safetyControl.upsert({ where: { key: "GHL_SYNC" }, update: { state: "ENABLED" }, create: { key: "GHL_SYNC", state: "ENABLED", updatedById: ownerUserId } });
 });
 
 afterAll(async () => {

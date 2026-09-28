@@ -44,6 +44,12 @@ beforeAll(async () => {
   app = await buildApp();
   ownerCookie = await loginAs(app, DEV_USERS.owner.email, DEV_USERS.owner.password);
   ownerUserId = (await db.user.findFirstOrThrow({ where: { email: DEV_USERS.owner.email } })).id;
+  // Pre-Pilot Safety Hardening's global Commerce checkout kill switch
+  // defaults to DISABLED (safe-by-default) — this entire suite predates
+  // that control and exercises the checkout flow throughout, so it
+  // explicitly enables it here, exactly as a real Owner would before
+  // opening Commerce for real use.
+  await db.safetyControl.upsert({ where: { key: "CHECKOUT" }, update: { state: "ENABLED" }, create: { key: "CHECKOUT", state: "ENABLED", updatedById: ownerUserId } });
 });
 
 afterAll(async () => {

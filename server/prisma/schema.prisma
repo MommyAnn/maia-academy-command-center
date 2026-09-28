@@ -4103,3 +4103,25 @@ model PayoutBatch {
 
   @@index([status])
 }
+
+// M.A.I.A. Pre-Pilot Safety Hardening — Emergency Control Center. One row
+// per named control, key-value shaped so a new control can be added later
+// without a schema migration. Every real state (payment, sync, automation,
+// maintenance) is enforced server-side by reading this table directly at
+// the exact enforcement point (checkout-session.ts, ghl/outbox.ts,
+// ads/sync.ts, automation/dispatcher.ts, app.ts's maintenance hook) — never
+// cached, so a change here takes effect on the very next request/sweep,
+// and a revoked "ENABLED" state can never be served stale. If a key has no
+// row yet (e.g. a brand-new environment before an Admin ever opens the
+// Emergency Control Center), every reader falls back to the same safe
+// default documented in src/safety/control.ts — the row existing is never
+// a precondition for the safe/closed behavior.
+model SafetyControl {
+  id          String   @id @default(cuid())
+  key         String   @unique // CHECKOUT | GHL_SYNC | ADS_SYNC | AUTOMATIONS_GLOBAL | MAINTENANCE_MODE
+  state       String   // control-specific literal — see SAFETY_CONTROL_STATES in src/safety/control.ts
+  reason      String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

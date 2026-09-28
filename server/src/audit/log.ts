@@ -237,6 +237,15 @@ export const AUDIT_ACTIONS = [
   "Payout Batch Marked Paid",
   "Commerce Reconciliation Run",
   "Coupon Redeemed",
+  // Pre-Pilot Safety Hardening — Emergency Control Center. One action per
+  // control (not one shared "Safety Control Changed") so Activity Log
+  // filtering/search stays as precise for these as for every other action
+  // above.
+  "Checkout Control Changed",
+  "GHL Sync Control Changed",
+  "Ads Sync Control Changed",
+  "Automation Global Pause Changed",
+  "Maintenance Mode Changed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -167,6 +167,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Roles & Permissions", path: "/system/roles-permissions" },
       { label: "Activity Log", path: "/system/activity-log" },
       { label: "Settings", path: "/system/settings" },
+      { label: "Emergency Control Center", path: "/system/emergency-controls" },
     ],
   },
 ];

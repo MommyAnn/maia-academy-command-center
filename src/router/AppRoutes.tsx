@@ -7,6 +7,7 @@ import { BusinessOS } from "@/pages/business-os/BusinessOS";
 import { MyAccess } from "@/pages/entitlements/MyAccess";
 import { ProductCatalog } from "@/pages/entitlements/ProductCatalog";
 import { CommerceDashboard } from "@/pages/commerce/CommerceDashboard";
+import { EmergencyControlCenter } from "@/pages/system/EmergencyControlCenter";
 import { AffiliateDashboard } from "@/pages/commerce/AffiliateDashboard";
 import { EnrollmentForm } from "@/pages/EnrollmentForm";
 import { WebinarRegistration } from "@/pages/WebinarRegistration";
@@ -124,6 +125,7 @@ const BUILT_PATHS = new Set([
   "/access/product-catalog",
   "/commerce/dashboard",
   "/commerce/affiliate",
+  "/system/emergency-controls",
   "/students/all",
   "/students/new-enrollments",
   "/students/batches",
@@ -333,6 +335,8 @@ export function AppRoutes() {
         <Route path="/ai-tools/connections" element={<AiToolsConnections />} />
         <Route path="/ai-tools/activity" element={<AiToolsActivity />} />
         <Route path="/ai-tools/settings" element={<AiToolsSettings />} />
+
+        <Route path="/system/emergency-controls" element={<EmergencyControlCenter />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

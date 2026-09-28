@@ -21,6 +21,12 @@ const FIXED_STUDENT_DISPLAY_IDS = ["MAIA-B14-DEV-A", "MAIA-B14-DEV-B"];
  */
 export async function resetDb() {
   await db.$transaction([
+    // Pre-Pilot Safety Hardening — SafetyControl has no foreign keys at all
+    // (updatedById is a plain provenance string, not a Prisma relation, by
+    // the same PayoutBatch/createdById convention used elsewhere in this
+    // schema), so it carries no ordering constraint — cleared first
+    // purely for readability.
+    db.safetyControl.deleteMany(),
     // Phase 7 (Data Migration Framework) — ImportRecord cascades from
     // ImportBatch, but PaymentTransaction.importBatchId has no hard FK
     // (it's a soft provenance reference), so clearing ImportBatch is safe
