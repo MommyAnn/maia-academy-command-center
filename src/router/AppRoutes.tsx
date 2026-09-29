@@ -1,5 +1,10 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "@/layouts/AppLayout";
+import { SalesPage as AiSkillsSalesPage } from "@/pages/aiSkills/SalesPage";
+import { MasterclassDetail as AiSkillsMasterclassDetail } from "@/pages/aiSkills/MasterclassDetail";
+import { Checkout as AiSkillsCheckout } from "@/pages/aiSkills/Checkout";
+import { OrderConfirmation as AiSkillsOrderConfirmation, CourseAccess as AiSkillsCourseAccess } from "@/pages/aiSkills/PostPurchase";
+import { FunnelManager as AiSkillsFunnelManager } from "@/pages/aiSkills/admin/FunnelManager";
 import { Login } from "@/pages/Login";
 import { Dashboard } from "@/pages/Dashboard";
 import { CommandCenter as IntelligenceCommandCenter } from "@/pages/intelligence/CommandCenter";
@@ -191,6 +196,7 @@ const BUILT_PATHS = new Set([
   "/ai-tools/connections",
   "/ai-tools/activity",
   "/ai-tools/settings",
+  "/ai-skills-academy/funnel-manager",
 ]);
 
 export function AppRoutes() {
@@ -200,6 +206,13 @@ export function AppRoutes() {
       <Route path="/enroll" element={<EnrollmentForm />} />
       <Route path="/webinar/register" element={<WebinarRegistration />} />
       <Route path="/webinar/feedback-form/:requestId" element={<WebinarFeedbackSubmit />} />
+
+      {/* M.A.I.A. AI Skills Academy™ — public sales funnel */}
+      <Route path="/ai-skills" element={<AiSkillsSalesPage />} />
+      <Route path="/ai-skills/masterclass/:slug" element={<AiSkillsMasterclassDetail />} />
+      <Route path="/ai-skills/checkout/:productKey" element={<AiSkillsCheckout />} />
+      <Route path="/ai-skills/thank-you" element={<AiSkillsOrderConfirmation />} />
+      <Route path="/ai-skills/access" element={<AiSkillsCourseAccess />} />
 
       <Route
         element={
@@ -337,6 +350,7 @@ export function AppRoutes() {
         <Route path="/ai-tools/settings" element={<AiToolsSettings />} />
 
         <Route path="/system/emergency-controls" element={<EmergencyControlCenter />} />
+        <Route path="/ai-skills-academy/funnel-manager" element={<AiSkillsFunnelManager />} />
 
         {NAV_SECTIONS.flatMap((section) => section.items)
           .filter((item) => !BUILT_PATHS.has(item.path))

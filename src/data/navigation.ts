@@ -31,6 +31,10 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
+    label: "AI Skills Academy",
+    items: [{ label: "Funnel Manager", path: "/ai-skills-academy/funnel-manager" }],
+  },
+  {
     label: "Students",
     items: [
       { label: "All Students", path: "/students/all" },

@@ -16,6 +16,16 @@ Business Solutions Academy**.
 > and is not connected to a real database, authentication system, AI API,
 > video hosting, file storage, or a real GoHighLevel/SMS/email backend yet.
 
+## M.A.I.A. AI Skills Academy™ Sales Funnel
+
+This is a public, skills-based sales funnel at **`/ai-skills`**. Visitors browse the AI Masterclass
+library, buy a single masterclass (₱499) or the All-Access Bundle (₱5,000 regular price, with promo
+codes applied at the GHL checkout), then land on order confirmation and course-access pages. It is
+kept separate from the M.A.I.A. Business Solutions Academy Level 1–3 programs. Admins manage the
+catalog under **Command Center → AI Skills Academy → Funnel Manager**. Payment, coupons and course
+access are handled by GoHighLevel. See **[AI_SKILLS_FUNNEL_SETUP.md](AI_SKILLS_FUNNEL_SETUP.md)** for
+exactly what to configure and where.
+
 ## Tech Stack
 
 - [Vite](https://vite.dev/) + [React 19](https://react.dev/) + TypeScript

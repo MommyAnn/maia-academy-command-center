@@ -13,6 +13,7 @@ import { FeedbackStoreProvider } from "@/data/feedbackStore";
 import { WebinarStoreProvider } from "@/data/webinarStore";
 import { CommunicationsStoreProvider } from "@/data/communicationsStore";
 import { AiToolsStoreProvider } from "@/data/aiToolsStore";
+import { AiSkillsStoreProvider } from "@/data/aiSkillsStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
 function App() {
@@ -32,7 +33,9 @@ function App() {
                             <InventoryStoreProvider>
                               <TrainingStoreProvider>
                                 <TaskStoreProvider>
-                                  <AppRoutes />
+                                  <AiSkillsStoreProvider>
+                                    <AppRoutes />
+                                  </AiSkillsStoreProvider>
                                 </TaskStoreProvider>
                               </TrainingStoreProvider>
                             </InventoryStoreProvider>
