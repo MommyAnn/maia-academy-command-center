@@ -2,7 +2,7 @@
   "name": "maia-server",
   "version": "0.1.0",
   "private": true,
-  "description": "M.A.I.A. Academy Command Center — production backend foundation (Phase 1). Independent package from the frontend at repo root; never imported by the Vite app.",
+  "description": "M.A.I.A. Academy Command Center \u2014 production backend foundation (Phase 1). Independent package from the frontend at repo root; never imported by the Vite app.",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -17,7 +17,9 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "video-creator:create-admin": "tsx scripts/create-admin.ts",
+    "start:prod": "prisma migrate deploy && node dist/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

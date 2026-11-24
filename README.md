@@ -1,5 +1,11 @@
 # M.A.I.A. Academy Command Center
 
+> **M.A.I.A. AI Video Creator** — the real, backend-connected customer app for
+> turning product photos into AI promotional videos with Google Veo — lives at
+> **`/studio`** (code in `src/videoCreator/` and `server/src/modules/video-creator/`).
+> Setup, Google API key, credits, admin and deployment:
+> **[docs/AI_VIDEO_CREATOR.md](docs/AI_VIDEO_CREATOR.md)**.
+
 Business management web application for **Mommy Ann Import Academy / M.A.I.A.
 Business Solutions Academy**.
 

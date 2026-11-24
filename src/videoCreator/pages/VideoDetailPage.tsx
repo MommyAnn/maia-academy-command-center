@@ -72,7 +72,9 @@ export function VideoDetailPage() {
             {STYLE_LABEL[video.style]} · {video.displayId}
           </p>
         </div>
-        <StatusBadge status={video.status} />
+        <div className="self-start sm:self-auto">
+          <StatusBadge status={video.status} />
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
@@ -185,12 +187,15 @@ function Player({ video }: { video: Video }) {
   const m = video.media!;
   const filename = `${(video.product.productName || "maia-video").replace(/[^a-zA-Z0-9-]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "maia-video"}-${video.displayId}.mp4`;
   return (
-    <Card className="p-3 sm:p-4">
-      <div className={clsx("mx-auto overflow-hidden rounded-xl bg-black", video.aspectRatio === "9:16" ? "max-w-sm" : "w-full")}>
+    <Card className="mb-24 p-3 sm:p-4 lg:mb-0">
+      <div className={clsx("mx-auto overflow-hidden rounded-xl bg-black", video.aspectRatio === "9:16" ? "max-w-[min(24rem,36vh)]" : "w-full")}>
         <video src={media(m.videoUrl)} poster={media(m.thumbnailUrl)} controls playsInline preload="metadata" className={clsx("w-full", video.aspectRatio === "9:16" ? "aspect-[9/16]" : "aspect-video")} data-testid="video-player" />
       </div>
       <div className="mt-4 space-y-2">
-        <DownloadButton url={media(m.downloadUrl)!} filename={filename} label="Download MP4" primary />
+        {/* On phones the button is pinned above the bottom nav so it's always visible. */}
+        <div className="fixed inset-x-0 bottom-[calc(62px+env(safe-area-inset-bottom))] z-10 border-t border-vc-gold/30 bg-vc-surface/95 p-3 backdrop-blur lg:static lg:border-0 lg:bg-transparent lg:p-0">
+          <DownloadButton url={media(m.downloadUrl)!} filename={filename} label="Download MP4" primary />
+        </div>
         {m.originalDownloadUrl && <DownloadButton url={media(m.originalDownloadUrl)!} filename={filename.replace(".mp4", "-no-text.mp4")} label="Download without text" />}
       </div>
     </Card>
