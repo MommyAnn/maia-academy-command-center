@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+/*
+ * M.A.I.A. brand tokens — matched to mommyannimportacademy.com and the
+ * Mommy Ann Import Academy Brand Kit. Dark-only: the official logo is
+ * approved for black / very dark backgrounds.
+ */
+@theme {
+  --color-ink: #0a0908; /* Rich Black — primary background */
+  --color-ink-2: #12100d; /* raised surface (black → bronze dim) */
+  --color-ink-3: #1b1813;
+  --color-bronze-dim: #3f3626;
+  --color-bronze: #6d563a;
+  --color-gold: #c29646; /* Classic Gold — logo, premium accents */
+  --color-gold-bright: #d6a524; /* Bright Gold — CTAs & pricing */
+  --color-gold-pale: #f0d48a; /* highlight / shine */
+  --color-ivory: #edeaec; /* all text on black — never pure white */
+  --color-muted: #a8a099;
+  --color-danger: #e0735f;
+  --color-success: #8fc79a;
+
+  --font-display: "Libre Baskerville", Georgia, ui-serif, serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-script: "Dancing Script", cursive;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  background-image:
+    radial-gradient(1200px 600px at 15% -10%, rgb(194 150 70 / 0.13), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgb(109 86 58 / 0.18), transparent 60%);
+  background-attachment: fixed;
+  color: var(--color-ivory);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgb(214 165 36 / 0.35);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-bright);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .container-x {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .h-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    line-height: 1.12;
+  }
+
+  .text-gold-grad {
+    background: linear-gradient(180deg, var(--color-gold-pale) 0%, var(--color-gold-bright) 45%, var(--color-gold) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold tracking-[0.14em] uppercase;
+    border-color: rgb(194 150 70 / 0.35);
+    background: rgb(194 150 70 / 0.08);
+    color: var(--color-gold-pale);
+  }
+
+  .glass {
+    position: relative;
+    border-radius: 1.25rem;
+    border: 1px solid rgb(194 150 70 / 0.22);
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.05), rgb(255 255 255 / 0.01) 40%, transparent 60%),
+      rgb(27 24 19 / 0.62);
+    box-shadow:
+      0 20px 50px -20px rgb(0 0 0 / 0.6),
+      inset 0 1px 0 rgb(240 212 138 / 0.06);
+    backdrop-filter: blur(10px);
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-lg {
+    @apply px-7 py-3.5 text-base;
+  }
+  .btn-gold {
+    color: var(--color-ink);
+    background: linear-gradient(180deg, var(--color-gold-pale) 0%, var(--color-gold-bright) 55%, var(--color-gold) 100%);
+    box-shadow:
+      0 10px 30px -10px rgb(214 165 36 / 0.55),
+      inset 0 1px 0 rgb(255 255 255 / 0.35);
+  }
+  .btn-gold:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+  .btn-outline {
+    color: var(--color-ivory);
+    border: 1px solid rgb(194 150 70 / 0.45);
+    background: rgb(10 9 8 / 0.35);
+  }
+  .btn-outline:hover:not(:disabled) {
+    border-color: var(--color-gold-bright);
+    color: var(--color-gold-pale);
+  }
+  .btn-ghost {
+    color: var(--color-ivory);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--color-gold-pale);
+    background: rgb(194 150 70 / 0.08);
+  }
+  .btn-danger {
+    color: var(--color-danger);
+    border: 1px solid rgb(224 115 95 / 0.4);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: rgb(224 115 95 / 0.1);
+  }
+
+  .input {
+    @apply w-full rounded-xl border px-3.5 py-2.5 text-sm transition outline-none;
+    color: var(--color-ivory);
+    background: rgb(10 9 8 / 0.55);
+    border-color: rgb(194 150 70 / 0.28);
+  }
+  .input::placeholder {
+    color: rgb(168 160 153 / 0.6);
+  }
+  .input:focus {
+    border-color: var(--color-gold-bright);
+    box-shadow: 0 0 0 3px rgb(214 165 36 / 0.15);
+  }
+  select.input option {
+    background: var(--color-ink-3);
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium;
+    color: var(--color-ivory);
+  }
+  .hint {
+    @apply mt-1 text-xs;
+    color: var(--color-muted);
+  }
+
+  .hairline {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(194 150 70 / 0.6), transparent);
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .badge-gold {
+    background: rgb(214 165 36 / 0.14);
+    color: var(--color-gold-pale);
+    border: 1px solid rgb(214 165 36 / 0.3);
+  }
+  .badge-muted {
+    background: rgb(237 234 236 / 0.06);
+    color: var(--color-muted);
+    border: 1px solid rgb(237 234 236 / 0.12);
+  }
+  .badge-success {
+    background: rgb(143 199 154 / 0.12);
+    color: var(--color-success);
+    border: 1px solid rgb(143 199 154 / 0.3);
+  }
+  .badge-danger {
+    background: rgb(224 115 95 / 0.12);
+    color: var(--color-danger);
+    border: 1px solid rgb(224 115 95 / 0.3);
+  }
+
+  .placeholder-note {
+    @apply rounded-xl border border-dashed px-4 py-3 text-sm;
+    border-color: rgb(194 150 70 / 0.35);
+    color: var(--color-muted);
+    background: rgb(194 150 70 / 0.04);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
