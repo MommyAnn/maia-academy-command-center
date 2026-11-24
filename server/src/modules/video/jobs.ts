@@ -9,7 +9,8 @@ import { db } from "../../db.js";
 import { env } from "../../env.js";
 import { writeAuditLog } from "../../audit/log.js";
 import { generateVideoJobDisplayId } from "../sequence.js";
-import { localDriver, buildStorageKey } from "../../storage/localDriver.js";
+import { buildStorageKey } from "../../storage/localDriver.js";
+import { storage } from "../../storage/driver.js";
 import { submitVideoGeneration, pollVideoOperation, downloadVideo, isVeoConfigured, VEO_ASPECT_RATIOS, VEO_DURATIONS_SECONDS, type VeoAspectRatio, type VeoDurationSeconds } from "../../ai/veo.js";
 
 export { VEO_ASPECT_RATIOS, VEO_DURATIONS_SECONDS };
@@ -36,7 +37,7 @@ export async function createAndSubmitVideoJob(input: CreateJobInput): Promise<Cr
     if (!doc || doc.ownerStudentId !== input.studentId) {
       return { ok: false, httpStatus: 403, reason: "This reference image does not belong to the requesting student." };
     }
-    const bytes = await localDriver.read(doc.storageKey);
+    const bytes = await storage.read(doc.storageKey);
     referenceImage = { bytesBase64Encoded: bytes.toString("base64"), mimeType: doc.mimeType };
   }
 
@@ -126,7 +127,7 @@ export async function pollVideoJob(jobId: string): Promise<PollJobOutcome> {
   const filename = `${job.jobDisplayId}.mp4`;
   const storageKey = buildStorageKey(job.studentId, "AiGeneratedVideo", filename);
   try {
-    await localDriver.save(storageKey, download.data.buffer);
+    await storage.save(storageKey, download.data.buffer);
   } catch (err) {
     const failed = await db.videoGenerationJob.update({ where: { id: jobId }, data: { status: "FAILED", errorCategory: "ProviderError", errorMessage: err instanceof Error ? err.message : "Failed to store downloaded video.", completedAt: new Date() } });
     return { ok: true, status: failed.status, errorMessage: failed.errorMessage };

@@ -32,6 +32,14 @@ const schema = z.object({
   COOKIE_DOMAIN: z.string().default("localhost"),
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   STORAGE_LOCAL_DIR: z.string().default("./uploads-dev"),
+  // STORAGE_DRIVER=s3 — any S3-compatible PRIVATE bucket. S3_ENDPOINT is
+  // only needed for non-AWS providers (Cloudflare R2, Supabase, MinIO...).
+  S3_BUCKET: z.string().min(1).optional(),
+  S3_REGION: z.string().default("auto"),
+  S3_ENDPOINT: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+  S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   PORT: z.coerce.number().int().positive().default(4000),
   LOGIN_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   // The frontend's own dev origin, allowed to send credentialed
@@ -100,6 +108,23 @@ const schema = z.object({
   // current Gemini API documentation before relying on this in production.
   GOOGLE_VEO_BASE_URL: z.string().default("https://generativelanguage.googleapis.com/v1beta"),
   GOOGLE_VEO_MODEL: z.string().default("veo-3.1-generate-preview"),
+
+  // M.A.I.A. AI Video Creator
+  // Background worker that submits/polls/downloads Veo jobs. Set to "false"
+  // on extra web replicas if you run a dedicated worker process.
+  VIDEO_WORKER_ENABLED: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  VIDEO_WORKER_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  // A job still not finished this long after Google accepted it is failed and refunded.
+  VIDEO_JOB_TIMEOUT_MINUTES: z.coerce.number().int().positive().default(30),
+  // Public URL of the customer app (used in password-reset links).
+  APP_PUBLIC_URL: z.string().default("http://localhost:5173"),
+  // Optional transactional email via Resend (https://resend.com). Without it,
+  // admins issue password-reset links from the admin dashboard instead.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().optional(),
+  // Serve the built frontend (repo-root dist/) from this server, so the app
+  // and API share one origin in production. Path to the dist directory.
+  SERVE_FRONTEND_DIR: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -113,6 +138,10 @@ if (!parsed.success) {
 export const env = parsed.data;
 
 export const isProduction = env.NODE_ENV === "production";
+
+if (env.STORAGE_DRIVER === "s3" && !env.S3_BUCKET) {
+  throw new Error("Server cannot start: STORAGE_DRIVER=s3 requires S3_BUCKET (plus S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY, and S3_ENDPOINT for non-AWS providers).");
+}
 
 if (isProduction && env.STORAGE_DRIVER === "local") {
   throw new Error(

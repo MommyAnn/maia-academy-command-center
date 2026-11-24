@@ -246,6 +246,17 @@ export const AUDIT_ACTIONS = [
   "Ads Sync Control Changed",
   "Automation Global Pause Changed",
   "Maintenance Mode Changed",
+  // M.A.I.A. AI Video Creator
+  "Video Creator Customer Created",
+  "Video Creator Access Activated",
+  "Video Creator Access Suspended",
+  "Video Credits Adjusted",
+  "Video Credits Refunded",
+  "Video Creator Settings Changed",
+  "Video Creator Job Retried",
+  "Video Creator Video Deleted",
+  "Password Reset Link Issued",
+  "Password Changed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -42,6 +42,10 @@ import { automationStudioRoutes } from "./modules/automation/routes.js";
 import { websiteFunnelStudioRoutes } from "./modules/website/routes.js";
 import { adsCommandCenterRoutes } from "./modules/ads/routes.js";
 import { videoGenerationRoutes } from "./modules/video/routes.js";
+import { videoCreatorRoutes } from "./modules/video-creator/routes.js";
+import { videoCreatorAdminRoutes } from "./modules/video-creator/admin-routes.js";
+import { startVideoWorker } from "./modules/video-creator/jobs.js";
+import { registerFrontend } from "./frontend.js";
 import { businessOsRoutes } from "./modules/business-os/routes.js";
 import { entitlementRoutes } from "./modules/entitlements/routes.js";
 import { commerceRoutes } from "./commerce/routes.js";
@@ -56,6 +60,8 @@ export interface BuildAppOptions {
   migrationUploadRateLimitOverride?: number;
   /** Overrides the video generation job creation rate limit (default 10/minute) for this instance only — the Phase 15 test suite legitimately creates more than 10 jobs across its many success/failure/validation scenarios in a single run. */
   videoJobRateLimitOverride?: number;
+  /** Overrides the AI Video Creator "create video" rate limit (default 10/minute) for this instance only. */
+  videoCreatorRateLimitOverride?: number;
 }
 
 export async function buildApp(options: BuildAppOptions = {}) {
@@ -143,6 +149,9 @@ export async function buildApp(options: BuildAppOptions = {}) {
   await app.register(entitlementRoutes);
   await app.register(commerceRoutes);
   await app.register(safetyControlRoutes);
+  await app.register(videoCreatorRoutes, { createRateLimitPerMinute: options.videoCreatorRateLimitOverride });
+  await app.register(videoCreatorAdminRoutes);
+  if (env.SERVE_FRONTEND_DIR) await registerFrontend(app, env.SERVE_FRONTEND_DIR);
 
   // The outbox sweep and automation dispatcher are both real interval
   // timers in every real environment — skipped only under test, where the
@@ -151,6 +160,7 @@ export async function buildApp(options: BuildAppOptions = {}) {
   if (env.NODE_ENV !== "test") {
     startOutboxWorker();
     startAutomationDispatcher();
+    if (env.VIDEO_WORKER_ENABLED) startVideoWorker();
   }
 
   return app;

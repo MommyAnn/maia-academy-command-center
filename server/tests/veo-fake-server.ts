@@ -23,7 +23,9 @@ export type FakeVeoMode =
   | "provider_error_on_poll" // poll transport itself fails (500)
   | "operation_error" // poll returns done:true with an operation-level error
   | "done_no_video_uri" // poll returns done:true but no video sample
-  | "download_fails"; // video URI download itself fails
+  | "download_fails" // video URI download itself fails
+  | "rai_filtered" // done:true, no samples, raiMediaFilteredCount > 0
+  | "quota_then_success"; // first submission 429, later ones succeed
 
 export function createFakeVeoServer(port: number) {
   let mode: FakeVeoMode = "success";
@@ -33,7 +35,7 @@ export function createFakeVeoServer(port: number) {
   let lastSubmitBody: { instances?: { prompt?: string; image?: unknown }[]; parameters?: Record<string, unknown> } | null = null;
   // Deliberately NOT a real video file — just enough bytes to prove the
   // exact bytes returned by "download" are the exact bytes stored/served.
-  const videoBytes = Buffer.from("FAKE-MP4-BYTES-NOT-A-REAL-VIDEO-FILE-FOR-TESTING-ONLY");
+  let videoBytes = Buffer.from("FAKE-MP4-BYTES-NOT-A-REAL-VIDEO-FILE-FOR-TESTING-ONLY");
 
   function sendJson(res: http.ServerResponse, status: number, obj: unknown) {
     res.writeHead(status, { "Content-Type": "application/json" });
@@ -58,6 +60,7 @@ export function createFakeVeoServer(port: number) {
         if (mode === "quota") return sendJson(res, 429, { error: { message: "Quota exceeded for this project." } });
         if (mode === "server_error") return sendJson(res, 500, { error: { message: "Internal error." } });
         if (mode === "malformed_no_operation_name") return sendJson(res, 200, {});
+        if (mode === "quota_then_success" && submitCount === 1) return sendJson(res, 429, { error: { message: "Resource exhausted." } });
 
         const operationName = `operations/fake-op-${submitCount}`;
         pollCounts.set(operationName, 0);
@@ -75,6 +78,7 @@ export function createFakeVeoServer(port: number) {
         if (!isDone) return sendJson(res, 200, { name: operationName, done: false });
 
         if (mode === "operation_error") return sendJson(res, 200, { name: operationName, done: true, error: { code: 3, message: "Generation failed: unsafe content detected." } });
+        if (mode === "rai_filtered") return sendJson(res, 200, { name: operationName, done: true, response: { generateVideoResponse: { raiMediaFilteredCount: 1, raiMediaFilteredReasons: ["Video blocked by safety filter (test)."] } } });
         if (mode === "done_no_video_uri") return sendJson(res, 200, { name: operationName, done: true, response: { generateVideoResponse: { generatedSamples: [] } } });
 
         const videoUri = `http://127.0.0.1:${port}/download/${operationName.replace("operations/", "")}.mp4`;
@@ -104,6 +108,14 @@ export function createFakeVeoServer(port: number) {
     getSubmitCount: () => submitCount,
     getLastSubmitBody: () => lastSubmitBody,
     getVideoBytes: () => videoBytes,
+    /** Serve real MP4 bytes (the AI Video Creator verifies downloads are playable). */
+    setVideoBytes: (b: Buffer) => {
+      videoBytes = b;
+    },
+    resetCounts: () => {
+      submitCount = 0;
+      pollCounts.clear();
+    },
     start: () => new Promise<void>((resolve) => server.listen(port, "127.0.0.1", () => resolve())),
     stop: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };

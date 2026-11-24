@@ -3,7 +3,8 @@ import { z } from "zod";
 import { db } from "../../db.js";
 import { requireAuth, requireStudentSelf } from "../../rbac/middleware.js";
 import { validateUpload } from "../../storage/index.js";
-import { localDriver, buildStorageKey } from "../../storage/localDriver.js";
+import { buildStorageKey } from "../../storage/localDriver.js";
+import { storage } from "../../storage/driver.js";
 import { signDownloadToken, verifyDownloadToken } from "../../storage/signedUrl.js";
 import { resolveCourseAccess } from "../courses/access.js";
 
@@ -43,7 +44,7 @@ export async function documentRoutes(app: FastifyInstance) {
       if (validationError) return reply.code(422).send({ error: validationError });
 
       const storageKey = buildStorageKey(studentId, parsed.data.documentType, parsed.data.filename);
-      await localDriver.save(storageKey, buffer);
+      await storage.save(storageKey, buffer);
 
       const document = await db.document.create({
         data: {
@@ -106,7 +107,7 @@ export async function documentRoutes(app: FastifyInstance) {
     const document = await db.document.findUnique({ where: { id: verified.documentId } });
     if (!document) return reply.code(404).send({ error: "Document not found." });
 
-    const bytes = await localDriver.read(document.storageKey);
+    const bytes = await storage.read(document.storageKey);
     reply.header("Content-Type", document.mimeType);
     reply.header("Content-Disposition", `attachment; filename="${document.originalFilename}"`);
     return reply.send(bytes);

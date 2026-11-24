@@ -163,6 +163,10 @@ export async function resetDb() {
     // M.A.I.A. Video Director real Veo backend — VideoGenerationJob has a
     // plain (RESTRICT) FK to both Student and Business, so it must clear
     // before either cleanup below.
+    // M.A.I.A. AI Video Creator — ledger -> account -> (Student), settings singleton.
+    db.videoCreditTransaction.deleteMany(),
+    db.videoCreatorAccount.deleteMany(),
+    db.videoCreatorSettings.deleteMany(),
     db.videoGenerationJob.deleteMany(),
     // Production Phase 16 (Productization/Entitlements) — Purchase/
     // Subscription/UsageReservation/Entitlement all have a plain RESTRICT

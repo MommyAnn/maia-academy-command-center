@@ -77,6 +77,7 @@ export const PERMISSION_MODULES = [
   "Commerce",
   "Affiliate Program",
   "Emergency Controls",
+  "AI Video Creator",
 ] as const;
 
 export type PermissionModule = (typeof PERMISSION_MODULES)[number];

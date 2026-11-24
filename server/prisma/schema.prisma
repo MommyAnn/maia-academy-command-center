@@ -384,6 +384,7 @@ model Student {
   aiManualGrants   AiManualGrant[]
   supportRequests  SupportRequest[]
   activityLogs     ActivityLog[] @relation("ActorStudent")
+  videoCreatorAccount VideoCreatorAccount?
   requirements     Requirement[]
   notes            StudentNote[]
   campaigns        Campaign[]
@@ -3282,9 +3283,111 @@ model VideoGenerationJob {
   updatedAt         DateTime @updatedAt
   completedAt       DateTime?
 
+  // --- M.A.I.A. AI Video Creator (customer-facing app) -------------------
+  // "VIDEO_DIRECTOR" = the original on-demand-poll path (modules/video);
+  // "VIDEO_CREATOR" = jobs driven by the background worker in
+  // modules/video-creator. The worker only ever touches VIDEO_CREATOR rows.
+  source            String   @default("VIDEO_DIRECTOR")
+  // PRODUCT_COMMERCIAL | UGC_PROMO | SALES_PROMOTION
+  style             String?
+  language          String?  // ENGLISH | FILIPINO | TAGLISH
+  resolution        String?  // "720p" | "1080p"
+  // Customer-entered product details + overlay/voiceover options, exactly
+  // as submitted (validated by zod before storage).
+  inputJson         Json?
+  // Client-supplied idempotency key: a double-click / retried request can
+  // never create (or charge for) a second job.
+  idempotencyKey    String?
+  creditsCharged    Int      @default(0)
+  creditStatus      String?  // CHARGED | REFUNDED
+  submitAttempts    Int      @default(0)
+  pollFailures      Int      @default(0)
+  nextAttemptAt     DateTime?
+  lockedUntil       DateTime?
+  submittedAt       DateTime?
+  // Prepared first-frame image actually sent to Google (product photo fitted
+  // to the chosen aspect ratio).
+  firstFrameDocumentId String?
+  thumbnailDocumentId  String?
+  // The deliverable: raw Veo output with deterministic text overlays burned
+  // in (product name / price / CTA). Null when overlays are off or failed;
+  // resultDocumentId always holds Google's untouched original.
+  finalDocumentId   String?
+  estimatedCostUsd  Decimal? @db.Decimal(10, 4)
+  statusMessage     String?
+  warningMessage    String?
+  deletedAt         DateTime?
+
+  @@unique([studentId, idempotencyKey])
   @@index([studentId])
   @@index([businessId])
   @@index([status])
+  @@index([source, status])
+}
+
+// ---------------------------------------------------------------------------
+// M.A.I.A. AI VIDEO CREATOR — access + credit ledger
+// ---------------------------------------------------------------------------
+
+// One per customer. creditBalance is a cached running total that is only
+// ever changed inside the same DB transaction that writes the matching
+// VideoCreditTransaction row, using a conditional UPDATE (balance >= cost)
+// so it can never go negative under concurrent requests.
+model VideoCreatorAccount {
+  id             String   @id @default(cuid())
+  studentId      String   @unique
+  student        Student  @relation(fields: [studentId], references: [id])
+  accessStatus   String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  creditBalance  Int      @default(0)
+  activatedAt    DateTime?
+  activatedById  String?
+  deactivatedAt  DateTime?
+  purchaseReference String? // admin's note of the externally verified purchase (e.g. receipt no.)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions   VideoCreditTransaction[]
+}
+
+// Append-only credit ledger. Never updated or deleted.
+model VideoCreditTransaction {
+  id             String   @id @default(cuid())
+  accountId      String
+  account        VideoCreatorAccount @relation(fields: [accountId], references: [id])
+  // GRANT | ADJUSTMENT | GENERATION_CHARGE | GENERATION_REFUND
+  type           String
+  amount         Int      // signed: negative = credits consumed
+  balanceAfter   Int
+  jobId          String?
+  reason         String?
+  actorUserId    String?
+  // e.g. "charge:<jobId>", "refund:<jobId>", "grant:<uuid>" — the unique
+  // constraint is what makes charges and refunds exactly-once.
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([jobId])
+}
+
+// Singleton admin-editable configuration (id = "singleton").
+model VideoCreatorSettings {
+  id                     String   @id @default("singleton")
+  generationEnabled      Boolean  @default(true)
+  activeModel            String?  // null = fall back to env GOOGLE_VEO_MODEL
+  creditsPerVideo        Int      @default(1)
+  extraCreditsFor1080p   Int      @default(0)
+  defaultStartingCredits Int      @default(0)
+  maxActiveJobsPerUser   Int      @default(2)
+  maxActiveJobsGlobal    Int      @default(5)
+  allowedDurations       Json     // e.g. [4, 6, 8]
+  allowedResolutions     Json     // e.g. ["720p", "1080p"]
+  // USD per generated second, per model, per resolution — admin-maintained
+  // estimates for cost reporting only (Google bills separately).
+  modelPricing           Json
+  updatedById            String?
+  updatedAt              DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------

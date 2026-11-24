@@ -15,6 +15,6 @@ export default defineConfig({
     // that ISN'T already present in process.env, so without this override
     // the Phase 6 test suite would silently hit the real Anthropic API
     // instead of the local fake server it starts and controls.
-    env: { NODE_ENV: "test", ANTHROPIC_BASE_URL: "http://127.0.0.1:4011", ANTHROPIC_API_KEY: "test-anthropic-key-not-real" },
+    env: { NODE_ENV: "test", ANTHROPIC_BASE_URL: "http://127.0.0.1:4011", ANTHROPIC_API_KEY: "test-anthropic-key-not-real", GOOGLE_AI_API_KEY: "test-google-key-not-real", GOOGLE_VEO_BASE_URL: "http://127.0.0.1:4012", LOGIN_RATE_LIMIT_PER_MINUTE: "1000" },
   },
 });

@@ -6,6 +6,7 @@ import { env } from "../env.js";
 import { hashPassword, verifyPassword, validatePasswordStrength } from "./password.js";
 import { createSession, validateSession, revokeSession, revokeAllSessionsForUser, sessionCookieOptions, SESSION_COOKIE_NAME } from "./session.js";
 import { writeAuditLog } from "../audit/log.js";
+import { sendPasswordResetEmail } from "../modules/video-creator/mailer.js";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -88,7 +89,7 @@ export async function authRoutes(app: FastifyInstance, opts: { loginRateLimitPer
     const parsed = requestResetSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid email." });
 
-    const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
+    const user = await db.user.findUnique({ where: { email: parsed.data.email.toLowerCase() }, include: { person: true } });
     if (user) {
       const token = randomBytes(32).toString("hex");
       await db.passwordResetToken.create({
@@ -99,6 +100,9 @@ export async function authRoutes(app: FastifyInstance, opts: { loginRateLimitPer
         },
       });
       await writeAuditLog({ action: "Password Reset Requested", summary: "Password reset requested", actorUserId: user.id });
+      // Emails the link when an email provider is configured (RESEND_API_KEY);
+      // otherwise an admin issues a reset link from the admin dashboard.
+      await sendPasswordResetEmail(user.email, user.person.fullName, token);
       // Phase 1 does not send real email (no provider connected yet — see
       // Phase 1 status report, "Requires External Setup"). In Development,
       // the raw token is returned directly so the reset flow is testable

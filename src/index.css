@@ -29,6 +29,19 @@
   --color-maia-danger-bg: #fbeae6;
   --color-maia-info: #3b6ea8;
   --color-maia-info-bg: #e9f1fa;
+
+  /* M.A.I.A. AI Video Creator (dark, premium) */
+  --color-vc-black: #0a0908;
+  --color-vc-surface: #13110f;
+  --color-vc-raised: #1c1916;
+  --color-vc-border: #2c2822;
+  --color-vc-gold: #c29646;
+  --color-vc-gold-bright: #d6a524;
+  --color-vc-ivory: #edeaec;
+  --color-vc-muted: #a7a197;
+  --color-vc-dim: #6f6a61;
+  --color-vc-success: #5bb98b;
+  --color-vc-danger: #e0735f;
 }
 
 html,

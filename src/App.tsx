@@ -1,4 +1,5 @@
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { VideoCreatorApp } from "@/videoCreator/VideoCreatorApp";
 import { AuthProvider } from "@/context/AuthContext";
 import { StudentStoreProvider } from "@/data/studentStore";
 import { FinanceStoreProvider } from "@/data/financeStore";
@@ -15,9 +16,25 @@ import { CommunicationsStoreProvider } from "@/data/communicationsStore";
 import { AiToolsStoreProvider } from "@/data/aiToolsStore";
 import { AppRoutes } from "@/router/AppRoutes";
 
+// Set VITE_ROOT_APP=studio for a deployment that is ONLY the AI Video Creator.
+const ROOT_IS_STUDIO = import.meta.env.VITE_ROOT_APP === "studio";
+
 function App() {
   return (
     <BrowserRouter>
+      <Routes>
+        {/* M.A.I.A. AI Video Creator — the real, backend-connected customer app. Kept outside the demo
+            app's localStorage providers on purpose: it never reads or writes demo data. */}
+        <Route path="/studio/*" element={<VideoCreatorApp />} />
+        {ROOT_IS_STUDIO && <Route path="*" element={<Navigate to="/studio" replace />} />}
+        <Route path="*" element={<CommandCenterApp />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function CommandCenterApp() {
+  return (
       <AuthProvider>
         <StudentStoreProvider>
           <FinanceStoreProvider>
@@ -47,7 +64,6 @@ function App() {
           </FinanceStoreProvider>
         </StudentStoreProvider>
       </AuthProvider>
-    </BrowserRouter>
   );
 }
 

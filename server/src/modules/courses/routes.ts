@@ -5,7 +5,8 @@ import { requireAuth, requirePermission } from "../../rbac/middleware.js";
 import { writeAuditLog } from "../../audit/log.js";
 import { generateCourseDisplayId, generateLessonDisplayId } from "../sequence.js";
 import { validateUpload } from "../../storage/index.js";
-import { localDriver, buildStorageKey } from "../../storage/localDriver.js";
+import { buildStorageKey } from "../../storage/localDriver.js";
+import { storage } from "../../storage/driver.js";
 
 const COURSE_STATUSES = ["DRAFT", "PUBLISHED", "UNPUBLISHED", "ARCHIVED"] as const;
 
@@ -186,7 +187,7 @@ export async function courseRoutes(app: FastifyInstance) {
     if (validationError) return reply.code(422).send({ error: validationError });
 
     const storageKey = buildStorageKey(`course-resources/${lessonId}`, "CourseResource", parsed.data.filename);
-    await localDriver.save(storageKey, buffer);
+    await storage.save(storageKey, buffer);
 
     const document = await db.document.create({
       data: {

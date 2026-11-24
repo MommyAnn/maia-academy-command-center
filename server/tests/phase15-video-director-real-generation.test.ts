@@ -173,7 +173,7 @@ describe("M.A.I.A. Video Director — real Veo backend (spec: technical readines
   describe("submission-time failure modes — a real job row is always created, always honestly FAILED, never fabricated as SUBMITTED", () => {
     const cases: Array<{ mode: FakeVeoMode; expectedCategory: string }> = [
       { mode: "auth_failed", expectedCategory: "NotConfigured" },
-      { mode: "content_policy", expectedCategory: "InvalidRequest" },
+      { mode: "content_policy", expectedCategory: "ContentPolicy" }, // 400s whose message names a safety/policy reason are now categorised precisely
       { mode: "quota", expectedCategory: "QuotaBilling" },
       { mode: "server_error", expectedCategory: "ProviderError" },
       { mode: "malformed_no_operation_name", expectedCategory: "ProviderError" },
